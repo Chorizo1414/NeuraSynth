@@ -192,7 +192,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     filterCutoffKnob.setSkewFactorFromMidPoint(1000.0);
 
     addAndMakeVisible(filterResonanceKnob);
-    filterResonanceKnob.setRange(0.1, 10.0); // Q
+    filterResonanceKnob.setRange(0.1, 4.0); // Q
 
     addAndMakeVisible(filterEnvKnob);
     filterEnvKnob.setRange(-1.0, 1.0);
