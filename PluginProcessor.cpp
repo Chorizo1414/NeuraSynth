@@ -8,7 +8,7 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, double* detune1,
     int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
     int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
-    double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, double sr)
+    double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, double sr)
 {
     env.setParameters(adsr);
 
@@ -22,6 +22,7 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     pQ = qPtr;
     pEnvAmt = envAmtPtr;
     pKeyTrack = keyTrackPtr;
+    pFmAmount = fmAmountPtr;
 
     sampleRateHz = sr;
 }
@@ -218,7 +219,7 @@ void NeuraSynthAudioProcessor::updateAllVoices()
                 &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1DetuneCents,
                 &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
                 &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
-                &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, getSampleRate()
+                &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, getSampleRate()
             );
 }
 

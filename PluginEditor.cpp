@@ -25,9 +25,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     releaseKnob(BinaryData::knobenvelope_png, BinaryData::knobenvelope_pngSize, 300.0f, 0.5),
 
     // LFO & FM
-    lfoSpeedKnob(BinaryData::knoblfo_png, BinaryData::knoblfo_pngSize, 300.0f, 0.0),
-    lfoAmountKnob(BinaryData::knoblfo_png, BinaryData::knoblfo_pngSize, 300.0f, 0.0),
-    fmKnob(BinaryData::knobfm_png, BinaryData::knobfm_pngSize, 300.0f, 0.5),
+    modulationComp(p),
 
     // Reverb
     reverbDryKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.8),
@@ -240,13 +238,8 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     releaseKnob.onValueChange = updateEnvelopeDisplay;
     updateEnvelopeDisplay(); // Llamada inicial para dibujar el estado por defecto
 
-    // --- SECCIÓN LFO & FM ---
-    addAndMakeVisible(lfoSpeedKnob);
-    lfoSpeedKnob.setRange(0.1, 30.0); // Hz
-    addAndMakeVisible(lfoAmountKnob);
-    lfoAmountKnob.setRange(0.0, 1.0);
-    addAndMakeVisible(fmKnob);
-    fmKnob.setRange(0.0, 1.0);
+    // --- SECCIÓN MODULACIÓN (LFO & FM) ---
+    addAndMakeVisible(modulationComp);
 
     // --- SECCIÓN REVERB ---
     addAndMakeVisible(reverbDryKnob);
@@ -319,9 +312,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
         sustainKnob.addMouseListener(&designMouseListener, true);
         releaseKnob.addMouseListener(&designMouseListener, true);
 
-        lfoSpeedKnob.addMouseListener(&designMouseListener, true);
-        lfoAmountKnob.addMouseListener(&designMouseListener, true);
-        fmKnob.addMouseListener(&designMouseListener, true);
+        modulationComp.addMouseListener(&designMouseListener, true);
 
         reverbDryKnob.addMouseListener(&designMouseListener, true);
         reverbWetKnob.addMouseListener(&designMouseListener, true);
@@ -398,9 +389,7 @@ void NeuraSynthAudioProcessorEditor::resized()
     releaseKnob.setBounds(912, 311, 100, 100);
 
     // Sección LFO & FM
-    lfoSpeedKnob.setBounds(734, 439, 100, 100);
-    lfoAmountKnob.setBounds(796, 439, 100, 100);
-    fmKnob.setBounds(922, 443, 100, 100);
+    modulationComp.setBounds(734, 439, 288, 105);
 
     // Sección Reverb
     reverbDryKnob.setBounds(19, 242, 100, 100);

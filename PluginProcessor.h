@@ -32,7 +32,7 @@ public:
         int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, double* detune1,
         int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
         int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
-        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, double sr);
+        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, double sr);
 
     bool canPlaySound(juce::SynthesiserSound* sound) override
     {
@@ -90,22 +90,34 @@ private:
     double* pQ = nullptr;        // Q
     double* pEnvAmt = nullptr;   // -1..1
     bool* pKeyTrack = nullptr;
+    float* pFmAmount = nullptr;
 
     double sampleRateHz = 48000.0;
 
     // Helper: procesa un sample por canal con SVF TPT (low-pass)
     inline float processSVFLP(float in, float cutoffHz, float Q, SVFState& s) noexcept
     {
-        const float g = std::tan(juce::MathConstants<float>::pi * (float)cutoffHz / (float)sampleRateHz);
-        const float R = 1.0f / (2.0f * (float)Q); // Q -> R
-        const float a1 = 1.0f / (1.0f + g * (g + R));
-        const float v1 = a1 * (s.ic1eq + g * (in - s.ic2eq));
-        const float v2 = a1 * (s.ic2eq + g * v1);
-        const float low = v2;
-        // update integrators
+        // --- MEJORA: Etapa de Saturación (Drive) ---
+        // A medida que la resonancia (Q) aumenta, el drive también lo hace.
+        // Un Q de 0.0 da un drive de 1.0 (sin efecto). Un Q de 1.0 da un drive de 6.0.
+        const float drive = 1.0f + (Q * 5.0f);
+        // std::tanh es una función de "clipping" suave, perfecta para simular saturación analógica.
+        const float saturatedIn = std::tanh(in * drive);
+        // ------------------------------------------
+
+        const float g = std::tan(juce::MathConstants<float>::pi * cutoffHz / sampleRateHz);
+        const float R = 1.0f / (2.0f * Q);
+        const float a1 = 1.0f / (1.0f + 2.0f * R * g + g * g);
+
+        // Ahora usamos la señal SATURADA ('saturatedIn') en lugar de la original ('in')
+        const float v1 = a1 * (s.ic1eq + g * (saturatedIn - s.ic2eq));
+        const float v2 = s.ic2eq + g * v1;
+
+        // Actualizamos los integradores del filtro
         s.ic1eq = 2.0f * v1 - s.ic1eq;
         s.ic2eq = 2.0f * v2 - s.ic2eq;
-        return low;
+
+        return v2; // Devolvemos la salida low-pass
     }
 
     static const int numUnisonVoices = 7;
@@ -195,7 +207,7 @@ public:
     void setFilterResonance(double q) { filterQ = juce::jlimit(0.0, 1.0, q);      updateAllVoices(); }
     void setFilterEnvAmount(double amt) { filterEnvAmt = juce::jlimit(0.0, 1.0, amt);    updateAllVoices(); }
     void setKeyTrack(bool enabled) { keyTrack = enabled;                          updateAllVoices(); }
-
+    void setFMAmount(float amount) { fmAmount = amount; updateAllVoices(); }
 
     double getFilterCutoff()   const { return filterCutoffHz; }
     double getFilterQ()        const { return filterQ; }
@@ -227,6 +239,7 @@ private:
     double filterQ = 0.0;     // 0.0000000
     double filterEnvAmt = 0.0;     // 0.00
     bool   keyTrack = false;
+    float fmAmount = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessor)
 };

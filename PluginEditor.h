@@ -5,6 +5,7 @@
 #include "CustomKnob.h"
 #include "EnvelopeDisplay.h"
 #include "OscillatorComponent.h"
+#include "ModulationComponent.h"
 
 class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -31,17 +32,19 @@ private:
     CustomKnob Darkknob;
     CustomKnob Brightknob;
     CustomKnob Driveknob;
+
     CustomKnob filterCutoffKnob;
     CustomKnob filterResonanceKnob;
     CustomKnob filterEnvKnob;
     EnvelopeDisplay envelopeDisplay;
+
     CustomKnob attackKnob;
     CustomKnob decayKnob;
     CustomKnob sustainKnob;
     CustomKnob releaseKnob;
-    CustomKnob lfoSpeedKnob;
-    CustomKnob lfoAmountKnob;
-    CustomKnob fmKnob;
+
+    ModulationComponent modulationComp;
+
     CustomKnob reverbDryKnob;
     CustomKnob reverbWetKnob;
     CustomKnob reverbPreDelayKnob;
