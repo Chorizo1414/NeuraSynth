@@ -143,18 +143,20 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
             }
         }
 
-        // --- Cálculo de cutoff modulado + filtrado estéreo ---
-        double fc = (pCutoff ? *pCutoff : 1000.0);  // base en Hz
-
-        // Mod por ENV (±4 octavas). Reduce 4.0 a 2.0 si lo notas muy agresivo.
-        if (pEnvAmt) fc *= std::pow(2.0, (*pEnvAmt) * envVal * 4.0);
-
-        // KeyTrack relativo a C4=60 (1.0x por octava)
+        // --- CÁLCULO DE CUTOFF MODULADO (VERSIÓN MEJORADA) ---
+        // 1. Calculamos el cutoff base con el knob y el key-tracking
+        double baseCutoff = (pCutoff ? *pCutoff : 1000.0);
         if (pKeyTrack && *pKeyTrack)
-            fc *= std::pow(2.0, (currentMidiNote - 60) / 12.0);
+            baseCutoff *= std::pow(2.0, (currentMidiNote - 60) / 12.0);
 
-        // Clamp seguro
-        fc = juce::jlimit(0.0, 20000.0, fc);
+        // 2. Definimos la 'profundidad' de la modulación (ej: 5 octavas)
+        const double envModulationDepth = 5.0;
+        double modulationOctaves = (pEnvAmt ? *pEnvAmt : 0.0) * envVal * envModulationDepth;
+
+        // 3. Aplicamos la modulación de forma exponencial (musical)
+        double fc = baseCutoff * std::pow(2.0, modulationOctaves);
+        fc = juce::jlimit(20.0, 20000.0, fc); // Aseguramos que el cutoff se mantenga en el rango audible
+
         // Q en 0..1, evita 0 exacto internamente si deseas máxima estabilidad
         const double qUi = pQ ? juce::jlimit(0.0, 1.0, *pQ) : 0.7;
         const double q = (qUi <= 0.0 ? 1e-6 : qUi);
