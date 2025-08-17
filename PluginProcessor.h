@@ -91,6 +91,7 @@ private:
     double* pEnvAmt = nullptr;   // -1..1
     bool* pKeyTrack = nullptr;
     float* pFmAmount = nullptr;
+    float fmEffectLfoPhase = 0.0f;
 
     double sampleRateHz = 48000.0;
 

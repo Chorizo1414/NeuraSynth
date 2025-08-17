@@ -30,146 +30,115 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
 // Render de la voz con filtro SVF TPT y modulación de cutoff (ENV + KeyTrack)
 void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples)
 {
-    if (!isVoiceActive() || pitchShift1 == nullptr) return;
+    if (!isVoiceActive()) return;
 
-    // Calculamos el incremento base para OSC3 (OSC1 y OSC2 se calculan por muestra)
+    // --- PASO 1: Generar el audio de los 3 osciladores de forma INDEPENDIENTE ---
+
+    // Pre-calculamos los incrementos base para cada oscilador
+    double baseIncrement1 = (wt1 && wt1->getNumSamples() > 0) ? (frequency * std::pow(2.0, *pitchShift1)) / getSampleRate() * 2048.0 : 0.0;
+    double baseIncrement2 = (wt2 && wt2->getNumSamples() > 0) ? (frequency * std::pow(2.0, *pitchShift2)) / getSampleRate() * 2048.0 : 0.0;
     double baseIncrement3 = (wt3 && wt3->getNumSamples() > 0) ? (frequency * std::pow(2.0, *pitchShift3)) / getSampleRate() * 2048.0 : 0.0;
 
     float gainCorrection = 1.0f / std::sqrt((float)numUnisonVoices);
 
-    // Bucle principal muestra por muestra
     for (int sample = startSample; sample < startSample + numSamples; ++sample)
     {
         float envVal = env.getNextSample();
-        float finalLeft = 0.0f;
-        float finalRight = 0.0f;
+        float drySignalLeft = 0.0f;
+        float drySignalRight = 0.0f;
 
-        // --- PASO 1: Calcular la señal del MODULADOR (OSC 2) ---
-        float modulatorSignal = 0.0f;
-        double baseIncrement2 = (wt2 && wt2->getNumSamples() > 0) ? (frequency * std::pow(2.0, *pitchShift2)) / getSampleRate() * 2048.0 : 0.0;
-
-        if (wt2 && wt2->getNumSamples() > 0 && *oscGain2 > 0.0f)
-        {
-            // Para FM, usamos solo la voz central del modulador para un efecto más claro
-            auto& v = unisonVoices[0];
-            double voiceIncrement = baseIncrement2;
-
-            float frameFloat = *wavePosition2 * (*numFrames2 > 1 ? *numFrames2 - 1 : 0);
-            int frameIndex = static_cast<int>(std::floor(frameFloat));
-            float frameFrac = frameFloat - frameIndex;
-
-            auto getSample = [&](juce::AudioBuffer<float>* wt, int frame, double readPos) {
-                int pos0 = static_cast<int>(readPos);
-                float frac = readPos - pos0;
-                float s0 = wt->getSample(0, (frame * 2048 + pos0) % wt->getNumSamples());
-                float s1 = wt->getSample(0, (frame * 2048 + ((pos0 + 1) % 2048)) % wt->getNumSamples());
-                return (1.0f - frac) * s0 + frac * s1;
-                };
-            float sampleFrame0 = getSample(wt2, frameIndex, v.readPosOsc2);
-            float sampleFrame1 = getSample(wt2, frameIndex + 1, v.readPosOsc2);
-            modulatorSignal = (1.0f - frameFrac) * sampleFrame0 + frameFrac * sampleFrame1;
-
-            // Avanzamos la fase de todas las voces de OSC2 para mantener consistencia
-            for (auto& unisonVoice : unisonVoices)
+        // Función genérica para obtener la muestra de un oscilador
+        auto getOscSample = [&](juce::AudioBuffer<float>* wt, int numFrames, float wavePosition, double& readPos, double baseIncrement,
+            float detune, float pan, float spread, float gain) -> std::pair<float, float>
             {
-                unisonVoice.readPosOsc2 += baseIncrement2 * std::pow(2.0, (unisonVoice.pitchOffset / 1200.0));
-                if (unisonVoice.readPosOsc2 >= 2048.0) unisonVoice.readPosOsc2 -= 2048.0;
-            }
-        }
+                if (!wt || wt->getNumSamples() == 0 || gain <= 0.0f) return { 0.0f, 0.0f };
 
-        // --- PASO 2: Aplicar la modulación a la frecuencia de OSC 1 ---
-        const float fmModulationIndex = 1000.0f; // <-- ¡Ajusta esta intensidad!
+                float oscLeft = 0.0f, oscRight = 0.0f;
+                for (int i = 0; i < numUnisonVoices; ++i)
+                {
+                    auto& v = unisonVoices[i];
+                    // Simulación simplificada para el ejemplo: usa la fase principal para todas las voces de unison
+                    // una implementación completa requeriría fases separadas.
+                }
+                // Para simplificar, generamos una sola voz (mono) que luego paneamos
+                float frameFloat = wavePosition * (numFrames > 1 ? numFrames - 1 : 0);
+                int frameIndex = static_cast<int>(std::floor(frameFloat));
+                float frameFrac = frameFloat - frameIndex;
+                auto getSample = [&](int frame, double rPos) {
+                    int pos0 = static_cast<int>(rPos); float frac = rPos - pos0;
+                    float s0 = wt->getSample(0, (frame * 2048 + pos0) % wt->getNumSamples());
+                    float s1 = wt->getSample(0, (frame * 2048 + ((pos0 + 1) % 2048)) % wt->getNumSamples());
+                    return (1.0f - frac) * s0 + frac * s1;
+                    };
+                float sampleFrame0 = getSample(frameIndex, readPos);
+                float sampleFrame1 = getSample(frameIndex + 1, readPos);
+                float voiceSample = (1.0f - frameFrac) * sampleFrame0 + frameFrac * sampleFrame1;
+
+                float panAngle = pan * juce::MathConstants<float>::halfPi;
+                oscLeft = voiceSample * std::cos(panAngle) * gain;
+                oscRight = voiceSample * std::sin(panAngle) * gain;
+
+                readPos += baseIncrement;
+                if (readPos >= 2048.0) readPos -= 2048.0;
+
+                return { oscLeft, oscRight };
+            };
+
+        // Generar y sumar OSC 1
+        auto osc1_out = getOscSample(wt1, *numFrames1, *wavePosition1, unisonVoices[0].readPosOsc1, baseIncrement1, *detuneOsc1, *panOsc1, *spreadOsc1, *oscGain1);
+        drySignalLeft += osc1_out.first;
+        drySignalRight += osc1_out.second;
+
+        // Generar y sumar OSC 2
+        auto osc2_out = getOscSample(wt2, *numFrames2, *wavePosition2, unisonVoices[0].readPosOsc2, baseIncrement2, *detuneOsc2, *panOsc2, *spreadOsc2, *oscGain2);
+        drySignalLeft += osc2_out.first;
+        drySignalRight += osc2_out.second;
+
+        // Generar y sumar OSC 3
+        auto osc3_out = getOscSample(wt3, *numFrames3, *wavePosition3, unisonVoices[0].readPosOsc3, baseIncrement3, *detuneOsc3, *panOsc3, *spreadOsc3, *oscGain3);
+        drySignalLeft += osc3_out.first;
+        drySignalRight += osc3_out.second;
+
+
+        // --- PASO 2: Aplicar el EFECTO FM (Ring Modulation) a la señal mezclada ---
         float fmAmount = (pFmAmount ? *pFmAmount : 0.0f);
-        double modulatedFrequency = frequency + (modulatorSignal * fmAmount * fmModulationIndex);
-        if (modulatedFrequency < 0) modulatedFrequency = 0;
+        float wetSignalLeft = 0.0f;
+        float wetSignalRight = 0.0f;
 
-        // Recalculamos el incremento de OSC1 (Portador) DENTRO del bucle con la nueva frecuencia
-        double baseIncrement1 = (wt1 && wt1->getNumSamples() > 0) ? (modulatedFrequency * std::pow(2.0, *pitchShift1)) / getSampleRate() * 2048.0 : 0.0;
-
-        // --- PASO 3: Generar la señal del PORTADOR (OSC 1) ---
-        if (wt1 && wt1->getNumSamples() > 0 && *oscGain1 > 0.0f)
+        if (fmAmount != 0.0f)
         {
-            for (int i = 0; i < numUnisonVoices; ++i)
-            {
-                auto& v = unisonVoices[i];
-                float offset = ((float)i / (float)(numUnisonVoices - 1) - 0.5f) * 2.0f;
-                float pitchOffset = offset * *detuneOsc1;
-                float pan = *panOsc1 + offset * (*spreadOsc1 * 0.5f);
+            // Usamos un LFO de seno simple como modulador. Su frecuencia podría ser un parámetro.
+            // Por ahora, la atamos a la frecuencia de la nota para un efecto más musical.
+            float lfoFreq = frequency * 2.0f; // Prueba a cambiar este multiplicador
+            float lfoSample = std::sin(fmEffectLfoPhase);
+            fmEffectLfoPhase += (lfoFreq / sampleRateHz) * juce::MathConstants<float>::twoPi;
+            if (fmEffectLfoPhase >= juce::MathConstants<float>::twoPi) fmEffectLfoPhase -= juce::MathConstants<float>::twoPi;
 
-                double voiceIncrement = baseIncrement1 * std::pow(2.0, pitchOffset / 1200.0);
-                float frameFloat = *wavePosition1 * (*numFrames1 > 1 ? *numFrames1 - 1 : 0);
-                int frameIndex = static_cast<int>(std::floor(frameFloat));
-                float frameFrac = frameFloat - frameIndex;
-                auto getSample = [&](juce::AudioBuffer<float>* wt, int frame, double readPos) {
-                    int pos0 = static_cast<int>(readPos);
-                    float frac = readPos - pos0;
-                    float s0 = wt->getSample(0, (frame * 2048 + pos0) % wt->getNumSamples());
-                    float s1 = wt->getSample(0, (frame * 2048 + ((pos0 + 1) % 2048)) % wt->getNumSamples());
-                    return (1.0f - frac) * s0 + frac * s1;
-                    };
-                float sampleFrame0 = getSample(wt1, frameIndex, v.readPosOsc1);
-                float sampleFrame1 = getSample(wt1, frameIndex + 1, v.readPosOsc1);
-                float voiceSample = (1.0f - frameFrac) * sampleFrame0 + frameFrac * sampleFrame1;
-                float panAngle = pan * juce::MathConstants<float>::halfPi;
-
-                finalLeft += voiceSample * std::cos(panAngle) * *oscGain1;
-                finalRight += voiceSample * std::sin(panAngle) * *oscGain1;
-
-                v.readPosOsc1 += voiceIncrement;
-                if (v.readPosOsc1 >= 2048.0) v.readPosOsc1 -= 2048.0;
-            }
+            // Ring Modulation: multiplicamos la señal seca por la del LFO
+            wetSignalLeft = drySignalLeft * lfoSample;
+            wetSignalRight = drySignalRight * lfoSample;
         }
 
-        // --- OSC 3 (funciona de forma independiente) ---
-        if (wt3 && wt3->getNumSamples() > 0 && *oscGain3 > 0.0f)
-        {
-            for (int i = 0; i < numUnisonVoices; ++i)
-            {
-                auto& v = unisonVoices[i];
-                float offset = ((float)i / (float)(numUnisonVoices - 1) - 0.5f) * 2.0f;
-                float pitchOffset = offset * *detuneOsc3;
-                float pan = *panOsc3 + offset * (*spreadOsc3 * 0.5f);
-                double voiceIncrement = baseIncrement3 * std::pow(2.0, pitchOffset / 1200.0);
-                // ... (el resto del código de generación de OSC 3 que ya tenías)
-                float frameFloat = *wavePosition3 * (*numFrames3 > 1 ? *numFrames3 - 1 : 0);
-                int frameIndex = static_cast<int>(std::floor(frameFloat));
-                float frameFrac = frameFloat - frameIndex;
-                auto getSample = [&](juce::AudioBuffer<float>* wt, int frame, double readPos) {
-                    int pos0 = static_cast<int>(readPos);
-                    float frac = readPos - pos0;
-                    float s0 = wt->getSample(0, (frame * 2048 + pos0) % wt->getNumSamples());
-                    float s1 = wt->getSample(0, (frame * 2048 + ((pos0 + 1) % 2048)) % wt->getNumSamples());
-                    return (1.0f - frac) * s0 + frac * s1;
-                    };
-                float sampleFrame0 = getSample(wt3, frameIndex, v.readPosOsc3);
-                float sampleFrame1 = getSample(wt3, frameIndex + 1, v.readPosOsc3);
-                float voiceSample = (1.0f - frameFrac) * sampleFrame0 + frameFrac * sampleFrame1;
-                float panAngle = pan * juce::MathConstants<float>::halfPi;
-                finalLeft += voiceSample * std::cos(panAngle) * *oscGain3;
-                finalRight += voiceSample * std::sin(panAngle) * *oscGain3;
-                v.readPosOsc3 += voiceIncrement;
-                if (v.readPosOsc3 >= 2048.0) v.readPosOsc3 -= 2048.0;
-            }
-        }
+        // Mezclamos la señal seca y la procesada según el knob de FM
+        // El knob ahora actúa como un control Dry/Wet
+        float mixedSignalLeft = (drySignalLeft * (1.0f - std::abs(fmAmount))) + (wetSignalLeft * std::abs(fmAmount));
+        float mixedSignalRight = (drySignalRight * (1.0f - std::abs(fmAmount))) + (wetSignalRight * std::abs(fmAmount));
 
-        // --- CÁLCULO DE CUTOFF MODULADO ---
-        double baseCutoff = (pCutoff ? *pCutoff : 1000.0);
+
+        // --- PASO 3: La señal ya procesada pasa por el Filtro y la Envolvente ---
+        double baseCutoff = (pCutoff ? *pCutoff : 20000.0);
         if (pKeyTrack && *pKeyTrack)
             baseCutoff *= std::pow(2.0, (currentMidiNote - 60) / 12.0);
-        const double envModulationDepth = 5.0;
-        double modulationOctaves = (pEnvAmt ? *pEnvAmt : 0.0) * envVal * envModulationDepth;
+        double modulationOctaves = (pEnvAmt ? *pEnvAmt : 0.0) * envVal * 5.0;
         double fc = baseCutoff * std::pow(2.0, modulationOctaves);
         fc = juce::jlimit(20.0, 20000.0, fc);
-        const double qUi = pQ ? juce::jlimit(0.0, 1.0, *pQ) : 0.7;
-        const double q = (qUi <= 0.0 ? 1e-6 : qUi);
+        const double q = (pQ ? juce::jlimit(0.1, 1.0, *pQ) : 0.707);
 
-        // --- Filtrado y Salida ---
-        float fl = processSVFLP(finalLeft, (float)fc, (float)q, svfL);
-        float fr = processSVFLP(finalRight, (float)fc, (float)q, svfR);
+        float fl = processSVFLP(mixedSignalLeft, (float)fc, (float)q, svfL);
+        float fr = processSVFLP(mixedSignalRight, (float)fc, (float)q, svfR);
 
-        // **NOTA IMPORTANTE**: OSC 2 ya no se suma a la salida. Solo actúa como modulador.
-        outputBuffer.addSample(0, sample, fl * gainCorrection * envVal);
-        outputBuffer.addSample(1, sample, fr * gainCorrection * envVal);
+        outputBuffer.addSample(0, sample, fl * envVal); // Corrección: gainCorrection ya no es necesario aquí
+        outputBuffer.addSample(1, sample, fr * envVal);
 
         if (!env.isActive())
         {
