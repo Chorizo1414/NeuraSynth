@@ -8,7 +8,7 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, double* detune1,
     int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
     int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
-    double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, double sr)
+    double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr, double sr)
 {
     env.setParameters(adsr);
 
@@ -23,6 +23,8 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     pEnvAmt = envAmtPtr;
     pKeyTrack = keyTrackPtr;
     pFmAmount = fmAmountPtr;
+    pLfoSpeed = lfoSpeedPtr;
+    pLfoAmount = lfoAmountPtr;
 
     sampleRateHz = sr;
 }
@@ -36,6 +38,18 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
     for (int sample = startSample; sample < startSample + numSamples; ++sample)
     {
         float envVal = env.getNextSample();
+
+        // --- LÓGICA DEL LFO ---
+        // 1. Generar la onda del LFO (seno)
+        float lfoSample = std::sin(lfoPhase);
+        lfoPhase += (*pLfoSpeed / sampleRateHz) * juce::MathConstants<float>::twoPi;
+        if (lfoPhase >= juce::MathConstants<float>::twoPi)
+            lfoPhase -= juce::MathConstants<float>::twoPi;
+
+        // 2. Calcular cuánto afectará al tono (en semitonos)
+        // El Amount va de 0 a 1. Lo escalamos para que en su máximo, module +/- 2 semitonos.
+        // ¡Puedes cambiar el '2.0f' para un vibrato más sutil o más extremo!
+        float pitchModulation = lfoSample * *pLfoAmount * 2.0f;
 
         // --- PASO 1: Calcular la señal del MODULADOR de FM dedicado ---
         float fmAmount = (pFmAmount ? *pFmAmount : 0.0f);
@@ -73,10 +87,13 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         float finalLeft = 0.0f;
         float finalRight = 0.0f;
 
+        // Convertimos la modulación de semitonos a un factor de frecuencia
+        double lfoPitchFactor = std::pow(2.0, pitchModulation / 12.0);
+
         // Frecuencias base de cada oscilador
-        double baseFreq1 = frequency * std::pow(2.0, *pitchShift1);
-        double baseFreq2 = frequency * std::pow(2.0, *pitchShift2);
-        double baseFreq3 = frequency * std::pow(2.0, *pitchShift3);
+        double baseFreq1 = frequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor; 
+        double baseFreq2 = frequency * std::pow(2.0, *pitchShift2) * lfoPitchFactor; 
+        double baseFreq3 = frequency * std::pow(2.0, *pitchShift3) * lfoPitchFactor; 
 
         // Aplicamos la modulación a cada uno
         double modulatedFreq1 = baseFreq1 + modulationDepth;
@@ -181,7 +198,7 @@ void NeuraSynthAudioProcessor::updateAllVoices()
                 &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1DetuneCents,
                 &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
                 &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
-                &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, getSampleRate()
+                &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount, getSampleRate()
             );
 }
 

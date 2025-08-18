@@ -3,7 +3,9 @@
 
 ModulationComponent::ModulationComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
     // Inicializamos el knob de FM. El 0.5 asegura que su valor por defecto sea el centro.
-    fmKnob(BinaryData::knobfm_png, BinaryData::knobfm_pngSize, 300.0f, 0.5)
+    fmKnob(BinaryData::knobfm_png, BinaryData::knobfm_pngSize, 300.0f, 0.5),
+    lfoSpeedKnob(BinaryData::knoblfo_png, BinaryData::knoblfo_pngSize, 300.0f, 0.0),
+    lfoAmountKnob(BinaryData::knoblfo_png, BinaryData::knoblfo_pngSize, 300.0f, 0.0)
 {
     // --- Configuración del Knob de FM ---
     addAndMakeVisible(fmKnob);
@@ -19,7 +21,17 @@ ModulationComponent::ModulationComponent(NeuraSynthAudioProcessor& p) : audioPro
     // <<< INICIAL >>>: el knob empieza en el centro (0.0) y se lo comunicamos al DSP.
     fmKnob.setValue(0.0, juce::sendNotificationSync);
 
-    // Aquí iría la configuración de los knobs de LFO más adelante.
+    // --- Configuración del Knob LFO Speed ---
+    addAndMakeVisible(lfoSpeedKnob);
+    lfoSpeedKnob.setRange(0.1, 20.0); // Rango de velocidad en Hz (de muy lento a rápido)
+    lfoSpeedKnob.onValueChange = [this]() { audioProcessor.setLfoSpeed(lfoSpeedKnob.getValue()); };
+    lfoSpeedKnob.setValue(0.1, juce::sendNotificationSync);
+
+    // --- Configuración del Knob LFO Amount ---
+    addAndMakeVisible(lfoAmountKnob);
+    lfoAmountKnob.setRange(0.0, 1.0); // Rango normalizado para la cantidad
+    lfoAmountKnob.onValueChange = [this]() { audioProcessor.setLfoAmount(lfoAmountKnob.getValue()); };
+    lfoAmountKnob.setValue(0.0, juce::sendNotificationSync);
 }
 
 ModulationComponent::~ModulationComponent() {}
@@ -31,11 +43,7 @@ void ModulationComponent::paint(juce::Graphics& g)
 
 void ModulationComponent::resized()
 {
-    // Posicionamos el knob de FM dentro de este componente.
-    // Usaremos coordenadas relativas. El knob de la derecha.
+    lfoSpeedKnob.setBounds(0, 5, 100, 100);
+    lfoAmountKnob.setBounds(62, 5, 100, 100);
     fmKnob.setBounds(188, 5, 100, 100);
-    
-    // Aquí posicionarías los knobs de LFO, por ejemplo:
-    // lfoSpeedKnob.setBounds(0, 0, 100, 100);
-    // lfoAmountKnob.setBounds(62, 0, 100, 100);
 }

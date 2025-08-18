@@ -18,5 +18,7 @@ private:
 
     // --- Aquí irán los controles de LFO y FM ---
     CustomKnob fmKnob;
-    // Más adelante añadirás aquí los knobs del LFO
+    CustomKnob lfoSpeedKnob;
+    CustomKnob lfoAmountKnob;
+
 };

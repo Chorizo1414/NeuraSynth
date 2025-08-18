@@ -32,7 +32,7 @@ public:
         int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, double* detune1,
         int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
         int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
-        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, double sr);
+        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr, double sr);
 
     bool canPlaySound(juce::SynthesiserSound* sound) override
     {
@@ -91,8 +91,11 @@ private:
     double* pEnvAmt = nullptr;   // -1..1
     bool* pKeyTrack = nullptr;
     float* pFmAmount = nullptr;
+    float* pLfoSpeed = nullptr;
+    float* pLfoAmount = nullptr;
     float fmEffectLfoPhase = 0.0f;
     float fmModulatorPhase = 0.0f;
+    float lfoPhase = 0.0f;
 
     double sampleRateHz = 48000.0;
 
@@ -211,6 +214,10 @@ public:
     void setKeyTrack(bool enabled) { keyTrack = enabled;                          updateAllVoices(); }
     void setFMAmount(float amount) { fmAmount = amount; updateAllVoices(); }
 
+    // --- Setters de LFO ---
+    void setLfoSpeed(float speed) { lfoSpeedHz = speed; updateAllVoices(); }
+    void setLfoAmount(float amount) { lfoAmount = amount; updateAllVoices(); }
+
     double getFilterCutoff()   const { return filterCutoffHz; }
     double getFilterQ()        const { return filterQ; }
     double getFilterEnvAmt()   const { return filterEnvAmt; }
@@ -242,6 +249,10 @@ private:
     double filterEnvAmt = 0.0;     // 0.00
     bool   keyTrack = false;
     float fmAmount = 0.0f;
+
+    // --- Parámetros de LFO globales ---
+    float lfoSpeedHz = 0.1f;
+    float lfoAmount = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessor)
 };
