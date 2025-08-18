@@ -92,6 +92,7 @@ private:
     bool* pKeyTrack = nullptr;
     float* pFmAmount = nullptr;
     float fmEffectLfoPhase = 0.0f;
+    float fmModulatorPhase = 0.0f;
 
     double sampleRateHz = 48000.0;
 
