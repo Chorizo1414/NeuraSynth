@@ -23,7 +23,8 @@ ModulationComponent::ModulationComponent(NeuraSynthAudioProcessor& p) : audioPro
 
     // --- Configuración del Knob LFO Speed ---
     addAndMakeVisible(lfoSpeedKnob);
-    lfoSpeedKnob.setRange(0.1, 20.0); // Rango de velocidad en Hz (de muy lento a rápido)
+    lfoSpeedKnob.setRange(0.1, 8.0); // Rango de velocidad en Hz (de muy lento a rápido)
+    lfoSpeedKnob.setSkewFactorFromMidPoint(4.0);
     lfoSpeedKnob.onValueChange = [this]() { audioProcessor.setLfoSpeed(lfoSpeedKnob.getValue()); };
     lfoSpeedKnob.setValue(0.1, juce::sendNotificationSync);
 
