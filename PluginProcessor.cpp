@@ -202,7 +202,7 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     if (driveAmount > 0.0f)
     {
         // Mapeamos el knob (0-1) a una ganancia de entrada (1x a 5x)
-        float driveGain = juce::jmap(driveAmount, 0.0f, 1.0f, 1.0f, 5.0f);
+        float driveGain = juce::jmap(driveAmount, 0.0f, 1.0f, 1.0f, 1.0f);
 
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
@@ -307,7 +307,7 @@ void NeuraSynthAudioProcessor::setDark(float amount)
     darkAmount = amount;
     // 'Dark' es un Low Shelf que CORTA agudos.
     // Mapeamos el knob (0 a 1) a una ganancia en decibelios (0dB a -6dB).
-    auto gainDb = juce::jmap(darkAmount, 0.0f, 1.0f, 0.0f, -6.0f);
+    auto gainDb = juce::jmap(darkAmount, 0.0f, 1.0f, 0.0f, 15.0f);
 
     // Calculamos los coeficientes del filtro y los actualizamos en nuestras cadenas.
     // Usamos una frecuencia fija (ej. 300 Hz) y un Q suave (0.7)
@@ -320,7 +320,7 @@ void NeuraSynthAudioProcessor::setBright(float amount)
     brightAmount = amount;
     // 'Bright' es un High Shelf que AUMENTA agudos.
     // Mapeamos el knob (0 a 1) a una ganancia en decibelios (0dB a +6dB).
-    auto gainDb = juce::jmap(brightAmount, 0.0f, 1.0f, 0.0f, 6.0f);
+    auto gainDb = juce::jmap(brightAmount, 0.0f, 1.0f, 0.0f, 9.0f);
 
     // Calculamos los coeficientes del filtro y los actualizamos.
     // Usamos una frecuencia fija (ej. 4000 Hz) y un Q suave.
