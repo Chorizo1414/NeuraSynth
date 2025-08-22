@@ -3,12 +3,16 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+// Inicializamos la frecuencia estática a 0
+double SynthVoice::lastNoteFrequency = 0.0;
+
 // DEFINICIÓN de setParameters(...) (va en el .cpp, no en el .h)
 void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, double* detune1,
     int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
     int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
-    double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr, double sr)
+    double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr,
+    float* glideSecondsPtr, double sr)
 {
     env.setParameters(adsr);
 
@@ -25,6 +29,7 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     pFmAmount = fmAmountPtr;
     pLfoSpeed = lfoSpeedPtr;
     pLfoAmount = lfoAmountPtr;
+    pGlideSeconds = glideSecondsPtr;
 
     sampleRateHz = sr;
 }
@@ -37,6 +42,22 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
     // --- Bucle principal muestra por muestra ---
     for (int sample = startSample; sample < startSample + numSamples; ++sample)
     {
+        // --- LÓGICA DE GLIDE ---
+        // Si la frecuencia actual no es la objetivo, la movemos un poco
+        if (currentFrequency != targetFrequency)
+        {
+            // Calculamos cuánto movernos en este sample. Usamos un coeficiente para un slide suave.
+            // Un valor más pequeño (ej. 0.0005f) da un glide más lento.
+            const float glideCoefficient = 0.001f / (*pGlideSeconds + 0.001f);
+            currentFrequency += (targetFrequency - currentFrequency) * glideCoefficient;
+            
+            // Si estamos muy cerca, simplemente saltamos al final para evitar errores de precisión
+            if (std::abs(targetFrequency - currentFrequency) < 0.01)
+            {
+                currentFrequency = targetFrequency;
+            }
+        }
+
         float envVal = env.getNextSample();
 
         // --- LÓGICA DEL LFO ---
@@ -58,7 +79,7 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         if (fmAmount != 0.0f)
         {
             // La frecuencia del modulador se basa en la frecuencia de OSC 1
-            double osc1Freq = frequency * std::pow(2.0, *pitchShift1);
+            double osc1Freq = currentFrequency * std::pow(2.0, *pitchShift1);
             double modulatorFreq;
 
             if (fmAmount > 0.0f) // Derecha -> Brillante (una octava arriba)
@@ -90,10 +111,10 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         // Convertimos la modulación de semitonos a un factor de frecuencia
         double lfoPitchFactor = std::pow(2.0, pitchModulation / 12.0);
 
-        // Frecuencias base de cada oscilador
-        double baseFreq1 = frequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor; 
-        double baseFreq2 = frequency * std::pow(2.0, *pitchShift2) * lfoPitchFactor; 
-        double baseFreq3 = frequency * std::pow(2.0, *pitchShift3) * lfoPitchFactor; 
+        // Frecuencias base de cada oscilador (¡AHORA USAN 'currentFrequency'!)
+        double baseFreq1 = currentFrequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor;
+        double baseFreq2 = currentFrequency * std::pow(2.0, *pitchShift2) * lfoPitchFactor;
+        double baseFreq3 = currentFrequency * std::pow(2.0, *pitchShift3) * lfoPitchFactor;
 
         // Aplicamos la modulación a cada uno
         double modulatedFreq1 = baseFreq1 + modulationDepth;
@@ -243,7 +264,7 @@ void NeuraSynthAudioProcessor::updateAllVoices()
                 &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1DetuneCents,
                 &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
                 &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
-                &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount, getSampleRate()
+                &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount, &glideSeconds, getSampleRate()
             );
 }
 
@@ -299,7 +320,7 @@ void NeuraSynthAudioProcessor::setRelease(float r) { adsrParams.release = r; upd
 void NeuraSynthAudioProcessor::setGlide(float seconds)
 {
     glideSeconds = seconds;
-    // La lógica del glide es compleja, la implementaremos en el futuro.
+    updateAllVoices();
 }
 
 void NeuraSynthAudioProcessor::setDark(float amount)

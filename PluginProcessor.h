@@ -33,7 +33,8 @@ public:
         int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, double* detune1,
         int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
         int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
-        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr, double sr);
+        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr, 
+        float* glideSecondsPtr, double sr);
 
     bool canPlaySound(juce::SynthesiserSound* sound) override
     {
@@ -42,8 +43,19 @@ public:
 
     void startNote(int midiNoteNumber, float /*velocity*/, juce::SynthesiserSound*, int) override
     {
-        currentMidiNote = midiNoteNumber;
-        frequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
+        // Ya no asignamos 'frequency' directamente, ahora es nuestro objetivo
+        targetFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
+        
+        // Si el glide está desactivado o es la primera nota, empezamos en el tono final
+        if (*pGlideSeconds <= 0.0f || lastNoteFrequency == 0.0)
+        {
+        currentFrequency = targetFrequency;
+        }
+        else // Si hay que deslizar, empezamos desde el tono de la última nota
+        {
+        currentFrequency = lastNoteFrequency;
+        }
+
         env.noteOn();
         for (auto& v : unisonVoices) { v.readPosOsc1 = v.readPosOsc2 = v.readPosOsc3 = 0.0; }
         svfL = {}; svfR = {}; // reset filtro
@@ -51,6 +63,8 @@ public:
 
     void stopNote(float, bool allowTailOff) override
     {
+        // "Recordamos" la frecuencia de esta nota para la siguiente que se toque
+        lastNoteFrequency = targetFrequency;
         env.noteOff();
         if (!allowTailOff)
         {
@@ -66,7 +80,9 @@ public:
 
 private:
     juce::ADSR env;
-    double frequency = 0.0;
+    double currentFrequency = 0.0; // Frecuencia actual, que se deslizará
+    double targetFrequency = 0.0;  // Frecuencia objetivo de la nota pulsada
+    static double lastNoteFrequency; // Frecuencia de la última nota tocada (compartida entre todas las voces)
 
     int* numFrames1 = nullptr, * numFrames2 = nullptr, * numFrames3 = nullptr;
 
@@ -94,6 +110,7 @@ private:
     float* pFmAmount = nullptr;
     float* pLfoSpeed = nullptr;
     float* pLfoAmount = nullptr;
+    float* pGlideSeconds = nullptr;
     float fmEffectLfoPhase = 0.0f;
     float fmModulatorPhase = 0.0f;
     float lfoPhase = 0.0f;
