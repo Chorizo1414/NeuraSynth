@@ -3,6 +3,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <juce_dsp/juce_dsp.h>
 #include <vector>
 
 // ==============================================================================
@@ -267,6 +268,18 @@ private:
     float brightAmount = 0.0f;
     float driveAmount = 0.0f;
     bool chorusOn = false;
+
+    // --- OBJETOS DSP PARA EFECTOS MASTER ---
+    // Usamos una "cadena de procesadores" para los filtros de tono.
+    // Tendremos un filtro Low-Shelf (Dark) y un High-Shelf (Bright).
+    using Filter = juce::dsp::IIR::Filter<float>;
+    using FilterChain = juce::dsp::ProcessorChain<Filter, Filter>;
+    
+    // Necesitamos una cadena para cada canal (estéreo)
+    FilterChain leftTone, rightTone;
+    
+    // El 'spec' guarda información como la frecuencia de muestreo
+    juce::dsp::ProcessSpec spec;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessor)
 };

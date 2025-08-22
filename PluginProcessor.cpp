@@ -170,8 +170,17 @@ NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
 
 NeuraSynthAudioProcessor::~NeuraSynthAudioProcessor() {}
 
-void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
+void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    // Guardamos las especificaciones del playback
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = samplesPerBlock;
+    spec.numChannels = 2; // Estéreo
+    
+    // Preparamos nuestras cadenas de filtros con estas especificaciones
+    leftTone.prepare(spec);
+    rightTone.prepare(spec);
+
     synth.setCurrentPlaybackSampleRate(sampleRate);
     for (int i = 0; i < synth.getNumVoices(); ++i)
         if (auto* voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
@@ -187,6 +196,42 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     buffer.clear();
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
     synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
+    buffer.applyGain(masterGain);
+
+    // --- 1. EFECTO DRIVE ---
+    if (driveAmount > 0.0f)
+    {
+        // Mapeamos el knob (0-1) a una ganancia de entrada (1x a 5x)
+        float driveGain = juce::jmap(driveAmount, 0.0f, 1.0f, 1.0f, 5.0f);
+
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+            auto* channelData = buffer.getWritePointer(channel);
+            for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+            {
+                float inputSample = channelData[sample] * driveGain;
+                // Usamos tanh() para una distorsión suave y analógica (soft clipping)
+                float distortedSample = std::tanh(inputSample);
+                // Compensamos la ganancia para que no suba mucho el volumen
+                channelData[sample] = distortedSample * (1.0f / driveGain);
+            }
+        }
+    }
+
+    // --- 2. EFECTOS DE TONO (DARK/BRIGHT) ---
+    // Creamos un "bloque de audio" para que el módulo DSP trabaje con él
+    juce::dsp::AudioBlock<float> block(buffer);
+    // Separamos los canales izquierdo y derecho
+    auto leftBlock = block.getSingleChannelBlock(0);
+    auto rightBlock = block.getSingleChannelBlock(1);
+    // Creamos los contextos de procesamiento
+    juce::dsp::ProcessContextReplacing<float> leftContext(leftBlock);
+    juce::dsp::ProcessContextReplacing<float> rightContext(rightBlock);
+    // Procesamos cada canal con su cadena de filtros
+    leftTone.process(leftContext);
+    rightTone.process(rightContext);
+
+    // --- 3. MASTER GAIN FINAL ---
     buffer.applyGain(masterGain);
 }
 
@@ -260,13 +305,27 @@ void NeuraSynthAudioProcessor::setGlide(float seconds)
 void NeuraSynthAudioProcessor::setDark(float amount)
 {
     darkAmount = amount;
-    // Esto podría controlar un filtro Low-pass al final de la cadena.
+    // 'Dark' es un Low Shelf que CORTA agudos.
+    // Mapeamos el knob (0 a 1) a una ganancia en decibelios (0dB a -6dB).
+    auto gainDb = juce::jmap(darkAmount, 0.0f, 1.0f, 0.0f, -6.0f);
+
+    // Calculamos los coeficientes del filtro y los actualizamos en nuestras cadenas.
+    // Usamos una frecuencia fija (ej. 300 Hz) y un Q suave (0.7)
+    leftTone.get<0>().coefficients = *juce::dsp::IIR::Coefficients<float>::makeLowShelf(spec.sampleRate, 300.0f, 0.7f, juce::Decibels::decibelsToGain(gainDb));
+    rightTone.get<0>().coefficients = *leftTone.get<0>().coefficients;
 }
 
 void NeuraSynthAudioProcessor::setBright(float amount)
 {
     brightAmount = amount;
-    // Esto podría controlar un filtro High-pass o un EQ al final.
+    // 'Bright' es un High Shelf que AUMENTA agudos.
+    // Mapeamos el knob (0 a 1) a una ganancia en decibelios (0dB a +6dB).
+    auto gainDb = juce::jmap(brightAmount, 0.0f, 1.0f, 0.0f, 6.0f);
+
+    // Calculamos los coeficientes del filtro y los actualizamos.
+    // Usamos una frecuencia fija (ej. 4000 Hz) y un Q suave.
+    leftTone.get<1>().coefficients = *juce::dsp::IIR::Coefficients<float>::makeHighShelf(spec.sampleRate, 4000.0f, 0.7f, juce::Decibels::decibelsToGain(gainDb));
+    rightTone.get<1>().coefficients = *leftTone.get<1>().coefficients;
 }
 
 void NeuraSynthAudioProcessor::setDrive(float amount)
