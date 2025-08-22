@@ -250,13 +250,40 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
     addAndMakeVisible(keyButton);
     keyButton.setClickingTogglesState(true);
+
     auto normalKeyImage = juce::ImageCache::getFromMemory(BinaryData::button_png, BinaryData::button_pngSize);
     auto toggledKeyImage = juce::ImageCache::getFromMemory(BinaryData::buttonreverse_png, BinaryData::buttonreverse_pngSize);
-    keyButton.setImages(false, true, true,
+
+    // Inicialmente, pon la imagen normal
+    keyButton.setImages(
+        false, true, true,
         normalKeyImage, 1.0f, juce::Colours::transparentBlack,
-        toggledKeyImage, 1.0f, juce::Colours::transparentBlack,
+        normalKeyImage, 1.0f, juce::Colours::transparentBlack,
         normalKeyImage, 1.0f, juce::Colours::transparentBlack
     );
+
+    keyButton.onClick = [this, normalKeyImage, toggledKeyImage] {
+        audioProcessor.setKeyTrack(keyButton.getToggleState());
+        if (keyButton.getToggleState())
+        {
+            keyButton.setImages(
+                false, true, true,
+                toggledKeyImage, 1.0f, juce::Colours::transparentBlack,
+                toggledKeyImage, 1.0f, juce::Colours::transparentBlack,
+                toggledKeyImage, 1.0f, juce::Colours::transparentBlack
+            );
+        }
+        else
+        {
+            keyButton.setImages(
+                false, true, true,
+                normalKeyImage, 1.0f, juce::Colours::transparentBlack,
+                normalKeyImage, 1.0f, juce::Colours::transparentBlack,
+                normalKeyImage, 1.0f, juce::Colours::transparentBlack
+            );
+        }
+        };
+
     keyButton.setName("KeyButton");
 
     addAndMakeVisible(midiKeyboardComponent);

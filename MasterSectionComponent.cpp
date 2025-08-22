@@ -26,13 +26,40 @@ MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : au
 
     addAndMakeVisible(chorusButton);
     chorusButton.setClickingTogglesState(true);
-    chorusButton.onClick = [this]() { audioProcessor.setChorus(chorusButton.getToggleState()); };
 
     auto normalImage = juce::ImageCache::getFromMemory(BinaryData::button_png, BinaryData::button_pngSize);
     auto toggledImage = juce::ImageCache::getFromMemory(BinaryData::buttonreverse_png, BinaryData::buttonreverse_pngSize);
-    chorusButton.setImages(false, true, true, normalImage, 1.0f, juce::Colours::transparentBlack,
-                           toggledImage, 1.0f, juce::Colours::transparentBlack,
-                           normalImage, 1.0f, juce::Colours::transparentBlack);
+
+    // Imagen inicial: solo normal para todos los estados
+    chorusButton.setImages(
+        false, true, true,
+        normalImage, 1.0f, juce::Colours::transparentBlack,
+        normalImage, 1.0f, juce::Colours::transparentBlack,
+        normalImage, 1.0f, juce::Colours::transparentBlack
+    );
+
+    chorusButton.onClick = [this, normalImage, toggledImage]() {
+        audioProcessor.setChorus(chorusButton.getToggleState());
+        if (chorusButton.getToggleState())
+        {
+            chorusButton.setImages(
+                false, true, true,
+                toggledImage, 1.0f, juce::Colours::transparentBlack,
+                toggledImage, 1.0f, juce::Colours::transparentBlack,
+                toggledImage, 1.0f, juce::Colours::transparentBlack
+            );
+        }
+        else
+        {
+            chorusButton.setImages(
+                false, true, true,
+                normalImage, 1.0f, juce::Colours::transparentBlack,
+                normalImage, 1.0f, juce::Colours::transparentBlack,
+                normalImage, 1.0f, juce::Colours::transparentBlack
+            );
+        }
+        };
+
 }
 
 MasterSectionComponent::~MasterSectionComponent() {}
