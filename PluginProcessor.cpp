@@ -251,6 +251,36 @@ void NeuraSynthAudioProcessor::setDecay(float d) { adsrParams.decay = d; updateA
 void NeuraSynthAudioProcessor::setSustain(float s) { adsrParams.sustain = s; updateAllVoices(); }
 void NeuraSynthAudioProcessor::setRelease(float r) { adsrParams.release = r; updateAllVoices(); }
 
+void NeuraSynthAudioProcessor::setGlide(float seconds)
+{
+    glideSeconds = seconds;
+    // La lógica del glide es compleja, la implementaremos en el futuro.
+}
+
+void NeuraSynthAudioProcessor::setDark(float amount)
+{
+    darkAmount = amount;
+    // Esto podría controlar un filtro Low-pass al final de la cadena.
+}
+
+void NeuraSynthAudioProcessor::setBright(float amount)
+{
+    brightAmount = amount;
+    // Esto podría controlar un filtro High-pass o un EQ al final.
+}
+
+void NeuraSynthAudioProcessor::setDrive(float amount)
+{
+    driveAmount = amount;
+    // Esto controlará una etapa de saturación en processBlock.
+}
+
+void NeuraSynthAudioProcessor::setChorus(bool isOn)
+{
+    chorusOn = isOn;
+    // Esto activará un efecto de Chorus en processBlock.
+}
+
 // --- Resto de funciones estándar de JUCE ---
 juce::AudioProcessorEditor* NeuraSynthAudioProcessor::createEditor() { return new NeuraSynthAudioProcessorEditor(*this); }
 bool NeuraSynthAudioProcessor::hasEditor() const { return true; }

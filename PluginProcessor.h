@@ -218,6 +218,13 @@ public:
     void setLfoSpeed(float speed) { lfoSpeedHz = speed; updateAllVoices(); }
     void setLfoAmount(float amount) { lfoAmount = amount; updateAllVoices(); }
 
+    // --- Setters de la Sección Master ---
+    void setGlide(float glideSeconds);
+    void setDark(float amount);
+    void setBright(float amount);
+    void setDrive(float amount);
+    void setChorus(bool isOn);
+
     double getFilterCutoff()   const { return filterCutoffHz; }
     double getFilterQ()        const { return filterQ; }
     double getFilterEnvAmt()   const { return filterEnvAmt; }
@@ -253,6 +260,13 @@ private:
     // --- Parámetros de LFO globales ---
     float lfoSpeedHz = 0.1f;
     float lfoAmount = 0.0f;
+
+    // --- Parámetros de la Sección Master ---
+    float glideSeconds = 0.0f;
+    float darkAmount = 0.0f;
+    float brightAmount = 0.0f;
+    float driveAmount = 0.0f;
+    bool chorusOn = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessor)
 };

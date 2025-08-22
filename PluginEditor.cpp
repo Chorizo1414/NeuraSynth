@@ -8,10 +8,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     midiKeyboardComponent(audioProcessor.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard),
     // Master & Global
     masterGainKnob(BinaryData::knobmastergain_png, BinaryData::knobmastergain_pngSize, 300.0f, 0.7),
-    glideKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
-    Darkknob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
-    Brightknob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
-    Driveknob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
 
     // Filter
     filterCutoffKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 1.0),
@@ -49,8 +45,8 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     delayFeedbackKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.4),
 
     // Buttons
-    chorusButton("ChorusButton"),
     keyButton("KeyButton"),
+    masterSection(p),
     designMouseListener(componentDragger)
 {
     setWantsKeyboardFocus(true);
@@ -171,17 +167,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
             audioProcessor.setMasterGain(masterGainKnob.getValue());
     };
 
-    addAndMakeVisible(glideKnob);
-    glideKnob.setRange(0.0, 1.0);
-
-    addAndMakeVisible(Darkknob);
-    Darkknob.setRange(0.0, 1.0);
-
-    addAndMakeVisible(Brightknob);
-    Brightknob.setRange(0.0, 1.0);
-
-    addAndMakeVisible(Driveknob);
-    Driveknob.setRange(0.0, 1.0);
+    addAndMakeVisible(masterSection);
 
     // --- SECCIÓN FILTER ---
     addAndMakeVisible(filterCutoffKnob);
@@ -262,19 +248,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     addAndMakeVisible(delayWowKnob);
     addAndMakeVisible(delayFeedbackKnob);
 
-    addAndMakeVisible(chorusButton);
-    chorusButton.setClickingTogglesState(true);
-    auto normalImage = juce::ImageCache::getFromMemory(BinaryData::button_png, BinaryData::button_pngSize);
-    auto toggledImage = juce::ImageCache::getFromMemory(BinaryData::buttonreverse_png, BinaryData::buttonreverse_pngSize);
-    DBG("Normal image: " + juce::String(normalImage.getWidth()) + "x" + juce::String(normalImage.getHeight()));
-    DBG("Toggled image: " + juce::String(toggledImage.getWidth()) + "x" + juce::String(toggledImage.getHeight()));
-    chorusButton.setImages(false, true, true,
-        normalImage, 1.0f, juce::Colours::transparentBlack,
-        toggledImage, 1.0f, juce::Colours::transparentBlack,
-        normalImage, 1.0f, juce::Colours::transparentBlack
-    );
-    chorusButton.setName("ChorusButton");
-
     addAndMakeVisible(keyButton);
     keyButton.setClickingTogglesState(true);
     auto normalKeyImage = juce::ImageCache::getFromMemory(BinaryData::button_png, BinaryData::button_pngSize);
@@ -291,11 +264,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     if (designMode)
     {
         masterGainKnob.addMouseListener(&designMouseListener, true);
-        glideKnob.addMouseListener(&designMouseListener, true);
-        Darkknob.addMouseListener(&designMouseListener, true);
-        Brightknob.addMouseListener(&designMouseListener, true);
-        Driveknob.addMouseListener(&designMouseListener, true);
-        chorusButton.addMouseListener(&designMouseListener, true);
+        masterSection.addMouseListener(&designMouseListener, true);
 
         osc1.addMouseListener(&designMouseListener, true);
         osc2.addMouseListener(&designMouseListener, true);
@@ -369,11 +338,7 @@ void NeuraSynthAudioProcessorEditor::resized()
     // --- Copiamos todas tus posiciones originales para el resto de los componentes ---
     // Sección Master
     masterGainKnob.setBounds(56, 58, 100, 100);
-    glideKnob.setBounds(118, 63, 100, 100);
-    Darkknob.setBounds(33, 118, 100, 100);
-    Brightknob.setBounds(86, 118, 100, 100);
-    Driveknob.setBounds(137, 118, 100, 100);
-    chorusButton.setBounds(225, 163, 35, 35);
+    masterSection.setBounds(33, 58, 230, 140);
 
     // Sección Filter
     filterCutoffKnob.setBounds(760, 68, 100, 100);

@@ -6,6 +6,7 @@
 #include "EnvelopeDisplay.h"
 #include "OscillatorComponent.h"
 #include "ModulationComponent.h"
+#include "MasterSectionComponent.h"
 
 class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -28,10 +29,6 @@ private:
 
     // --- Resto de Componentes de la UI ---
     CustomKnob masterGainKnob;
-    CustomKnob glideKnob;
-    CustomKnob Darkknob;
-    CustomKnob Brightknob;
-    CustomKnob Driveknob;
 
     CustomKnob filterCutoffKnob;
     CustomKnob filterResonanceKnob;
@@ -44,6 +41,7 @@ private:
     CustomKnob releaseKnob;
 
     ModulationComponent modulationComp;
+    MasterSectionComponent masterSection;
 
     CustomKnob reverbDryKnob;
     CustomKnob reverbWetKnob;
@@ -62,7 +60,6 @@ private:
     CustomKnob delayRightKnob;
     CustomKnob delayWowKnob;
     CustomKnob delayFeedbackKnob;
-    juce::ImageButton chorusButton;
     juce::ImageButton keyButton;
     juce::MidiKeyboardComponent midiKeyboardComponent{ audioProcessor.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard };
 
