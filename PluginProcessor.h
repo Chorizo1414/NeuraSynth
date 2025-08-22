@@ -294,6 +294,9 @@ private:
     
     // Necesitamos una cadena para cada canal (estéreo)
     FilterChain leftTone, rightTone;
+
+    // Objeto para el efecto de Chorus
+    juce::dsp::Chorus<float> chorus;
     
     // El 'spec' guarda información como la frecuencia de muestreo
     juce::dsp::ProcessSpec spec;
