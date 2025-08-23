@@ -2,12 +2,18 @@
 #include "BinaryData.h"
 
 MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
+    masterGainKnob(BinaryData::knobmastergain_png, BinaryData::knobmastergain_pngSize, 300.0f, 0.7),
     glideKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
     darkKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
     brightKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
     driveKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
     chorusButton("ChorusButton")
 {
+    addAndMakeVisible(masterGainKnob);
+    masterGainKnob.setRange(0.0, 1.0);
+    masterGainKnob.setValue(0.7);
+    masterGainKnob.onValueChange = [this]() { audioProcessor.setMasterGain(masterGainKnob.getValue()); };
+
     addAndMakeVisible(glideKnob);
     glideKnob.setRange(0.0, 2.0); // Glide time in seconds
     glideKnob.onValueChange = [this]() { audioProcessor.setGlide(glideKnob.getValue()); };
@@ -70,6 +76,7 @@ void MasterSectionComponent::resized()
 {
     // Posicionamos los controles relativos a este componente.
     // Usamos las coordenadas que tenías en el editor, pero ajustadas a un origen local.
+    masterGainKnob.setBounds(23, 0, 100, 100);
     glideKnob.setBounds(118 - 33, 63 - 58, 100, 100);   // x=85, y=5
     darkKnob.setBounds(33 - 33, 118 - 58, 100, 100);    // x=0, y=60
     brightKnob.setBounds(86 - 33, 118 - 58, 100, 100);  // x=53, y=60

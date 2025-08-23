@@ -6,9 +6,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     : AudioProcessorEditor(&p), audioProcessor(p),
 
     midiKeyboardComponent(audioProcessor.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard),
-    // Master & Global
-    masterGainKnob(BinaryData::knobmastergain_png, BinaryData::knobmastergain_pngSize, 300.0f, 0.7),
-
     // Filter
     filterCutoffKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 1.0),
     filterResonanceKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 0.0), 
@@ -158,15 +155,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     osc3.oscSection.loadWavetablesFromFolder(waveFolderPath);
 
     // Agregar y configurar controles de master
-    addAndMakeVisible(masterGainKnob);
-    masterGainKnob.setRange(0.0, 1.0);
-    masterGainKnob.setValue(0.7);
-
-    masterGainKnob.onValueChange = [this]()
-    {
-            audioProcessor.setMasterGain(masterGainKnob.getValue());
-    };
-
     addAndMakeVisible(masterSection);
 
     // --- SECCIÓN FILTER ---
@@ -290,7 +278,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
     if (designMode)
     {
-        masterGainKnob.addMouseListener(&designMouseListener, true);
         masterSection.addMouseListener(&designMouseListener, true);
 
         osc1.addMouseListener(&designMouseListener, true);
@@ -364,7 +351,6 @@ void NeuraSynthAudioProcessorEditor::resized()
 
     // --- Copiamos todas tus posiciones originales para el resto de los componentes ---
     // Sección Master
-    masterGainKnob.setBounds(56, 58, 100, 100);
     masterSection.setBounds(33, 58, 230, 140);
 
     // Sección Filter

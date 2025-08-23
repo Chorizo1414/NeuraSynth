@@ -28,8 +28,6 @@ private:
     OscillatorComponent osc3;
 
     // --- Resto de Componentes de la UI ---
-    CustomKnob masterGainKnob;
-
     CustomKnob filterCutoffKnob;
     CustomKnob filterResonanceKnob;
     CustomKnob filterEnvKnob;
