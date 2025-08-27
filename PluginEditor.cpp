@@ -21,13 +21,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     modulationComp(p),
 
     // Reverb
-    reverbDryKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.8),
-    reverbWetKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.1),
-    reverbPreDelayKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.1),
-    reverbDiffusionKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.8),
-    reverbDampKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.8),
-    reverbDecayKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.5),
-    reverbSizeKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.7),
+    reverbSection(p),
 
     // Delay
     delayDryKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 1.0),
@@ -215,14 +209,8 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     // --- SECCIÓN MODULACIÓN (LFO & FM) ---
     addAndMakeVisible(modulationComp);
 
-    // --- SECCIÓN REVERB ---
-    addAndMakeVisible(reverbDryKnob);
-    addAndMakeVisible(reverbWetKnob);
-    addAndMakeVisible(reverbPreDelayKnob);
-    addAndMakeVisible(reverbDiffusionKnob);
-    addAndMakeVisible(reverbDampKnob);
-    addAndMakeVisible(reverbDecayKnob);
-    addAndMakeVisible(reverbSizeKnob);
+	// --- SECCIÓN REVERB ---
+    addAndMakeVisible(reverbSection);
 
     // --- SECCIÓN DELAY ---
     addAndMakeVisible(delayDryKnob);
@@ -297,13 +285,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
         modulationComp.addMouseListener(&designMouseListener, true);
 
-        reverbDryKnob.addMouseListener(&designMouseListener, true);
-        reverbWetKnob.addMouseListener(&designMouseListener, true);
-        reverbPreDelayKnob.addMouseListener(&designMouseListener, true);
-        reverbDiffusionKnob.addMouseListener(&designMouseListener, true);
-        reverbDampKnob.addMouseListener(&designMouseListener, true);
-        reverbDecayKnob.addMouseListener(&designMouseListener, true);
-        reverbSizeKnob.addMouseListener(&designMouseListener, true);
+        reverbSection.addMouseListener(&designMouseListener, true);
 
         delayDryKnob.addMouseListener(&designMouseListener, true);
         delayCenterVolKnob.addMouseListener(&designMouseListener, true);
@@ -369,14 +351,8 @@ void NeuraSynthAudioProcessorEditor::resized()
     // Sección LFO & FM
     modulationComp.setBounds(734, 439, 288, 105);
 
-    // Sección Reverb
-    reverbDryKnob.setBounds(19, 242, 100, 100);
-    reverbWetKnob.setBounds(91, 242, 100, 100);
-    reverbSizeKnob.setBounds(156, 242, 100, 100);
-    reverbPreDelayKnob.setBounds(-14, 302, 100, 100);
-    reverbDiffusionKnob.setBounds(56, 302, 100, 100);
-    reverbDampKnob.setBounds(119, 302, 100, 100);
-    reverbDecayKnob.setBounds(185, 302, 100, 100);
+	// Sección Reverb
+    reverbSection.setBounds(-14, 242, 300, 160);
 
     // Sección Delay
     delayDryKnob.setBounds(-17, 419, 100, 100);

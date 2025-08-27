@@ -9,27 +9,30 @@ MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : au
     driveKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
     chorusButton("ChorusButton")
 {
-    addAndMakeVisible(masterGainKnob);
-    masterGainKnob.setRange(0.0, 1.0);
-    masterGainKnob.setValue(0.7);
-    masterGainKnob.onValueChange = [this]() { audioProcessor.setMasterGain(masterGainKnob.getValue()); };
+    // Función auxiliar para configurar knobs
+    auto setupKnob = [&](CustomKnob& knob, float minRange, float maxRange, auto setter) {
+        addAndMakeVisible(knob);
+        knob.setRange(minRange, maxRange);
+        knob.onValueChange = [this, setter, &knob]() {
+            (audioProcessor.*setter)(knob.getValue());
+            };
+        };
 
-    addAndMakeVisible(glideKnob);
-    glideKnob.setRange(0.0, 2.0); // Glide time in seconds
-    glideKnob.onValueChange = [this]() { audioProcessor.setGlide(glideKnob.getValue()); };
+    // Aplicamos la configuración a cada knob
+    setupKnob(masterGainKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setMasterGain);
+    setupKnob(glideKnob, 0.0f, 2.0f, &NeuraSynthAudioProcessor::setGlide);
+    setupKnob(darkKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setDark);
+    setupKnob(brightKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setBright);
+    setupKnob(driveKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setDrive);
+    
+    // Valores iniciales
+    masterGainKnob.setValue(0.7, juce::dontSendNotification);
+    glideKnob.setValue(0.0, juce::dontSendNotification);
+    darkKnob.setValue(0.0, juce::dontSendNotification);
+    brightKnob.setValue(0.0, juce::dontSendNotification);
+    driveKnob.setValue(0.0, juce::dontSendNotification);
 
-    addAndMakeVisible(darkKnob);
-    darkKnob.setRange(0.0, 1.0);
-    darkKnob.onValueChange = [this]() { audioProcessor.setDark(darkKnob.getValue()); };
-
-    addAndMakeVisible(brightKnob);
-    brightKnob.setRange(0.0, 1.0);
-    brightKnob.onValueChange = [this]() { audioProcessor.setBright(brightKnob.getValue()); };
-
-    addAndMakeVisible(driveKnob);
-    driveKnob.setRange(0.0, 1.0);
-    driveKnob.onValueChange = [this]() { audioProcessor.setDrive(driveKnob.getValue()); };
-
+    // La configuración del botón Chorus es única, así que la dejamos separada
     addAndMakeVisible(chorusButton);
     chorusButton.setClickingTogglesState(true);
 

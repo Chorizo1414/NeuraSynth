@@ -211,6 +211,23 @@ void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     chorus.setFeedback(0.2f);    // Retroalimentación para un sonido más denso
     chorus.setMix(0.0f);       // El efecto empieza apagado
 
+    // Preparamos la reverb
+    reverb.prepare(spec);
+    reverb.setParameters(reverbParams);
+
+    // Preparamos nuestros nuevos componentes
+    preDelay.prepare(spec);
+    leftReverbFilter.prepare(spec);
+    rightReverbFilter.prepare(spec);
+    
+    // Coeficientes iniciales para los filtros (sonido vintage)
+    // Cortamos graves debajo de 200Hz y agudos por encima de 5000Hz
+    leftReverbFilter.get<0>().coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 200.0f);
+    rightReverbFilter.get<0>().coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 200.0f);
+    leftReverbFilter.get<1>().coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 5000.0f);
+    rightReverbFilter.get<1>().coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 5000.0f);
+    
+
     synth.setCurrentPlaybackSampleRate(sampleRate);
     for (int i = 0; i < synth.getNumVoices(); ++i)
         if (auto* voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
@@ -219,7 +236,10 @@ void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     updateAllVoices();
 }
 
-void NeuraSynthAudioProcessor::releaseResources() {}
+void NeuraSynthAudioProcessor::releaseResources()
+{
+    reverb.reset();
+}
 
 void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
@@ -255,11 +275,30 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     rightTone.process(rightContext);
 
     // --- 3. EFECTO CHORUS ---
-    // LA CORRECCIÓN ESTÁ AQUÍ. El chorus necesita su propio contexto de procesamiento.
     juce::dsp::ProcessContextReplacing<float> chorusContext(block);
     chorus.process(chorusContext); // <-- Usamos el 'chorusContext', no el 'block' directamente.
 
-    // --- 4. MASTER GAIN FINAL ---
+    // --- 4. PROCESADO DE REVERB (EN PARALELO) ---
+    // Creamos un buffer separado para la señal "wet" (procesada)
+    juce::AudioBuffer<float> wetBuffer;
+    wetBuffer.makeCopyOf(buffer);
+    juce::dsp::AudioBlock<float> wetBlock(wetBuffer);
+    
+    // Procesamos el buffer "wet" con toda la cadena de reverb
+    preDelay.process(juce::dsp::ProcessContextReplacing<float>(wetBlock));
+    reverb.process(juce::dsp::ProcessContextReplacing<float>(wetBlock));
+    
+    auto leftWetBlock = wetBlock.getSingleChannelBlock(0);
+    auto rightWetBlock = wetBlock.getSingleChannelBlock(1);
+    leftReverbFilter.process(juce::dsp::ProcessContextReplacing<float>(leftWetBlock));
+    rightReverbFilter.process(juce::dsp::ProcessContextReplacing<float>(rightWetBlock));
+    
+    // --- 5. MEZCLA DRY/WET Y MASTER GAIN ---
+    // Aplicamos ganancia Dry al buffer original y Wet al procesado, y luego los sumamos.
+    buffer.applyGain(reverbParams.dryLevel);
+    buffer.addFrom(0, 0, wetBuffer, 0, 0, buffer.getNumSamples(), reverbParams.wetLevel);
+    buffer.addFrom(1, 0, wetBuffer, 1, 0, buffer.getNumSamples(), reverbParams.wetLevel);
+    
     buffer.applyGain(masterGain);
 }
 
@@ -369,6 +408,32 @@ void NeuraSynthAudioProcessor::setChorus(bool isOn)
     // 0.0 = totalmente seco (apagado), 0.5 = mezcla 50/50
     chorus.setMix(isOn ? 0.5f : 0.0f);
 }
+
+void NeuraSynthAudioProcessor::setReverbDryLevel(float level) { reverbParams.dryLevel = level; reverb.setParameters(reverbParams); }
+void NeuraSynthAudioProcessor::setReverbWetLevel(float level) { reverbParams.wetLevel = level; reverb.setParameters(reverbParams); }
+void NeuraSynthAudioProcessor::setReverbRoomSize(float size) { reverbParams.roomSize = size; reverb.setParameters(reverbParams); }
+void NeuraSynthAudioProcessor::setReverbDamping(float damping) { reverbParams.damping = damping; reverb.setParameters(reverbParams); }
+
+void NeuraSynthAudioProcessor::setReverbPreDelay(float delay)
+{
+    // Mapeamos el valor del knob (0-1) a un rango de ms (0-500)
+    float delayMs = juce::jmap(delay, 0.0f, 1.0f, 0.0f, 500.0f);
+    preDelay.setDelay(getSampleRate() * delayMs / 1000.0f);
+    }
+
+void NeuraSynthAudioProcessor::setReverbDiffusion(float diffusion)
+{
+    // Mapeamos "Diffusion" al parámetro "width" de la reverb. Es una buena aproximación.
+    reverbParams.width = diffusion;
+    reverb.setParameters(reverbParams);
+    }
+
+void NeuraSynthAudioProcessor::setReverbDecay(float decay)
+{
+    // Mapeamos "Decay" al parámetro "roomSize", que controla el tiempo de la cola.
+    reverbParams.roomSize = decay;
+    reverb.setParameters(reverbParams);
+    }
 
 // --- Resto de funciones estándar de JUCE ---
 juce::AudioProcessorEditor* NeuraSynthAudioProcessor::createEditor() { return new NeuraSynthAudioProcessorEditor(*this); }

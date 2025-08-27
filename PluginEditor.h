@@ -7,6 +7,7 @@
 #include "OscillatorComponent.h"
 #include "ModulationComponent.h"
 #include "MasterSectionComponent.h"
+#include "ReverbComponent.h"
 
 class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -40,14 +41,8 @@ private:
 
     ModulationComponent modulationComp;
     MasterSectionComponent masterSection;
+    ReverbComponent reverbSection;
 
-    CustomKnob reverbDryKnob;
-    CustomKnob reverbWetKnob;
-    CustomKnob reverbPreDelayKnob;
-    CustomKnob reverbDiffusionKnob;
-    CustomKnob reverbDampKnob;
-    CustomKnob reverbDecayKnob;
-    CustomKnob reverbSizeKnob;
     CustomKnob delayDryKnob;
     CustomKnob delayCenterVolKnob;
     CustomKnob delaySideVolKnob;

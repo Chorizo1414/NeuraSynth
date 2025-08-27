@@ -9,36 +9,31 @@ filterResonanceKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 
 filterEnvKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 0.0),
 keyButton("KeyButton")
 {
-    // Configuración del Cutoff
+    // El knob de Cutoff tiene una lógica especial (jmap), lo configuramos por separado
     addAndMakeVisible(filterCutoffKnob);
     filterCutoffKnob.setRange(0.0, 1.0); // 0..1 normalizado
-    filterCutoffKnob.onValueChange = [this]()
-        {
-            const double norm = filterCutoffKnob.getValue();                // 0..1
-            const double hz = juce::jmap(norm, 0.0, 1.0, 0.0, 20000.0);   // derecha = 20k
-            audioProcessor.setFilterCutoff(hz);
+    filterCutoffKnob.onValueChange = [this]() {
+        const double hz = juce::jmap(filterCutoffKnob.getValue(), 0.0, 1.0, 20.0, 20000.0);
+        audioProcessor.setFilterCutoff(hz);
         };
-    // <<< INICIAL >>>: a la DERECHA (abierto) y enviado al DSP:
+    filterCutoffKnob.setSkewFactorFromMidPoint(1000.0); // Mapping logarítmico
     filterCutoffKnob.setValue(1.0, juce::sendNotificationSync);
 
-    // Configuración de la Resonancia
-    addAndMakeVisible(filterResonanceKnob);
-    filterResonanceKnob.setRange(0.0, 1.0, 0.0000001);
-    filterResonanceKnob.onValueChange = [this]()
-        {
-            audioProcessor.setFilterResonance(filterResonanceKnob.getValue());
+    // Función auxiliar para los otros knobs
+    auto setupKnob = [&](CustomKnob& knob, float minRange, float maxRange, auto setter) {
+        addAndMakeVisible(knob);
+        knob.setRange(minRange, maxRange);
+        knob.onValueChange = [this, setter, &knob]() {
+            (audioProcessor.*setter)(knob.getValue());
+            };
         };
-    // <<< INICIAL >>>: a la IZQUIERDA (0.0) y enviado al DSP:
-    filterResonanceKnob.setValue(0.0, juce::sendNotificationSync);
 
-    // Configuración de la Cantidad de Envolvente
-    addAndMakeVisible(filterEnvKnob);
-    filterEnvKnob.setRange(0.0, 1.0, 0.01);
-    filterEnvKnob.onValueChange = [this]()
-        {
-            audioProcessor.setFilterEnvAmount(filterEnvKnob.getValue());
-        };
-    // <<< INICIAL >>>: a la IZQUIERDA (0.00) y enviado al DSP:
+    // Aplicamos la configuración a los knobs restantes
+    setupKnob(filterResonanceKnob, 0.1f, 1.0f, &NeuraSynthAudioProcessor::setFilterResonance);
+    setupKnob(filterEnvKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setFilterEnvAmount);
+
+    // Valores iniciales
+    filterResonanceKnob.setValue(0.1, juce::sendNotificationSync);
     filterEnvKnob.setValue(0.0, juce::sendNotificationSync);
 
     // Configuración del botón de Key Tracking

@@ -243,6 +243,15 @@ public:
     void setDrive(float amount);
     void setChorus(bool isOn);
 
+    // --- Setters de Reverb ---
+    void setReverbDryLevel(float level);
+    void setReverbWetLevel(float level);
+    void setReverbRoomSize(float size);
+    void setReverbDamping(float damping);
+    void setReverbPreDelay(float delay);
+    void setReverbDiffusion(float diffusion);
+    void setReverbDecay(float decay);
+
     double getFilterCutoff()   const { return filterCutoffHz; }
     double getFilterQ()        const { return filterQ; }
     double getFilterEnvAmt()   const { return filterEnvAmt; }
@@ -298,6 +307,19 @@ private:
     // Objeto para el efecto de Chorus
     juce::dsp::Chorus<float> chorus;
     
+    // Objeto para el efecto de Reverb
+    juce::dsp::Reverb reverb;
+    juce::Reverb::Parameters reverbParams;
+
+    // --- Componentes para una Reverb "Vintage" ---
+    // Delay para el Pre-Delay
+    juce::dsp::DelayLine<float> preDelay{ 24000 }; // Max 500ms a 48kHz
+    
+    // Filtros para colorear la cola de la reverb
+    using ReverbFilter = juce::dsp::IIR::Filter<float>;
+    using ReverbFilterChain = juce::dsp::ProcessorChain<ReverbFilter, ReverbFilter>;
+    ReverbFilterChain leftReverbFilter, rightReverbFilter;
+
     // El 'spec' guarda información como la frecuencia de muestreo
     juce::dsp::ProcessSpec spec;
 
