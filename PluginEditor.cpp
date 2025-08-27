@@ -23,21 +23,10 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     // Reverb
     reverbSection(p),
 
-    // Delay
-    delayDryKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 1.0),
-    delayCenterVolKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.0),
-    delaySideVolKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.3),
-    delayHPKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.0),
-    delayLPKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.0),
-    delayLeftKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.2),
-    delayCenterKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.5),
-    delayRightKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.7),
-    delayWowKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.5),
-    delayFeedbackKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.4),
-
     // Buttons
     keyButton("KeyButton"),
     masterSection(p),
+    delaySection(p),
     designMouseListener(componentDragger)
 {
     setWantsKeyboardFocus(true);
@@ -213,16 +202,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     addAndMakeVisible(reverbSection);
 
     // --- SECCIÓN DELAY ---
-    addAndMakeVisible(delayDryKnob);
-    addAndMakeVisible(delayCenterVolKnob);
-    addAndMakeVisible(delaySideVolKnob);
-    addAndMakeVisible(delayHPKnob);
-    addAndMakeVisible(delayLPKnob);
-    addAndMakeVisible(delayLeftKnob);
-    addAndMakeVisible(delayCenterKnob);
-    addAndMakeVisible(delayRightKnob);
-    addAndMakeVisible(delayWowKnob);
-    addAndMakeVisible(delayFeedbackKnob);
+    addAndMakeVisible(delaySection);
 
     addAndMakeVisible(keyButton);
     keyButton.setClickingTogglesState(true);
@@ -287,16 +267,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
         reverbSection.addMouseListener(&designMouseListener, true);
 
-        delayDryKnob.addMouseListener(&designMouseListener, true);
-        delayCenterVolKnob.addMouseListener(&designMouseListener, true);
-        delaySideVolKnob.addMouseListener(&designMouseListener, true);
-        delayHPKnob.addMouseListener(&designMouseListener, true);
-        delayLPKnob.addMouseListener(&designMouseListener, true);
-        delayLeftKnob.addMouseListener(&designMouseListener, true);
-        delayCenterKnob.addMouseListener(&designMouseListener, true);
-        delayRightKnob.addMouseListener(&designMouseListener, true);
-        delayWowKnob.addMouseListener(&designMouseListener, true);
-        delayFeedbackKnob.addMouseListener(&designMouseListener, true);
+        delaySection.addMouseListener(&designMouseListener, true);
 
     }
 
@@ -355,16 +326,7 @@ void NeuraSynthAudioProcessorEditor::resized()
     reverbSection.setBounds(-14, 242, 300, 160);
 
     // Sección Delay
-    delayDryKnob.setBounds(-17, 419, 100, 100);
-    delayCenterVolKnob.setBounds(37, 419, 100, 100);
-    delaySideVolKnob.setBounds(88, 419, 100, 100);
-    delayHPKnob.setBounds(139, 419, 100, 100);
-    delayLPKnob.setBounds(191, 419, 100, 100);
-    delayLeftKnob.setBounds(-16, 484, 100, 100);
-    delayCenterKnob.setBounds(36, 484, 100, 100);
-    delayRightKnob.setBounds(89, 484, 100, 100);
-    delayWowKnob.setBounds(140, 484, 100, 100);
-    delayFeedbackKnob.setBounds(189, 484, 100, 100);
+    delaySection.setBounds(0, 419, 300, 165);
 
     // Teclado
     midiKeyboardComponent.setBounds(0, 600, getWidth(), 80);

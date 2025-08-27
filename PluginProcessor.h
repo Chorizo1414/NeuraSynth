@@ -252,6 +252,16 @@ public:
     void setReverbDiffusion(float diffusion);
     void setReverbDecay(float decay);
 
+    // --- Setters de Delay ---
+    void setDelayDry(float level);
+    void setDelayWet(float level);
+    void setDelayTimeLeft(float time);
+    void setDelayTimeRight(float time);
+    void setDelayFeedback(float fb);
+    void setDelayLPFreq(float freq);
+    void setDelayHPFreq(float freq);
+    void setDelayWow(float depth);
+
     double getFilterCutoff()   const { return filterCutoffHz; }
     double getFilterQ()        const { return filterQ; }
     double getFilterEnvAmt()   const { return filterEnvAmt; }
@@ -295,6 +305,16 @@ private:
     float driveAmount = 0.0f;
     bool chorusOn = false;
 
+    // --- Parámetros de Delay ---
+    float delayDry = 1.0f;
+    float delayWet = 0.3f;
+    float delayTimeLeftMs = 200.0f;
+    float delayTimeRightMs = 400.0f;
+    float delayFeedback = 0.4f;
+    float delayLPFreq = 5000.0f;
+    float delayHPFreq = 200.0f;
+    float delayWowDepth = 0.5f;
+
     // --- OBJETOS DSP PARA EFECTOS MASTER ---
     // Usamos una "cadena de procesadores" para los filtros de tono.
     // Tendremos un filtro Low-Shelf (Dark) y un High-Shelf (Bright).
@@ -320,6 +340,14 @@ private:
     using ReverbFilterChain = juce::dsp::ProcessorChain<ReverbFilter, ReverbFilter>;
     ReverbFilterChain leftReverbFilter, rightReverbFilter;
 
+    // --- Componentes para el Delay ---
+    juce::dsp::DelayLine<float> leftDelay{ 48000 * 2 }; // Max 2 segundos
+    juce::dsp::DelayLine<float> rightDelay{ 48000 * 2 };
+    using DelayFilter = juce::dsp::IIR::Filter<float>;
+    using DelayFilterChain = juce::dsp::ProcessorChain<DelayFilter, DelayFilter>;
+    DelayFilterChain leftFeedbackFilter, rightFeedbackFilter;
+    juce::dsp::Oscillator<float> lfo{ [](float x) { return std::sin(x); } }; // "Wow" LFO
+    
     // El 'spec' guarda información como la frecuencia de muestreo
     juce::dsp::ProcessSpec spec;
 

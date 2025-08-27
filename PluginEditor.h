@@ -8,6 +8,7 @@
 #include "ModulationComponent.h"
 #include "MasterSectionComponent.h"
 #include "ReverbComponent.h"
+#include "DelayComponent.h"
 
 class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -42,17 +43,8 @@ private:
     ModulationComponent modulationComp;
     MasterSectionComponent masterSection;
     ReverbComponent reverbSection;
+    DelayComponent delaySection;
 
-    CustomKnob delayDryKnob;
-    CustomKnob delayCenterVolKnob;
-    CustomKnob delaySideVolKnob;
-    CustomKnob delayHPKnob;
-    CustomKnob delayLPKnob;
-    CustomKnob delayLeftKnob;
-    CustomKnob delayCenterKnob;
-    CustomKnob delayRightKnob;
-    CustomKnob delayWowKnob;
-    CustomKnob delayFeedbackKnob;
     juce::ImageButton keyButton;
     juce::MidiKeyboardComponent midiKeyboardComponent{ audioProcessor.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard };
 
