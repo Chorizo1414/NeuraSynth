@@ -26,26 +26,24 @@ DelayComponent::DelayComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
     setupKnob(dryKnob, &NeuraSynthAudioProcessor::setDelayDry);
     setupKnob(centerVolKnob, &NeuraSynthAudioProcessor::setDelayWet);
 
-    // sideVolKnob no se usa por ahora
+    setupKnob(sideVolKnob, &NeuraSynthAudioProcessor::setDelaySide);
     setupKnob(hpKnob, &NeuraSynthAudioProcessor::setDelayHPFreq);
     setupKnob(lpKnob, &NeuraSynthAudioProcessor::setDelayLPFreq);
     setupKnob(leftKnob, &NeuraSynthAudioProcessor::setDelayTimeLeft);
 
-    // centerKnob no se usa por ahora
+    setupKnob(centerKnob, &NeuraSynthAudioProcessor::setDelayTimeCenter);
     setupKnob(rightKnob, &NeuraSynthAudioProcessor::setDelayTimeRight);
     setupKnob(wowKnob, &NeuraSynthAudioProcessor::setDelayWow);
     setupKnob(feedbackKnob, &NeuraSynthAudioProcessor::setDelayFeedback);
     
-    // Hacemos visibles los knobs que no se usan para que no desaparezcan
-    addAndMakeVisible(sideVolKnob);
-    addAndMakeVisible(centerKnob);
-    
     // Asignamos valores iniciales para que el DSP y la UI estén sincronizados
     dryKnob.setValue(1.0, juce::sendNotificationSync);
     centerVolKnob.setValue(0.3, juce::sendNotificationSync);
+    sideVolKnob.setValue(0.3, juce::sendNotificationSync);
     hpKnob.setValue(0.0, juce::sendNotificationSync);
     lpKnob.setValue(1.0, juce::sendNotificationSync);
     leftKnob.setValue(0.2, juce::sendNotificationSync);
+    centerKnob.setValue(0.3, juce::sendNotificationSync);
     rightKnob.setValue(0.4, juce::sendNotificationSync);
     wowKnob.setValue(0.5, juce::sendNotificationSync);
     feedbackKnob.setValue(0.4, juce::sendNotificationSync);

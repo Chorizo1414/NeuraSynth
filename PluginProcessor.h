@@ -255,7 +255,9 @@ public:
     // --- Setters de Delay ---
     void setDelayDry(float level);
     void setDelayWet(float level);
+    void setDelaySide(float level);
     void setDelayTimeLeft(float time);
+    void setDelayTimeCenter(float time);
     void setDelayTimeRight(float time);
     void setDelayFeedback(float fb);
     void setDelayLPFreq(float freq);
@@ -308,7 +310,10 @@ private:
     // --- Parámetros de Delay ---
     float delayDry = 1.0f;
     float delayWet = 0.3f;
+    float delayGainCenter = 0.3f;
+    float delayGainSide = 0.3f;
     float delayTimeLeftMs = 200.0f;
+    float delayTimeCenterMs = 300.0f;
     float delayTimeRightMs = 400.0f;
     float delayFeedback = 0.4f;
     float delayLPFreq = 5000.0f;
@@ -342,6 +347,7 @@ private:
 
     // --- Componentes para el Delay ---
     juce::dsp::DelayLine<float> leftDelay{ 48000 * 2 }; // Max 2 segundos
+    juce::dsp::DelayLine<float> centerDelay{ 48000 * 2 };
     juce::dsp::DelayLine<float> rightDelay{ 48000 * 2 };
     using DelayFilter = juce::dsp::IIR::Filter<float>;
     using DelayFilterChain = juce::dsp::ProcessorChain<DelayFilter, DelayFilter>;

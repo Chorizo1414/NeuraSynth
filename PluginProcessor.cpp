@@ -234,6 +234,7 @@ void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     
     // Preparamos los componentes del Delay
     leftDelay.prepare(spec);
+    centerDelay.prepare(spec);
     rightDelay.prepare(spec);
     leftFeedbackFilter.prepare(spec);
     rightFeedbackFilter.prepare(spec);
@@ -290,44 +291,53 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::dsp::ProcessContextReplacing<float> chorusContext(block);
     chorus.process(chorusContext); // <-- Usamos el 'chorusContext', no el 'block' directamente.
 
-    // --- 4. PROCESADO DE DELAY (SEMI-PARALELO CON FEEDBACK) ---
+    // --- 4. PROCESADO DE DELAY MULTI-TAP ---
     juce::AudioBuffer<float> delayInputBuffer;
     delayInputBuffer.makeCopyOf(buffer);
-    
     auto * leftChannel = buffer.getWritePointer(0);
     auto * rightChannel = buffer.getWritePointer(1);
     auto * leftDelayInput = delayInputBuffer.getReadPointer(0);
     auto * rightDelayInput = delayInputBuffer.getReadPointer(1);
     
-       for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-       {
-           // Efecto Wow: modular el tiempo de delay con el LFO
-           float lfoSample = lfo.processSample(0.0f);
-           float wowEffect = lfoSample * delayWowDepth * 5.0f; // 5.0 = sensibilidad
-           leftDelay.setDelay((delayTimeLeftMs + wowEffect) * getSampleRate() / 1000.0f);
-           rightDelay.setDelay((delayTimeRightMs + wowEffect) * getSampleRate() / 1000.0f);
+    for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+    {
+        // 1. Efecto "Wow" (modulación de tiempo)
+        float lfoSample = lfo.processSample(0.0f);
+        float wowEffect = lfoSample * delayWowDepth * 5.0f;
+        // Sujetamos el tiempo total (base + wow) para que esté siempre en un rango seguro [0ms, 2000ms]
+        const float maxDelayTimeMs = 2000.0f;
+        float totalTimeLeftMs = juce::jlimit(0.0f, maxDelayTimeMs, delayTimeLeftMs + wowEffect);
+        float totalTimeCenterMs = juce::jlimit(0.0f, maxDelayTimeMs, delayTimeCenterMs + wowEffect);
+        float totalTimeRightMs = juce::jlimit(0.0f, maxDelayTimeMs, delayTimeRightMs + wowEffect);
         
-           // Leer la salida del delay
-           float leftDelayed = leftDelay.popSample(0);
-           float rightDelayed = rightDelay.popSample(1);
+        leftDelay.setDelay(totalTimeLeftMs * getSampleRate() / 1000.0f);
+        centerDelay.setDelay(totalTimeCenterMs * getSampleRate() / 1000.0f);
+        rightDelay.setDelay(totalTimeRightMs * getSampleRate() / 1000.0f);
         
-           // Señal de feedback: entrada actual + salida con feedback
-           float leftFeedback = leftDelayInput[sample] + leftDelayed * delayFeedback;
-           float rightFeedback = rightDelayInput[sample] + rightDelayed * delayFeedback;
+        // 2. Leer la salida de cada línea de delay
+        float leftDelayed = leftDelay.popSample(0);
+        float centerDelayed = centerDelay.popSample(0);
+        float rightDelayed = rightDelay.popSample(1);
         
-           // Filtrar la señal de feedback
-           // Procesamos la muestra a través de cada filtro de la cadena, uno por uno
-           float leftFilteredFb = leftFeedbackFilter.get<1>().processSample(leftFeedbackFilter.get<0>().processSample(leftFeedback));
-           float rightFilteredFb = rightFeedbackFilter.get<1>().processSample(rightFeedbackFilter.get<0>().processSample(rightFeedback));
+        // 3. Crear la señal de feedback (mezcla mono de la entrada + la salida del delay)
+        float inputMono = (leftDelayInput[sample] + rightDelayInput[sample]) * 0.5f;
+        float delayedMono = (leftDelayed + centerDelayed + rightDelayed) * 0.33f;
+        float feedbackSignal = inputMono + delayedMono * delayFeedback;
         
-           // Escribir la señal de feedback de vuelta en el delay
-           leftDelay.pushSample(0, leftFilteredFb);
-           rightDelay.pushSample(1, rightFilteredFb);
+        // 4. Filtrar la señal de feedback y enviarla de vuelta a las 3 líneas
+        float filteredFeedback = rightFeedbackFilter.get<1>().processSample(rightFeedbackFilter.get<0>().processSample(feedbackSignal));
+        leftDelay.pushSample(0, filteredFeedback);
+        centerDelay.pushSample(0, filteredFeedback);
+        rightDelay.pushSample(1, filteredFeedback);
         
-           // Mezcla final: Dry (entrada original) + Wet (salida del delay)
-           leftChannel[sample] = leftDelayInput[sample] * delayDry + leftDelayed * delayWet;
-           rightChannel[sample] = rightDelayInput[sample] * delayDry + rightDelayed * delayWet;
-       }
+        // 5. Mezcla de salida final
+        // La salida "Center" va a ambos canales. Las "Side" solo al suyo.
+        float wetSignalLeft = (leftDelayed * delayGainSide) + (centerDelayed * delayGainCenter);
+        float wetSignalRight = (rightDelayed * delayGainSide) + (centerDelayed * delayGainCenter);
+        
+        leftChannel[sample] = leftDelayInput[sample] * delayDry + wetSignalLeft;
+        rightChannel[sample] = rightDelayInput[sample] * delayDry + wetSignalRight;
+    }
 
     // --- 5. PROCESADO DE REVERB (EN PARALELO) ---
     // Creamos un buffer separado para la señal "wet" (procesada)
@@ -488,8 +498,10 @@ void NeuraSynthAudioProcessor::setReverbDecay(float decay)
 
 // --- Setters de Delay ---
 void NeuraSynthAudioProcessor::setDelayDry(float level) { delayDry = level; }
-void NeuraSynthAudioProcessor::setDelayWet(float level) { delayWet = level; }
+void NeuraSynthAudioProcessor::setDelayWet(float level) { delayGainCenter = level; } // Center Vol
+void NeuraSynthAudioProcessor::setDelaySide(float level) { delayGainSide = level; } // Side Vol
 void NeuraSynthAudioProcessor::setDelayTimeLeft(float time) { delayTimeLeftMs = juce::jmap(time, 0.0f, 1.0f, 0.0f, 2000.0f); }
+void NeuraSynthAudioProcessor::setDelayTimeCenter(float time) { delayTimeCenterMs = juce::jmap(time, 0.0f, 1.0f, 0.0f, 2000.0f); }
 void NeuraSynthAudioProcessor::setDelayTimeRight(float time) { delayTimeRightMs = juce::jmap(time, 0.0f, 1.0f, 0.0f, 2000.0f); }
 void NeuraSynthAudioProcessor::setDelayFeedback(float fb) { delayFeedback = juce::jlimit(0.0f, 0.98f, fb); } // Evitar auto-oscilación
 
