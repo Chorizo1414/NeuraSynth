@@ -56,7 +56,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
             osc.pitchKnob.setValue(0.0);
 
             // Detune: 0 (centro) en un rango de -25 a 25 cents
-            osc.detuneKnob.setRange(-25.0, 25.0); // Rango bipolar para que 0 sea el centro
+            osc.detuneKnob.setRange(-100.0, 100.0); // Rango bipolar para que 0 sea el centro
             osc.detuneKnob.setValue(0.0);
 
             // Pan (L/R): 0.5 (centro)

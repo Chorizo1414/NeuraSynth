@@ -111,10 +111,15 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         // Convertimos la modulación de semitonos a un factor de frecuencia
         double lfoPitchFactor = std::pow(2.0, pitchModulation / 12.0);
 
+        // Convertimos el Detune en cents a un factor de frecuencia
+        double detuneFactor1 = std::pow(2.0, *detuneOsc1 / 1200.0);
+        double detuneFactor2 = std::pow(2.0, *detuneOsc2 / 1200.0);
+        double detuneFactor3 = std::pow(2.0, *detuneOsc3 / 1200.0);
+
         // Frecuencias base de cada oscilador (¡AHORA USAN 'currentFrequency'!)
-        double baseFreq1 = currentFrequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor;
-        double baseFreq2 = currentFrequency * std::pow(2.0, *pitchShift2) * lfoPitchFactor;
-        double baseFreq3 = currentFrequency * std::pow(2.0, *pitchShift3) * lfoPitchFactor;
+        double baseFreq1 = currentFrequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor * detuneFactor1;
+        double baseFreq2 = currentFrequency * std::pow(2.0, *pitchShift2) * lfoPitchFactor * detuneFactor2;
+        double baseFreq3 = currentFrequency * std::pow(2.0, *pitchShift3) * lfoPitchFactor * detuneFactor3;
 
         // Aplicamos la modulación a cada uno
         double modulatedFreq1 = baseFreq1 + modulationDepth;
