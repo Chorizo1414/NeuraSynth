@@ -39,9 +39,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
     auto setupOscillatorKnobs = [](OscillatorComponent& osc)
         {
-            // Spread: 0.0 (izquierda)
-            osc.spreadKnob.setRange(0.0, 1.0);
-            osc.spreadKnob.setValue(0.0);
 
             // Octave: 0 (centro) en un rango de -2 a 2
             osc.octKnob.setRange(-2.0, 2.0, 1.0);
@@ -54,10 +51,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
             // Pitch: 0 (centro) en un rango de -12 a 12 semitonos
             osc.pitchKnob.setRange(-12.0, 12.0, 1.0);
             osc.pitchKnob.setValue(0.0);
-
-            // Detune: 0 (centro) en un rango de -25 a 25 cents
-            osc.detuneKnob.setRange(-100.0, 100.0); // Rango bipolar para que 0 sea el centro
-            osc.detuneKnob.setValue(0.0);
 
             // Pan (L/R): 0.5 (centro)
             osc.panKnob.setRange(0.0, 1.0);
@@ -86,8 +79,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     osc1.octKnob.onValueChange = [this]() { audioProcessor.setOsc1Octave(static_cast<int>(osc1.octKnob.getValue())); };
     osc1.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc1Pitch(static_cast<int>(osc1.pitchKnob.getValue())); };
     osc1.fineKnob.onValueChange = [this]() { audioProcessor.setOsc1FineTune(osc1.fineKnob.getValue()); };
-    osc1.detuneKnob.onValueChange = [this]() { audioProcessor.setOsc1Detune(osc1.detuneKnob.getValue()); };
-    osc1.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc1Spread(osc1.spreadKnob.getValue()); };
     osc1.positionKnob.onValueChange = [this]() {
         float newPosition = osc1.positionKnob.getValue();
         audioProcessor.setWavePosition1(newPosition); // <-- CORREGIDO
@@ -104,8 +95,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     osc2.octKnob.onValueChange = [this]() { audioProcessor.setOsc2Octave(static_cast<int>(osc2.octKnob.getValue())); };
     osc2.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc2Pitch(static_cast<int>(osc2.pitchKnob.getValue())); };
     osc2.fineKnob.onValueChange = [this]() { audioProcessor.setOsc2FineTune(osc2.fineKnob.getValue()); };
-    osc2.detuneKnob.onValueChange = [this]() { audioProcessor.setOsc2Detune(osc2.detuneKnob.getValue()); };
-    osc2.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc2Spread(osc2.spreadKnob.getValue()); };
     osc2.positionKnob.onValueChange = [this]() {
         float newPosition = osc2.positionKnob.getValue();
         audioProcessor.setWavePosition2(newPosition); // <-- CORREGIDO
@@ -123,8 +112,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     osc3.octKnob.onValueChange = [this]() { audioProcessor.setOsc3Octave(static_cast<int>(osc3.octKnob.getValue())); };
     osc3.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc3Pitch(static_cast<int>(osc3.pitchKnob.getValue())); };
     osc3.fineKnob.onValueChange = [this]() { audioProcessor.setOsc3FineTune(osc3.fineKnob.getValue()); };
-    osc3.detuneKnob.onValueChange = [this]() { audioProcessor.setOsc3Detune(osc3.detuneKnob.getValue()); };
-    osc3.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc3Spread(osc3.spreadKnob.getValue()); };
     osc3.positionKnob.onValueChange = [this]() {
         float newPosition = osc3.positionKnob.getValue();
         audioProcessor.setWavePosition3(newPosition);
@@ -136,6 +123,17 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     osc1.oscSection.loadWavetablesFromFolder(waveFolderPath);
     osc2.oscSection.loadWavetablesFromFolder(waveFolderPath);
     osc3.oscSection.loadWavetablesFromFolder(waveFolderPath);
+
+    // --- SECCIÓN UNISON ---
+    addAndMakeVisible(unisonComp1);
+    addAndMakeVisible(unisonComp2);
+    addAndMakeVisible(unisonComp3);
+    
+    // Conexión de Callbacks para el Unison del Oscilador 1
+    unisonComp1.onVoicesChanged = [this](int voices) { audioProcessor.setOsc1UnisonVoices(voices); };
+    unisonComp1.onDetuneChanged = [this](float detune) { audioProcessor.setOsc1UnisonDetune(detune); };
+    unisonComp1.onBalanceChanged = [this](float balance) { audioProcessor.setOsc1UnisonBalance(balance); };
+    // (Los callbacks para unison 2 y 3 se añadirán cuando el procesador los soporte)
 
     // Agregar y configurar controles de master
     addAndMakeVisible(masterSection);
@@ -297,6 +295,13 @@ void NeuraSynthAudioProcessorEditor::resized()
 {
     const int oscComponentWidth = 430;
     const int oscComponentHeight = 220;
+
+    // --- Componentes de Unison (a la izquierda de cada oscilador) ---
+    const int unisonWidth = 180; // Aumentamos el ancho para que quepan los 3 controles
+    const int unisonHeight = 45;
+    unisonComp1.setBounds(220, 29, unisonWidth, unisonHeight);
+    unisonComp2.setBounds(220, 220, unisonWidth, unisonHeight);
+    unisonComp3.setBounds(220, 418, unisonWidth, unisonHeight);
 
     osc1.setBounds(403, 8, oscComponentWidth, oscComponentHeight);
     osc2.setBounds(403, 199, oscComponentWidth, oscComponentHeight);

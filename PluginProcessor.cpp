@@ -8,7 +8,7 @@ double SynthVoice::lastNoteFrequency = 0.0;
 
 // DEFINICIÓN de setParameters(...) (va en el .cpp, no en el .h)
 void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
-    int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, double* detune1,
+    int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, int* unisonVoices1, float* unisonDetune1, float* unisonBalance1,
     int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
     int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
     double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr,
@@ -18,9 +18,13 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
 
     numFrames1 = nf1; numFrames2 = nf2; numFrames3 = nf3;
 
-    wt1 = wavetable1; wavePosition1 = wavePos1; oscGain1 = gain1; pitchShift1 = pitch1; panOsc1 = pan1; spreadOsc1 = spread1; detuneOsc1 = detune1;
+    wt1 = wavetable1; wavePosition1 = wavePos1; oscGain1 = gain1; pitchShift1 = pitch1; panOsc1 = pan1; spreadOsc1 = spread1;
     wt2 = wavetable2; wavePosition2 = wavePos2; oscGain2 = gain2; pitchShift2 = pitch2; panOsc2 = pan2; spreadOsc2 = spread2; detuneOsc2 = detune2;
     wt3 = wavetable3; wavePosition3 = wavePos3; oscGain3 = gain3; pitchShift3 = pitch3; panOsc3 = pan3; spreadOsc3 = spread3; detuneOsc3 = detune3;
+
+    pUnisonVoices1 = unisonVoices1;
+    pUnisonDetune1 = unisonDetune1;
+    pUnisonBalance1 = unisonBalance1;
 
     pCutoff = cutoffHzPtr;
     pQ = qPtr;
@@ -112,22 +116,19 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         double lfoPitchFactor = std::pow(2.0, pitchModulation / 12.0);
 
         // Convertimos el Detune en cents a un factor de frecuencia
-        double detuneFactor1 = std::pow(2.0, *detuneOsc1 / 1200.0);
         double detuneFactor2 = std::pow(2.0, *detuneOsc2 / 1200.0);
         double detuneFactor3 = std::pow(2.0, *detuneOsc3 / 1200.0);
 
         // Frecuencias base de cada oscilador (¡AHORA USAN 'currentFrequency'!)
-        double baseFreq1 = currentFrequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor * detuneFactor1;
+        double baseFreq1 = currentFrequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor;
         double baseFreq2 = currentFrequency * std::pow(2.0, *pitchShift2) * lfoPitchFactor * detuneFactor2;
         double baseFreq3 = currentFrequency * std::pow(2.0, *pitchShift3) * lfoPitchFactor * detuneFactor3;
 
         // Aplicamos la modulación a cada uno
-        double modulatedFreq1 = baseFreq1 + modulationDepth;
         double modulatedFreq2 = baseFreq2 + modulationDepth;
         double modulatedFreq3 = baseFreq3 + modulationDepth;
 
         // Calculamos los incrementos DENTRO del bucle
-        double increment1 = (wt1 && modulatedFreq1 > 0) ? (modulatedFreq1 / getSampleRate()) * 2048.0 : 0.0;
         double increment2 = (wt2 && modulatedFreq2 > 0) ? (modulatedFreq2 / getSampleRate()) * 2048.0 : 0.0;
         double increment3 = (wt3 && modulatedFreq3 > 0) ? (modulatedFreq3 / getSampleRate()) * 2048.0 : 0.0;
 
@@ -150,8 +151,41 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
             return { voiceSample * std::cos(panAngle) * gain, voiceSample * std::sin(panAngle) * gain };
             };
 
-        auto osc1_out = getOscSample(wt1, *numFrames1, *wavePosition1, unisonVoices[0].readPosOsc1, increment1, *oscGain1, *panOsc1);
-        finalLeft += osc1_out.first; finalRight += osc1_out.second;
+        // --- NUEVA LÓGICA DE RENDER PARA OSCILADOR 1 CON UNISON ---
+        const int numVoices = *pUnisonVoices1;
+        float totalGainOsc1 = *oscGain1 / std::sqrt((float)numVoices); // Compensación de ganancia
+        
+        for (int i = 0; i < numVoices; ++i)
+        {
+            // Calcular detune y pan para esta voz de unison
+            float detuneCents = 0.0f;
+            float pan = *panOsc1;
+            
+            if (numVoices > 1)
+                {
+                // Mapear el índice de la voz a un rango de -1 a 1 (bipolar)
+                float bipolarSpread = juce::jmap((float)i, 0.0f, (float)numVoices - 1.0f, -1.0f, 1.0f);
+               
+                // El balance (-1 a 1) desplaza el centro del detune
+                float balance = *pUnisonBalance1;
+                float voicePosition = bipolarSpread + balance;
+                voicePosition = juce::jlimit(-1.0f, 1.0f, voicePosition - (bipolarSpread * balance));
+                
+                    // Detune: el máximo detune es de +/- 50 cents (un cuarto de tono)
+                    detuneCents = voicePosition * (*pUnisonDetune1) * 50.0f;
+                
+                    // Pan: esparce las voces en el campo estéreo
+                    pan = juce::jlimit(0.0f, 1.0f, *panOsc1 + voicePosition * 0.4f);
+                }
+            
+            double detuneFactor = std::pow(2.0, detuneCents / 1200.0);
+            double modulatedFreq1 = (baseFreq1 * detuneFactor) + modulationDepth;
+            double increment1 = (wt1 && modulatedFreq1 > 0) ? (modulatedFreq1 / getSampleRate()) * 2048.0 : 0.0;
+            
+            auto osc1_out = getOscSample(wt1, *numFrames1, *wavePosition1, unisonVoices[i].readPosOsc1, increment1, totalGainOsc1, pan);
+            finalLeft += osc1_out.first;
+            finalRight += osc1_out.second;
+        }
 
         auto osc2_out = getOscSample(wt2, *numFrames2, *wavePosition2, unisonVoices[0].readPosOsc2, increment2, *oscGain2, *panOsc2);
         finalLeft += osc2_out.first; finalRight += osc2_out.second;
@@ -368,7 +402,7 @@ void NeuraSynthAudioProcessor::updateAllVoices()
     for (int i = 0; i < synth.getNumVoices(); ++i)
         if (auto* voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
             voice->setParameters(adsrParams,
-                &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1DetuneCents,
+                &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1UnisonVoices, &osc1UnisonDetune, &osc1UnisonBalance,
                 &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
                 &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
                 &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount, &glideSeconds, getSampleRate()
@@ -396,9 +430,13 @@ void NeuraSynthAudioProcessor::setOsc1Gain(float g) { osc1Gain = g; }
 void NeuraSynthAudioProcessor::setOsc1Octave(int v) { osc1Octave = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc1Pitch(int v) { osc1PitchSemitones = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc1FineTune(double v) { osc1FineTuneCents = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc1Detune(double d) { osc1DetuneCents = d; updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc1Spread(float s) { osc1Spread = s; updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc1Pan(float p) { osc1Pan = p; updateAllVoices(); }
+
+// --- Setters de Unison (para OSC 1) ---
+void NeuraSynthAudioProcessor::setOsc1UnisonVoices(int numVoices) { osc1UnisonVoices = numVoices; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc1UnisonDetune(float amount) { osc1UnisonDetune = amount; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc1UnisonBalance(float balance) { osc1UnisonBalance = balance; updateAllVoices(); }
 
 // --- Setters Oscilador 2 ---
 void NeuraSynthAudioProcessor::setOsc2Gain(float g) { osc2Gain = g; }

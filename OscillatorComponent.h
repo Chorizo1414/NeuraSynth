@@ -20,8 +20,6 @@ public:
     CustomKnob octKnob;
     CustomKnob fineKnob;
     CustomKnob pitchKnob;
-    CustomKnob detuneKnob;
-    CustomKnob spreadKnob;
     CustomKnob panKnob;
     CustomKnob positionKnob;
     CustomKnob gainKnob;

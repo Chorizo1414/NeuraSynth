@@ -9,6 +9,7 @@
 #include "MasterSectionComponent.h"
 #include "ReverbComponent.h"
 #include "DelayComponent.h"
+#include "UnisonComponent.h"
 
 class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -28,6 +29,11 @@ private:
     OscillatorComponent osc1;
     OscillatorComponent osc2;
     OscillatorComponent osc3;
+
+    // --- Componentes de Unison ---
+    UnisonComponent unisonComp1;
+    UnisonComponent unisonComp2;
+    UnisonComponent unisonComp3;
 
     // --- Resto de Componentes de la UI ---
     CustomKnob filterCutoffKnob;
