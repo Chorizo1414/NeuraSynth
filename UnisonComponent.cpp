@@ -1,57 +1,86 @@
 // UnisonComponent.cpp
 #include "UnisonComponent.h"
- 
+
+// --- Implementación del Visualizador ---
+void UnisonComponent::UnisonVisualizer::paint(juce::Graphics & g)
+{
+   g.fillAll(juce::Colours::black.withAlpha(0.5f));
+   g.setColour(juce::Colours::white.withAlpha(0.7f));
+   g.drawRect(getLocalBounds(), 1.0f);
+    
+   if (voices <= 0) return;
+    
+   const float barWidth = 4.0f;
+   const float maxSpread = getWidth() * 0.8f; // Las barras ocuparán hasta el 80% del ancho
+    
+   g.setColour(juce::Colours::deepskyblue);
+    
+   for (int i = 0; i < voices; ++i)
+   {
+        float voicePosition = 0.0f;
+        if (voices > 1)
+            voicePosition = juce::jmap((float)i, 0.0f, (float)voices - 1.0f, -1.0f, 1.0f);
+        
+        float horizontalOffset = voicePosition * detune * (maxSpread / 2.0f);
+        float x = (float)getWidth() / 2.0f + horizontalOffset - (barWidth / 2.0f);
+        
+        juce::Rectangle<float> bar(x, 2.0f, barWidth, (float)getHeight() - 4.0f);
+        g.fillRect(bar);
+   }
+}
+
+void UnisonComponent::UnisonVisualizer::setUnisonData(int numVoices, float detuneAmount)
+{
+   voices = numVoices;
+   detune = detuneAmount;
+   repaint();
+}
+
 UnisonComponent::UnisonComponent()
 {
-    // --- Configuración del ComboBox de Voces ---
-    addAndMakeVisible(voiceCountBox);
-    for (int i = 1; i <= 16; ++i)
-        voiceCountBox.addItem(juce::String(i), i);
-
-    voiceCountBox.setSelectedId(1, juce::dontSendNotification);
-    voiceCountBox.onChange = [this]
-    {
+    // --- Voces ---
+    addAndMakeVisible(voicesControl);
+    voicesControl.setRange(1, 16, 1);
+    voicesControl.setValue(1.0);
+    voicesControl.onValueChange = [this](double newValue) {
         if (onVoicesChanged)
-            onVoicesChanged(voiceCountBox.getSelectedId());
-    };
+            onVoicesChanged(static_cast<int>(newValue));
+        visualizer.setUnisonData(static_cast<int>(newValue), detuneControl.getValue() / 100.0);
+        };
 
-    // --- Configuración del Slider de Detune ---
-    addAndMakeVisible(detuneAmountSlider);
-    detuneAmountSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    detuneAmountSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    detuneAmountSlider.setRange(0.0, 1.0, 0.01);
-    detuneAmountSlider.setValue(0.2, juce::dontSendNotification);
-
-    detuneAmountSlider.onValueChange = [this]
-    {
-        if (onDetuneChanged)
-            onDetuneChanged(detuneAmountSlider.getValue());
-    };
-
-    // --- Configuración del Slider de Balance ---
-    addAndMakeVisible(detuneBalanceSlider);
-    detuneBalanceSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    detuneBalanceSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    detuneBalanceSlider.setRange(-1.0, 1.0, 0.01);
-    detuneBalanceSlider.setValue(0.0, juce::dontSendNotification);
-    detuneBalanceSlider.onValueChange = [this]
-    {
+    // --- Balance ---
+    addAndMakeVisible(balanceControl);
+    balanceControl.setRange(-1.0, 1.0, 0.01);
+    balanceControl.setValue(0.0);
+    balanceControl.onValueChange = [this](double newValue) {
         if (onBalanceChanged)
-            onBalanceChanged(detuneBalanceSlider.getValue());
-    };
+            onBalanceChanged(newValue);
+        };
+
+    // --- Detune ---
+    addAndMakeVisible(detuneControl);
+    detuneControl.setRange(0, 100, 1); // Rango de 0 a 100%
+    detuneControl.setValue(20.0);
+    detuneControl.onValueChange = [this](double newValue) {
+        if (onDetuneChanged)
+            onDetuneChanged(newValue / 100.0); // Convertir de 0-100 a 0-1 para el procesador
+        visualizer.setUnisonData(voicesControl.getValue(), newValue / 100.0);
+        };
 
     // --- Etiquetas ---
     addAndMakeVisible(voicesLabel);
-    voicesLabel.setText("Voices", juce::dontSendNotification);
     voicesLabel.setJustificationType(juce::Justification::centred);
 
     addAndMakeVisible(detuneLabel);
-    detuneLabel.setText("Detune", juce::dontSendNotification);
     detuneLabel.setJustificationType(juce::Justification::centred);
 
     addAndMakeVisible(balanceLabel);
-    balanceLabel.setText("Balance", juce::dontSendNotification);
     balanceLabel.setJustificationType(juce::Justification::centred);
+
+    // --- Visualizador ---
+    addAndMakeVisible(visualizer);
+    // Actualización inicial
+    visualizer.setUnisonData(voicesControl.getValue(), detuneControl.getValue() / 100.0);
 }
 
 UnisonComponent::~UnisonComponent() {}
@@ -59,50 +88,24 @@ UnisonComponent::~UnisonComponent() {}
 void UnisonComponent::resized()
 {
     auto bounds = getLocalBounds();
+    auto controlsArea = bounds.removeFromTop(bounds.getHeight() * 0.6f);
+    auto visualizerArea = bounds;
     
-    const int controlWidth = bounds.getWidth() / 3;
+    auto labelBounds = controlsArea.removeFromTop(15);
+    const int controlWidth = controlsArea.getWidth() / 3;
     
     // Área para "Voices"
-    auto voicesArea = bounds.removeFromLeft(controlWidth).reduced(2);
-    voicesLabel.setBounds(voicesArea.removeFromTop(15));
-    voiceCountBox.setBounds(voicesArea);
+    voicesLabel.setBounds(labelBounds.removeFromLeft(controlWidth));
+    voicesControl.setBounds(controlsArea.removeFromLeft(controlWidth).reduced(2));
     
     // Área para "Balance"
-    auto balanceArea = bounds.removeFromLeft(controlWidth).reduced(2);
-    balanceLabel.setBounds(balanceArea.removeFromTop(15));
-    detuneBalanceSlider.setBounds(balanceArea);
+    balanceLabel.setBounds(labelBounds.removeFromLeft(controlWidth));
+    balanceControl.setBounds(controlsArea.removeFromLeft(controlWidth).reduced(2));
 
     // Área para "Detune"
-    auto detuneArea = bounds.reduced(2);
-    detuneLabel.setBounds(detuneArea.removeFromTop(15));
-    detuneAmountSlider.setBounds(detuneArea);
-}
-
-void UnisonComponent::mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel)
-{
-    // Comprobamos sobre qué componente se hizo el scroll
-    if (voiceCountBox.isMouseOver())
-    {
-        int currentId = voiceCountBox.getSelectedId();
-        int newId = currentId + (wheel.deltaY > 0 ? 1 : -1);
-        newId = juce::jlimit(1, 16, newId);
-        voiceCountBox.setSelectedId(newId);
-    }
-    else if (detuneAmountSlider.isMouseOver())
-    {
-        double currentValue = detuneAmountSlider.getValue();
-        double newValue = currentValue + (wheel.deltaY > 0 ? 0.05 : -0.05);
-        detuneAmountSlider.setValue(newValue, juce::sendNotificationSync);
-    }
-    else if (detuneBalanceSlider.isMouseOver())
-    {
-        double currentValue = detuneBalanceSlider.getValue();
-        double newValue = currentValue + (wheel.deltaY > 0 ? 0.05 : -0.05);
-        detuneBalanceSlider.setValue(newValue, juce::sendNotificationSync);
-    }
-    else
-    {
-           // Si no está sobre ninguno en particular, que no haga nada
-           Component::mouseWheelMove(event, wheel);
-    }
+    detuneLabel.setBounds(labelBounds);
+    detuneControl.setBounds(controlsArea.reduced(2));
+    
+    // Área para el Visualizador
+    visualizer.setBounds(visualizerArea.reduced(5, 0));
 }

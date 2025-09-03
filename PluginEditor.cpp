@@ -52,6 +52,10 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
             osc.pitchKnob.setRange(-12.0, 12.0, 1.0);
             osc.pitchKnob.setValue(0.0);
 
+            // Spread: 0.0 (mono) a 0.5 (ancho completo)
+            osc.spreadKnob.setRange(0.0, 0.5);
+            osc.spreadKnob.setValue(0.0);
+
             // Pan (L/R): 0.5 (centro)
             osc.panKnob.setRange(0.0, 1.0);
             osc.panKnob.setValue(0.5);
@@ -79,6 +83,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     osc1.octKnob.onValueChange = [this]() { audioProcessor.setOsc1Octave(static_cast<int>(osc1.octKnob.getValue())); };
     osc1.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc1Pitch(static_cast<int>(osc1.pitchKnob.getValue())); };
     osc1.fineKnob.onValueChange = [this]() { audioProcessor.setOsc1FineTune(osc1.fineKnob.getValue()); };
+    osc1.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc1Spread(osc1.spreadKnob.getValue()); };
     osc1.positionKnob.onValueChange = [this]() {
         float newPosition = osc1.positionKnob.getValue();
         audioProcessor.setWavePosition1(newPosition); // <-- CORREGIDO
@@ -95,6 +100,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     osc2.octKnob.onValueChange = [this]() { audioProcessor.setOsc2Octave(static_cast<int>(osc2.octKnob.getValue())); };
     osc2.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc2Pitch(static_cast<int>(osc2.pitchKnob.getValue())); };
     osc2.fineKnob.onValueChange = [this]() { audioProcessor.setOsc2FineTune(osc2.fineKnob.getValue()); };
+    osc2.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc2Spread(osc2.spreadKnob.getValue()); };
     osc2.positionKnob.onValueChange = [this]() {
         float newPosition = osc2.positionKnob.getValue();
         audioProcessor.setWavePosition2(newPosition); // <-- CORREGIDO
@@ -112,6 +118,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     osc3.octKnob.onValueChange = [this]() { audioProcessor.setOsc3Octave(static_cast<int>(osc3.octKnob.getValue())); };
     osc3.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc3Pitch(static_cast<int>(osc3.pitchKnob.getValue())); };
     osc3.fineKnob.onValueChange = [this]() { audioProcessor.setOsc3FineTune(osc3.fineKnob.getValue()); };
+    osc3.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc3Spread(osc3.spreadKnob.getValue()); };
     osc3.positionKnob.onValueChange = [this]() {
         float newPosition = osc3.positionKnob.getValue();
         audioProcessor.setWavePosition3(newPosition);
@@ -298,10 +305,10 @@ void NeuraSynthAudioProcessorEditor::resized()
 
     // --- Componentes de Unison (a la izquierda de cada oscilador) ---
     const int unisonWidth = 180; // Aumentamos el ancho para que quepan los 3 controles
-    const int unisonHeight = 45;
-    unisonComp1.setBounds(220, 29, unisonWidth, unisonHeight);
-    unisonComp2.setBounds(220, 220, unisonWidth, unisonHeight);
-    unisonComp3.setBounds(220, 418, unisonWidth, unisonHeight);
+    const int unisonHeight = 80; // Hacemos el panel más alto
+    unisonComp1.setBounds(220, 18, unisonWidth, unisonHeight);
+    unisonComp2.setBounds(220, 209, unisonWidth, unisonHeight);
+    unisonComp3.setBounds(220, 414, unisonWidth, unisonHeight);
 
     osc1.setBounds(403, 8, oscComponentWidth, oscComponentHeight);
     osc2.setBounds(403, 199, oscComponentWidth, oscComponentHeight);

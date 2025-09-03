@@ -2,7 +2,8 @@
 #pragma once
 
 #include <JuceHeader.h>
- 
+#include "TextValueSlider.h"
+
 class UnisonComponent : public juce::Component
 {
 public:
@@ -16,16 +17,30 @@ public:
     std::function<void(float)> onDetuneChanged;
     std::function<void(float)> onBalanceChanged;
 
-    void mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override;
 
 private:
-    juce::ComboBox voiceCountBox;
-    juce::Slider detuneAmountSlider;
-    juce::Slider detuneBalanceSlider;
 
-    juce::Label voicesLabel;    
-    juce::Label detuneLabel;
-    juce::Label balanceLabel;
+    // --- Sub-componente para el visualizador de barras ---
+    class UnisonVisualizer : public juce::Component
+        {
+    public:
+        void paint(juce::Graphics & g) override;
+        void setUnisonData(int numVoices, float detuneAmount);
+        
+    private:
+        int voices = 1;
+        float detune = 0.2f;
+        };
+
+    TextValueSlider voicesControl{ "Voces" };
+    TextValueSlider balanceControl{ "Balance" };
+    TextValueSlider detuneControl{ "Detune", "%" };
+
+    UnisonVisualizer visualizer;
+
+    juce::Label voicesLabel{ "Voices", "Voices" };
+    juce::Label balanceLabel{ "Balance", "Balance" };
+    juce::Label detuneLabel{ "Detune", "Detune" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(UnisonComponent)
 };

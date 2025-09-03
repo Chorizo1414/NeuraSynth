@@ -5,6 +5,7 @@ OscillatorComponent::OscillatorComponent() :
     octKnob(BinaryData::knoboct_png, BinaryData::knoboct_pngSize, 300.0f, 0.5),      // En medio
     fineKnob(BinaryData::knoboct_png, BinaryData::knoboct_pngSize, 300.0f, 0.5),     // En medio
     pitchKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5),    // En medio
+    spreadKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.0),   // Izquierda (como estaba)
     panKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5),      // En medio (L/R)
     positionKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.0), // Izquierda (como estaba)
     gainKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5)      // En medio (50%)
@@ -14,6 +15,7 @@ OscillatorComponent::OscillatorComponent() :
     addAndMakeVisible(octKnob);
     addAndMakeVisible(fineKnob);
     addAndMakeVisible(pitchKnob);
+    addAndMakeVisible(spreadKnob);
     addAndMakeVisible(panKnob);
     addAndMakeVisible(positionKnob);
     addAndMakeVisible(gainKnob);
@@ -44,6 +46,7 @@ void OscillatorComponent::resized()
     // --- Columna Derecha (Grid de knobs rojos) ---
     // Fila Superior
     pitchKnob.setBounds(293, 13, knobSize, knobSize);
+    spreadKnob.setBounds(232, 66, knobSize, knobSize); // En el lugar del antiguo detune
     panKnob.setBounds(293, 66, knobSize, knobSize);
 
     // Fila Inferior

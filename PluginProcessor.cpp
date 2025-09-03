@@ -175,7 +175,7 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
                     detuneCents = voicePosition * (*pUnisonDetune1) * 50.0f;
                 
                     // Pan: esparce las voces en el campo estéreo
-                    pan = juce::jlimit(0.0f, 1.0f, *panOsc1 + voicePosition * 0.4f);
+                    pan = juce::jlimit(0.0f, 1.0f, *panOsc1 + voicePosition * (*spreadOsc1));
                 }
             
             double detuneFactor = std::pow(2.0, detuneCents / 1200.0);
