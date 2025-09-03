@@ -53,7 +53,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
             osc.pitchKnob.setValue(0.0);
 
             // Spread: 0.0 (mono) a 0.5 (ancho completo)
-            osc.spreadKnob.setRange(0.0, 0.5);
+            osc.spreadKnob.setRange(0.0, 2.5);
             osc.spreadKnob.setValue(0.0);
 
             // Pan (L/R): 0.5 (centro)
