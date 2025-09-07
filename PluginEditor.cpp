@@ -233,57 +233,92 @@ NeuraSynthAudioProcessorEditor::~NeuraSynthAudioProcessorEditor()
 
 void NeuraSynthAudioProcessorEditor::paint(juce::Graphics& g)
 {
+    // 1. Rellena todo el fondo de negro. Este será el color base para la sección del piano.
+    g.fillAll(juce::Colours::black);
+
+    // 2. Calcula la altura actual del teclado para saber dónde termina la sección de la GUI.
+    //    Esta lógica es idéntica a la de `resized()` para que siempre estén sincronizadas.
+    const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
+    int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
+    if (keyboardHeight < 0) keyboardHeight = 0;
+    juce::Rectangle<int> guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
+
+    // 3. Dibuja la imagen de fondo SOLAMENTE en el área superior (guiArea).
     if (backgroundImage.isValid())
     {
-        auto backgroundArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
-        g.drawImage(backgroundImage, backgroundArea.toFloat(), juce::RectanglePlacement::fillDestination);
-    }
-    else
-    {
-        g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+        g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::stretchToFit);
     }
 }
 
 
 void NeuraSynthAudioProcessorEditor::resized()
 {
-    // Calculamos el factor de escala global basado en el plano.
-    const float scale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
-    
-    // Función auxiliar para posicionar las secciones principales.
-    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
+    // --- 1. Define el área para el teclado (sin cambios) ---
+    const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
+    int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
+    if (keyboardHeight < 0) keyboardHeight = 0;
+    midiKeyboardComponent.setBounds(0, getHeight() - keyboardHeight, getWidth(), keyboardHeight);
+
+    // --- 2. Define el área segura para la GUI (sin cambios) ---
+    juce::Rectangle<int> guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
+
+    // --- 3. CÁLCULO MANUAL PARA AJUSTAR LA GUI (NUEVO CÓDIGO) ---
+    // En lugar de usar la función problemática, lo calculamos manualmente.
+
+    const float guiDesignHeight = LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT;
+    const float designAspectRatio = LayoutConstants::DESIGN_WIDTH / guiDesignHeight;
+    const float guiAreaAspectRatio = (float)guiArea.getWidth() / (float)guiArea.getHeight();
+
+    juce::Rectangle<float> scaledGuiArea;
+
+    if (guiAreaAspectRatio > designAspectRatio)
     {
-        comp.setBounds(designRect.getX() * scale,
-        designRect.getY() * scale,
-        designRect.getWidth() * scale,
-        designRect.getHeight() * scale);
-    };
-    
-    // --- Posicionamos todas las secciones usando el plano ---
+        // El área es más ancha que el diseño: la altura es el límite.
+        float scaledHeight = guiArea.getHeight();
+        float scaledWidth = scaledHeight * designAspectRatio;
+        scaledGuiArea.setSize(scaledWidth, scaledHeight);
+        scaledGuiArea.setCentre(guiArea.getCentreX(), guiArea.getCentreY());
+    }
+    else
+    {
+        // El área es más alta que el diseño: la anchura es el límite.
+        float scaledWidth = guiArea.getWidth();
+        float scaledHeight = scaledWidth / designAspectRatio;
+        scaledGuiArea.setSize(scaledWidth, scaledHeight);
+        scaledGuiArea.setCentre(guiArea.getCentreX(), guiArea.getCentreY());
+    }
+
+    // --- 4. Obtenemos el factor de escala correcto y definitivo (sin cambios) ---
+    const float scale = scaledGuiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
+
+    // Función auxiliar para posicionar los componentes (sin cambios)
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
+        {
+            comp.setBounds(scaledGuiArea.getX() + designRect.getX() * scale,
+                scaledGuiArea.getY() + designRect.getY() * scale,
+                designRect.getWidth() * scale,
+                designRect.getHeight() * scale);
+        };
+
+    // --- 5. Posicionamos todas las secciones (sin cambios) ---
     scaleAndSet(masterSection, LayoutConstants::MASTER_SECTION);
     scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
     scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);
-    
     scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);
     scaleAndSet(osc2, LayoutConstants::OSC_2_SECTION);
     scaleAndSet(osc3, LayoutConstants::OSC_3_SECTION);
-
     scaleAndSet(unisonComp1, LayoutConstants::UNISON_1_SECTION);
     scaleAndSet(unisonComp2, LayoutConstants::UNISON_2_SECTION);
     scaleAndSet(unisonComp3, LayoutConstants::UNISON_3_SECTION);
-    
     scaleAndSet(filterSection, LayoutConstants::FILTER_SECTION);
     scaleAndSet(modulationComp, LayoutConstants::LFO_FM_SECTION);
     scaleAndSet(envelopeSection, LayoutConstants::ENVELOPE_SECTION);
-    
-    // --- Teclado ---
-    int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * scale;
-    midiKeyboardComponent.setBounds(0, getHeight() - keyboardHeight, getWidth(), keyboardHeight);
 
-    // --- Posicionar Selector de Tamaño ---
+    // --- Posicionar Selector de Tamaño (sin cambios) ---
     sizeLabel.setBounds(getWidth() - 160, 5, 50, 25);
     sizeComboBox.setBounds(getWidth() - 100, 5, 90, 25);
-    // Actualizamos el factor de escala para el DesignMouseListener
+
+    // Actualizamos el factor de escala para el DesignMouseListener (sin cambios)
     this->scale = scale;
 }
 

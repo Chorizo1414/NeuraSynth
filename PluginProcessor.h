@@ -148,7 +148,7 @@ private:
         return v2; // Devolvemos la salida low-pass
     }
 
-    static const int numUnisonVoices = 7;
+    static const int numUnisonVoices = 16;
     struct UnisonVoice
     {
         double readPosOsc1 = 0.0, readPosOsc2 = 0.0, readPosOsc3 = 0.0;

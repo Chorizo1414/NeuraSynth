@@ -48,8 +48,6 @@ private:
 
     juce::MidiKeyboardComponent midiKeyboardComponent{ audioProcessor.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard };
 
-    int keyboardHeight = 80;
-
     juce::ComponentDragger componentDragger;
 
     class DesignMouseListener : public juce::MouseListener

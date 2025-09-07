@@ -20,22 +20,22 @@ namespace LayoutConstants
     const juce::Point<int> BUTTON = { 52, 20 };
 
     // --- Posiciones de las Secciones Principales ---
-    const juce::Rectangle<int> MASTER_SECTION   = { 32, 132, 549, 255 };
-    const juce::Rectangle<int> REVERB_SECTION   = { 32, 472, 549, 255 };
-    const juce::Rectangle<int> DELAY_SECTION    = { 32, 821, 549, 300 };
+    const juce::Rectangle<int> MASTER_SECTION   = { 35, 169, 560, 250 };
+    const juce::Rectangle<int> REVERB_SECTION   = { 35, 496, 560, 255 };
+    const juce::Rectangle<int> DELAY_SECTION    = { 35, 827, 560, 255 };
     
-    const juce::Rectangle<int> UNISON_1_SECTION = { 637, 80, 230, 335 };
-    const juce::Rectangle<int> UNISON_2_SECTION = { 637, 432, 230, 335 };
-    const juce::Rectangle<int> UNISON_3_SECTION = { 637, 785, 230, 335 };
+    const juce::Rectangle<int> UNISON_1_SECTION = { 666, 125, 230, 325 };
+    const juce::Rectangle<int> UNISON_2_SECTION = { 666, 459, 230, 325 };
+    const juce::Rectangle<int> UNISON_3_SECTION = { 666, 794, 230, 325 };
 
-    const juce::Rectangle<int> OSC_1_SECTION    = { 867, 80, 650, 335 };
-    const juce::Rectangle<int> OSC_2_SECTION    = { 867, 432, 650, 335 };
-    const juce::Rectangle<int> OSC_3_SECTION    = { 867, 785, 650, 335 };
+    const juce::Rectangle<int> OSC_1_SECTION    = { 897, 125, 650, 325 };
+    const juce::Rectangle<int> OSC_2_SECTION    = { 897, 459, 650, 325 };
+    const juce::Rectangle<int> OSC_3_SECTION    = { 897, 794, 650, 325 };
     // Nota: El Unison lo integraremos dentro del layout del oscilador.
 
-    const juce::Rectangle<int> FILTER_SECTION   = { 1551, 116, 470, 230 };
-    const juce::Rectangle<int> LFO_FM_SECTION   = { 1551, 426, 470, 200 };
-    const juce::Rectangle<int> ENVELOPE_SECTION = { 1551, 701, 470, 425 };
+    const juce::Rectangle<int> FILTER_SECTION   = { 1626, 174, 475, 225 };
+    const juce::Rectangle<int> LFO_FM_SECTION   = { 1626, 502, 475, 225 };
+    const juce::Rectangle<int> ENVELOPE_SECTION = { 1626, 700, 475, 420 };
 
     // --- Posiciones de los Knobs y Botones DENTRO de sus secciones ---
     
