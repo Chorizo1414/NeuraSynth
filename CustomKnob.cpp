@@ -22,12 +22,17 @@ void CustomKnob::paint(juce::Graphics& g)
         const float normalizedValue = (float)((getValue() - getMinimum()) / (getMaximum() - getMinimum()));
         const float totalAngleRadians = rotationRangeDegrees * juce::MathConstants<float>::pi / 180.0f;
         const float angle = (normalizedValue - 0.5f) * totalAngleRadians;
+
+        // Calculamos un factor de escala para que la imagen siempre quepa dentro del componente
+        const float scale = juce::jmin((float)getWidth() / knobImage.getWidth(), (float)getHeight() / knobImage.getHeight());
+
         const float centerX = getWidth() * 0.5f;
         const float centerY = getHeight() * 0.5f;
         const float halfWidth = knobImage.getWidth() * 0.5f;
         const float halfHeight = knobImage.getHeight() * 0.5f;
         juce::AffineTransform transform = juce::AffineTransform::translation(-halfWidth, -halfHeight)
             .rotated(angle)
+            .scaled(scale) // Aplicamos el factor de escala
             .translated(centerX, centerY);
         g.drawImageTransformed(knobImage, transform, false);
     }

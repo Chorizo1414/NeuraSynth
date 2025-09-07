@@ -1,21 +1,12 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "LayoutConstants.h"
 
 NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p),
 
     midiKeyboardComponent(audioProcessor.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard),
-    // Filter
-    filterCutoffKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 1.0),
-    filterResonanceKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 0.0), 
-    filterEnvKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 0.0f),
-
-    // Envelope
-    attackKnob(BinaryData::knobenvelope_png, BinaryData::knobenvelope_pngSize, 300.0f, 0.01),
-    decayKnob(BinaryData::knobenvelope_png, BinaryData::knobenvelope_pngSize, 300.0f, 0.5),
-    sustainKnob(BinaryData::knobenvelope_png, BinaryData::knobenvelope_pngSize, 300.0f, 0.5),
-    releaseKnob(BinaryData::knobenvelope_png, BinaryData::knobenvelope_pngSize, 300.0f, 0.5),
 
     // LFO & FM
     modulationComp(p),
@@ -24,13 +15,27 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     reverbSection(p),
 
     // Buttons
-    keyButton("KeyButton"),
     masterSection(p),
     delaySection(p),
-    designMouseListener(componentDragger)
+    filterSection(p),
+    envelopeSection(p),
+    designMouseListener(componentDragger, this)
+
 {
     setWantsKeyboardFocus(true);
     backgroundImage = juce::ImageCache::getFromMemory(BinaryData::boceto_png, BinaryData::boceto_pngSize);
+
+    // Asignamos nombres para el modo diseño
+    osc1.setName("Oscillator 1");
+    osc2.setName("Oscillator 2");
+    osc3.setName("Oscillator 3");
+    unisonComp1.setName("Unison 1");
+    unisonComp2.setName("Unison 2");
+    unisonComp3.setName("Unison 3");
+    masterSection.setName("Master Section");
+    reverbSection.setName("Reverb Section");
+    delaySection.setName("Delay Section");
+    modulationComp.setName("Modulation Section");
 
     // --- SECCIÓN OSCILADORES ---
     addAndMakeVisible(osc1);
@@ -38,7 +43,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     addAndMakeVisible(osc3);
 
     auto setupOscillatorKnobs = [](OscillatorComponent& osc)
-        {
+    {
 
             // Octave: 0 (centro) en un rango de -2 a 2
             osc.octKnob.setRange(-2.0, 2.0, 1.0);
@@ -67,7 +72,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
             // Gain: 0.5 (centro)
             osc.gainKnob.setRange(0.0, 1.0);
             osc.gainKnob.setValue(0.5);
-        };
+    };
 
     setupOscillatorKnobs(osc1);
     setupOscillatorKnobs(osc2);
@@ -146,59 +151,10 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     addAndMakeVisible(masterSection);
 
     // --- SECCIÓN FILTER ---
-    addAndMakeVisible(filterCutoffKnob);
-    filterCutoffKnob.setRange(20.0, 20000.0);
-    // Mejor sensación: mapping log alrededor de 1 kHz
-    filterCutoffKnob.setSkewFactorFromMidPoint(1000.0);
-
-    addAndMakeVisible(filterResonanceKnob);
-    filterResonanceKnob.setRange(0.1, 4.0); // Q
-
-    addAndMakeVisible(filterEnvKnob);
-    filterEnvKnob.setRange(-1.0, 1.0);
-
-    // Callbacks → DSP
-    filterCutoffKnob.onValueChange = [this] { audioProcessor.setFilterCutoff(filterCutoffKnob.getValue()); };
-    filterResonanceKnob.onValueChange = [this] { audioProcessor.setFilterResonance(filterResonanceKnob.getValue()); };
-    filterEnvKnob.onValueChange = [this] { audioProcessor.setFilterEnvAmount(filterEnvKnob.getValue()); };
-
-    // --- AÑADE ESTAS LÍNEAS PARA FIJAR EL ESTADO INICIAL ---
-    filterCutoffKnob.setValue(20000.0, juce::sendNotificationSync);
-    filterResonanceKnob.setValue(0.1, juce::sendNotificationSync);
-    filterEnvKnob.setValue(-1.0, juce::sendNotificationSync);
-
-    addAndMakeVisible(keyButton);
-    keyButton.setClickingTogglesState(true);
-    keyButton.onClick = [this] { audioProcessor.setKeyTrack(keyButton.getToggleState()); };
-
+    addAndMakeVisible(filterSection);
 
     // --- SECCIÓN ENVELOPE ---
-    addAndMakeVisible(envelopeDisplay);
-    addAndMakeVisible(attackKnob);
-    attackKnob.setRange(0.0, 5.0); // Rango en segundos
-    addAndMakeVisible(decayKnob);
-    decayKnob.setRange(0.0, 5.0);
-    addAndMakeVisible(sustainKnob);
-    sustainKnob.setRange(0.0, 1.0);
-    addAndMakeVisible(releaseKnob);
-    releaseKnob.setRange(0.0, 5.0);
-
-    // Conectar knobs de la envolvente al display
-    auto updateEnvelopeDisplay = [this]() {
-        envelopeDisplay.setADSR(attackKnob.getValue(), decayKnob.getValue(), sustainKnob.getValue(), releaseKnob.getValue());
-
-        // --- AÑADE ESTAS LÍNEAS PARA ENVIAR LOS VALORES AL MOTOR DE AUDIO ---
-        audioProcessor.setAttack(attackKnob.getValue());
-        audioProcessor.setDecay(decayKnob.getValue());
-        audioProcessor.setSustain(sustainKnob.getValue());
-        audioProcessor.setRelease(releaseKnob.getValue());
-
-    };
-    attackKnob.onValueChange = updateEnvelopeDisplay;
-    decayKnob.onValueChange = updateEnvelopeDisplay;
-    sustainKnob.onValueChange = updateEnvelopeDisplay;
-    releaseKnob.onValueChange = updateEnvelopeDisplay;
-    updateEnvelopeDisplay(); // Llamada inicial para dibujar el estado por defecto
+    addAndMakeVisible(envelopeSection);
 
     // --- SECCIÓN MODULACIÓN (LFO & FM) ---
     addAndMakeVisible(modulationComp);
@@ -208,44 +164,6 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
     // --- SECCIÓN DELAY ---
     addAndMakeVisible(delaySection);
-
-    addAndMakeVisible(keyButton);
-    keyButton.setClickingTogglesState(true);
-
-    auto normalKeyImage = juce::ImageCache::getFromMemory(BinaryData::button_png, BinaryData::button_pngSize);
-    auto toggledKeyImage = juce::ImageCache::getFromMemory(BinaryData::buttonreverse_png, BinaryData::buttonreverse_pngSize);
-
-    // Inicialmente, pon la imagen normal
-    keyButton.setImages(
-        false, true, true,
-        normalKeyImage, 1.0f, juce::Colours::transparentBlack,
-        normalKeyImage, 1.0f, juce::Colours::transparentBlack,
-        normalKeyImage, 1.0f, juce::Colours::transparentBlack
-    );
-
-    keyButton.onClick = [this, normalKeyImage, toggledKeyImage] {
-        audioProcessor.setKeyTrack(keyButton.getToggleState());
-        if (keyButton.getToggleState())
-        {
-            keyButton.setImages(
-                false, true, true,
-                toggledKeyImage, 1.0f, juce::Colours::transparentBlack,
-                toggledKeyImage, 1.0f, juce::Colours::transparentBlack,
-                toggledKeyImage, 1.0f, juce::Colours::transparentBlack
-            );
-        }
-        else
-        {
-            keyButton.setImages(
-                false, true, true,
-                normalKeyImage, 1.0f, juce::Colours::transparentBlack,
-                normalKeyImage, 1.0f, juce::Colours::transparentBlack,
-                normalKeyImage, 1.0f, juce::Colours::transparentBlack
-            );
-        }
-        };
-
-    keyButton.setName("KeyButton");
 
     addAndMakeVisible(midiKeyboardComponent);
 
@@ -257,16 +175,13 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
         osc2.addMouseListener(&designMouseListener, true);
         osc3.addMouseListener(&designMouseListener, true);
 
-        filterCutoffKnob.addMouseListener(&designMouseListener, true);
-        filterResonanceKnob.addMouseListener(&designMouseListener, true);
-        filterEnvKnob.addMouseListener(&designMouseListener, true);
-        keyButton.addMouseListener(&designMouseListener, true);
+        unisonComp1.addMouseListener(&designMouseListener, true);
+        unisonComp2.addMouseListener(&designMouseListener, true);
+        unisonComp3.addMouseListener(&designMouseListener, true);
 
-		envelopeDisplay.addMouseListener(&designMouseListener, true);
-        attackKnob.addMouseListener(&designMouseListener, true);
-        decayKnob.addMouseListener(&designMouseListener, true);
-        sustainKnob.addMouseListener(&designMouseListener, true);
-        releaseKnob.addMouseListener(&designMouseListener, true);
+        filterSection.addMouseListener(&designMouseListener, true);
+
+        envelopeSection.addMouseListener(&designMouseListener, true);
 
         modulationComp.addMouseListener(&designMouseListener, true);
 
@@ -276,7 +191,40 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
     }
 
-    setSize(1024, 680);
+    // -- - Selector de Tamaño-- -
+    addAndMakeVisible(sizeLabel);
+    sizeLabel.setText("Size:", juce::dontSendNotification);
+    sizeLabel.setJustificationType(juce::Justification::centredRight);
+
+    addAndMakeVisible(sizeComboBox);
+    sizeComboBox.addItem("50%", 1);
+    sizeComboBox.addItem("75%", 2);
+    sizeComboBox.addItem("100%", 3);
+    sizeComboBox.setSelectedId(2); // Empezamos al 75%
+
+    sizeComboBox.onChange = [this]
+    {
+        float finalScale = 0.5f; // El 100% será la mitad del tamaño del diseño
+        int choice = sizeComboBox.getSelectedId();
+        if (choice == 1) finalScale = 0.25f;  // El 50% será un cuarto del diseño
+        if (choice == 2) finalScale = 0.375f; // El 75% será 3/8 del diseño
+        if (choice == 3) finalScale = 0.5f;   // El 100% será la mitad del diseño
+        
+        // Usamos la función correcta para obtener la ventana principal del plugin
+        if (auto* parent = findParentComponentOfClass<juce::TopLevelWindow>())
+        {
+            const int newWidth = LayoutConstants::DESIGN_WIDTH * finalScale;
+            const int newHeight = LayoutConstants::DESIGN_HEIGHT * finalScale;
+            parent->setSize(newWidth, newHeight);
+        }
+    };
+  
+    // Tamaño inicial
+    const float initialScale = 0.75f;
+    const int initialWidth = LayoutConstants::DESIGN_WIDTH * initialScale;
+    const int initialHeight = LayoutConstants::DESIGN_HEIGHT * initialScale;
+    setSize(initialWidth, initialHeight);
+    setResizable(true, true); // Permite que el ComboBox funcione
 }
 
 NeuraSynthAudioProcessorEditor::~NeuraSynthAudioProcessorEditor()
@@ -287,8 +235,7 @@ void NeuraSynthAudioProcessorEditor::paint(juce::Graphics& g)
 {
     if (backgroundImage.isValid())
     {
-        const int interfaceHeight = 600;
-        auto backgroundArea = getLocalBounds().withHeight(interfaceHeight);
+        auto backgroundArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
         g.drawImage(backgroundImage, backgroundArea.toFloat(), juce::RectanglePlacement::fillDestination);
     }
     else
@@ -300,49 +247,44 @@ void NeuraSynthAudioProcessorEditor::paint(juce::Graphics& g)
 
 void NeuraSynthAudioProcessorEditor::resized()
 {
-    const int oscComponentWidth = 430;
-    const int oscComponentHeight = 220;
+    // Calculamos el factor de escala global basado en el plano.
+    const float scale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
+    
+    // Función auxiliar para posicionar las secciones principales.
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
+    {
+        comp.setBounds(designRect.getX() * scale,
+        designRect.getY() * scale,
+        designRect.getWidth() * scale,
+        designRect.getHeight() * scale);
+    };
+    
+    // --- Posicionamos todas las secciones usando el plano ---
+    scaleAndSet(masterSection, LayoutConstants::MASTER_SECTION);
+    scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
+    scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);
+    
+    scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);
+    scaleAndSet(osc2, LayoutConstants::OSC_2_SECTION);
+    scaleAndSet(osc3, LayoutConstants::OSC_3_SECTION);
 
-    // --- Componentes de Unison (a la izquierda de cada oscilador) ---
-    const int unisonWidth = 180; // Aumentamos el ancho para que quepan los 3 controles
-    const int unisonHeight = 80; // Hacemos el panel más alto
-    unisonComp1.setBounds(220, 18, unisonWidth, unisonHeight);
-    unisonComp2.setBounds(220, 209, unisonWidth, unisonHeight);
-    unisonComp3.setBounds(220, 414, unisonWidth, unisonHeight);
+    scaleAndSet(unisonComp1, LayoutConstants::UNISON_1_SECTION);
+    scaleAndSet(unisonComp2, LayoutConstants::UNISON_2_SECTION);
+    scaleAndSet(unisonComp3, LayoutConstants::UNISON_3_SECTION);
+    
+    scaleAndSet(filterSection, LayoutConstants::FILTER_SECTION);
+    scaleAndSet(modulationComp, LayoutConstants::LFO_FM_SECTION);
+    scaleAndSet(envelopeSection, LayoutConstants::ENVELOPE_SECTION);
+    
+    // --- Teclado ---
+    int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * scale;
+    midiKeyboardComponent.setBounds(0, getHeight() - keyboardHeight, getWidth(), keyboardHeight);
 
-    osc1.setBounds(403, 8, oscComponentWidth, oscComponentHeight);
-    osc2.setBounds(403, 199, oscComponentWidth, oscComponentHeight);
-    osc3.setBounds(404, 404, oscComponentWidth, oscComponentHeight);
-
-    // --- Copiamos todas tus posiciones originales para el resto de los componentes ---
-    // Sección Master
-    masterSection.setBounds(33, 58, 230, 140);
-
-    // Sección Filter
-    filterCutoffKnob.setBounds(760, 68, 100, 100);
-    filterResonanceKnob.setBounds(838, 68, 100, 100);
-    filterEnvKnob.setBounds(926, 68, 100, 100);
-    keyButton.setBounds(872, 166, 35, 35);
-
-    // Sección Envelope
-    envelopeDisplay.setBounds(787, 240, 210, 95);
-    attackKnob.setBounds(770, 311, 100, 100);
-    decayKnob.setBounds(817, 311, 100, 100);
-    sustainKnob.setBounds(863, 311, 100, 100);
-    releaseKnob.setBounds(912, 311, 100, 100);
-
-    // Sección LFO & FM
-    modulationComp.setBounds(734, 439, 288, 105);
-
-	// Sección Reverb
-    reverbSection.setBounds(-14, 242, 300, 160);
-
-    // Sección Delay
-    delaySection.setBounds(0, 419, 300, 165);
-
-    // Teclado
-    midiKeyboardComponent.setBounds(0, 600, getWidth(), 80);
-
+    // --- Posicionar Selector de Tamaño ---
+    sizeLabel.setBounds(getWidth() - 160, 5, 50, 25);
+    sizeComboBox.setBounds(getWidth() - 100, 5, 90, 25);
+    // Actualizamos el factor de escala para el DesignMouseListener
+    this->scale = scale;
 }
 
 void NeuraSynthAudioProcessorEditor::visibilityChanged()

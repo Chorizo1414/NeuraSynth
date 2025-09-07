@@ -10,6 +10,7 @@ public:
     UnisonComponent();
     ~UnisonComponent() override;
 
+    void paint(juce::Graphics& g) override;
     void resized() override;
 
     // Callbacks para notificar al exterior cuando un valor cambia

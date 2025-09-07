@@ -1,5 +1,7 @@
 #include "ReverbComponent.h"
 #include "BinaryData.h"
+#include "LayoutConstants.h"
+#include "PluginEditor.h"
 
 ReverbComponent::ReverbComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
     dryKnob(BinaryData::knobreverb_png, BinaryData::knobreverb_pngSize, 300.0f, 0.8),
@@ -40,18 +42,34 @@ ReverbComponent::ReverbComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p
 
 ReverbComponent::~ReverbComponent() {}
 
-void ReverbComponent::paint (juce::Graphics& g) {}
+void ReverbComponent::paint (juce::Graphics& g) 
+{
+    // Solo dibuja el borde si el designMode del editor está activo
+    if (auto* editor = findParentComponentOfClass<NeuraSynthAudioProcessorEditor>())
+    {
+        if (editor->designMode)
+        {
+            g.setColour(juce::Colours::red);
+            g.drawRect(getLocalBounds(), 2.0f);
+        }
+    }
+}
 
 void ReverbComponent::resized()
 {
-    // Posicionamos los knobs relativos a este componente
-    // Fila superior
-    dryKnob.setBounds(35, -1, 100, 100);      // x=0, y=0
-    wetKnob.setBounds(104, 0, 100, 100);      // x=72, y=0
-    sizeKnob.setBounds(169, -2, 100, 100);     // x=137, y=0
-    // Fila inferior
-    preDelayKnob.setBounds(0, 60, 100, 100); // x=-33, y=60
-    diffusionKnob.setBounds(66, 62, 100, 100);
-    dampKnob.setBounds(132, 61, 100, 100);
-    decayKnob.setBounds(198, 62, 100, 100);
+    const auto& designBounds = LayoutConstants::REVERB_SECTION;
+    float scaleX = (float)getWidth() / designBounds.getWidth();
+    float scaleY = (float)getHeight() / designBounds.getHeight();
+
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) {
+        comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
+    };
+
+    scaleAndSet(dryKnob, LayoutConstants::Reverb::DRY_KNOB);
+    scaleAndSet(wetKnob, LayoutConstants::Reverb::WET_KNOB);
+    scaleAndSet(sizeKnob, LayoutConstants::Reverb::SIZE_KNOB);
+    scaleAndSet(preDelayKnob, LayoutConstants::Reverb::PRE_DELAY_KNOB);
+    scaleAndSet(diffusionKnob, LayoutConstants::Reverb::DIFFUSION_KNOB);
+    scaleAndSet(dampKnob, LayoutConstants::Reverb::DAMP_KNOB);
+    scaleAndSet(decayKnob, LayoutConstants::Reverb::DECAY_KNOB);
 }

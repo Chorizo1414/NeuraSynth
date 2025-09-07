@@ -1,5 +1,7 @@
 #include "OscillatorComponent.h"
 #include "BinaryData.h"
+#include "LayoutConstants.h"
+#include "PluginEditor.h"
 
 OscillatorComponent::OscillatorComponent() :
     octKnob(BinaryData::knoboct_png, BinaryData::knoboct_pngSize, 300.0f, 0.5),      // En medio
@@ -23,33 +25,40 @@ OscillatorComponent::OscillatorComponent() :
 
 OscillatorComponent::~OscillatorComponent() {}
 
-void OscillatorComponent::paint(juce::Graphics& g) {}
+void OscillatorComponent::paint(juce::Graphics& g) 
+{
+    // Solo dibuja el borde si el designMode del editor está activo
+    if (auto* editor = findParentComponentOfClass<NeuraSynthAudioProcessorEditor>())
+    {
+        if (editor->designMode)
+        {
+            g.setColour(juce::Colours::red);
+            g.drawRect(getLocalBounds(), 2.0f);
+        }
+    }
+}
 
 void OscillatorComponent::resized()
 {
-    // Las coordenadas son relativas al a de este componente.
-    const int knobSize = 55;
-    const int margin = 5;
+    const auto& designBounds = LayoutConstants::OSC_1_SECTION; // Usamos OSC_1 como referencia, son iguales
+    float scaleX = (float)getWidth() / designBounds.getWidth();
+    float scaleY = (float)getHeight() / designBounds.getHeight();
 
-    // --- Columna Izquierda (Waveform y Selector) ---
-    oscSection.setBounds(23, 38, 150, 22);
-    waveDisplay.setBounds(23, 71, 195, 98);
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) {
+        comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
+    };
 
-    // --- Columna Central (Octave y Fine) ---
-    // Estos son los knobs negros ms pequeos.
-    const int smallKnobSize = 45;
+    // No tenemos Unison en el plano, así que lo dejamos como estaba o lo añadimos al plano
+    // Por ahora, lo posicionamos manualmente
+    // unisonComp.setBounds(...) 
 
-    // Movemos los knobs de Oct y Fine debajo del panel Unison
-    octKnob.setBounds(219, 20, smallKnobSize, smallKnobSize);
-    fineKnob.setBounds(257, 20, smallKnobSize, smallKnobSize);
-
-    // --- Columna Derecha (Grid de knobs rojos) ---
-    // Fila Superior
-    pitchKnob.setBounds(293, 13, knobSize, knobSize);
-    spreadKnob.setBounds(232, 66, knobSize, knobSize); // En el lugar del antiguo detune
-    panKnob.setBounds(293, 66, knobSize, knobSize);
-
-    // Fila Inferior
-    positionKnob.setBounds(231, 124, knobSize, knobSize);
-    gainKnob.setBounds(292, 126, knobSize, knobSize);
+    scaleAndSet(oscSection, LayoutConstants::Oscillator::WAVE_SELECT);
+    scaleAndSet(waveDisplay, LayoutConstants::Oscillator::WAVE_DISPLAY);
+    scaleAndSet(octKnob, LayoutConstants::Oscillator::OCT_KNOB);
+    scaleAndSet(fineKnob, LayoutConstants::Oscillator::FINE_KNOB);
+    scaleAndSet(pitchKnob, LayoutConstants::Oscillator::PITCH_KNOB);
+    scaleAndSet(spreadKnob, LayoutConstants::Oscillator::SPREAD_KNOB);
+    scaleAndSet(panKnob, LayoutConstants::Oscillator::PAN_KNOB);
+    scaleAndSet(positionKnob, LayoutConstants::Oscillator::POSITION_KNOB);
+    scaleAndSet(gainKnob, LayoutConstants::Oscillator::GAIN_KNOB);
 }

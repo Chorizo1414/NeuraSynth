@@ -1,5 +1,7 @@
 #include "MasterSectionComponent.h"
 #include "BinaryData.h"
+#include "LayoutConstants.h"
+#include "PluginEditor.h"
 
 MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
     masterGainKnob(BinaryData::knobmastergain_png, BinaryData::knobmastergain_pngSize, 300.0f, 0.7),
@@ -73,16 +75,45 @@ MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : au
 
 MasterSectionComponent::~MasterSectionComponent() {}
 
-void MasterSectionComponent::paint (juce::Graphics& g) {}
+void MasterSectionComponent::paint(juce::Graphics& g)
+{
+    // Solo dibuja el borde si el designMode del editor está activo
+    if (auto* editor = findParentComponentOfClass<NeuraSynthAudioProcessorEditor>())
+    {
+        if (editor->designMode)
+        {
+            g.setColour(juce::Colours::red);
+            g.drawRect(getLocalBounds(), 2.0f);
+        }
+    }
+}
 
 void MasterSectionComponent::resized()
 {
-    // Posicionamos los controles relativos a este componente.
-    // Usamos las coordenadas que tenías en el editor, pero ajustadas a un origen local.
-    masterGainKnob.setBounds(23, 0, 100, 100);
-    glideKnob.setBounds(118 - 33, 63 - 58, 100, 100);   // x=85, y=5
-    darkKnob.setBounds(33 - 33, 118 - 58, 100, 100);    // x=0, y=60
-    brightKnob.setBounds(86 - 33, 118 - 58, 100, 100);  // x=53, y=60
-    driveKnob.setBounds(137 - 33, 118 - 58, 100, 100);  // x=104, y=60
-    chorusButton.setBounds(225 - 33, 163 - 58, 35, 35); // x=192, y=105
+    // El componente ya tiene el tamaño correcto gracias al PluginEditor.
+    // Ahora escalamos los knobs internos basándonos en el plano de diseño.
+      
+    // 1. Obtenemos las dimensiones de diseño de esta sección desde el plano.
+    const auto & designBounds = LayoutConstants::MASTER_SECTION;
+    
+    // 2. Calculamos los factores de escala LOCALES (solo para este componente).
+    float scaleX = (float)getWidth() / designBounds.getWidth();
+    float scaleY = (float)getHeight() / designBounds.getHeight();
+   
+    // 3. Función auxiliar para simplificar el posicionamiento.
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
+    {
+        comp.setBounds(designRect.getX() * scaleX,
+        designRect.getY() * scaleY,
+        designRect.getWidth() * scaleX,
+        designRect.getHeight() * scaleY);
+    };
+    
+    // 4. Aplicamos el posicionamiento a cada control usando el plano.
+    scaleAndSet(masterGainKnob, LayoutConstants::Master::MASTER_GAIN_KNOB);
+    scaleAndSet(glideKnob, LayoutConstants::Master::GLIDE_KNOB);
+    scaleAndSet(driveKnob, LayoutConstants::Master::DRIVE_KNOB);
+    scaleAndSet(darkKnob, LayoutConstants::Master::DARK_KNOB);
+    scaleAndSet(brightKnob, LayoutConstants::Master::BRIGHT_KNOB);
+    scaleAndSet(chorusButton, LayoutConstants::Master::CHORUS_BUTTON);
 }

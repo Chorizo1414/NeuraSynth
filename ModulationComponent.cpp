@@ -1,5 +1,7 @@
 #include "ModulationComponent.h"
 #include "BinaryData.h"
+#include "LayoutConstants.h"
+#include "PluginEditor.h"
 
 ModulationComponent::ModulationComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
     // Inicializamos el knob de FM. El 0.5 asegura que su valor por defecto sea el centro.
@@ -39,12 +41,28 @@ ModulationComponent::~ModulationComponent() {}
 
 void ModulationComponent::paint(juce::Graphics& g)
 {
-    // Puedes dibujar un fondo o texto para esta sección si lo necesitas.
+    // Solo dibuja el borde si el designMode del editor está activo
+    if (auto* editor = findParentComponentOfClass<NeuraSynthAudioProcessorEditor>())
+    {
+        if (editor->designMode)
+        {
+            g.setColour(juce::Colours::red);
+            g.drawRect(getLocalBounds(), 2.0f);
+        }
+    }
 }
 
 void ModulationComponent::resized()
 {
-    lfoSpeedKnob.setBounds(0, 5, 100, 100);
-    lfoAmountKnob.setBounds(62, 5, 100, 100);
-    fmKnob.setBounds(188, 5, 100, 100);
+    const auto& designBounds = LayoutConstants::LFO_FM_SECTION;
+    float scaleX = (float)getWidth() / designBounds.getWidth();
+    float scaleY = (float)getHeight() / designBounds.getHeight();
+
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) {
+        comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
+    };
+
+    scaleAndSet(lfoSpeedKnob, LayoutConstants::LFO_FM::LFO_SPEED_KNOB);
+    scaleAndSet(lfoAmountKnob, LayoutConstants::LFO_FM::LFO_AMOUNT_KNOB);
+    scaleAndSet(fmKnob, LayoutConstants::LFO_FM::FM_KNOB);
 }

@@ -2,6 +2,8 @@
 
 #include "FilterComponent.h"
 #include "BinaryData.h"
+#include "LayoutConstants.h"
+#include "PluginEditor.h"
 
 FilterComponent::FilterComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
 filterCutoffKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 1.0),
@@ -11,13 +13,13 @@ keyButton("KeyButton")
 {
     // El knob de Cutoff tiene una lógica especial (jmap), lo configuramos por separado
     addAndMakeVisible(filterCutoffKnob);
-    filterCutoffKnob.setRange(0.0, 1.0); // 0..1 normalizado
+    filterCutoffKnob.setRange(20.0, 20000.0); // Rango en Hertz
     filterCutoffKnob.onValueChange = [this]() {
-        const double hz = juce::jmap(filterCutoffKnob.getValue(), 0.0, 1.0, 20.0, 20000.0);
-        audioProcessor.setFilterCutoff(hz);
+        // Ahora el valor del knob ya está en Hz, no necesitamos mapearlo.
+        audioProcessor.setFilterCutoff(filterCutoffKnob.getValue());
         };
-    filterCutoffKnob.setSkewFactorFromMidPoint(1000.0); // Mapping logarítmico
-    filterCutoffKnob.setValue(1.0, juce::sendNotificationSync);
+    filterCutoffKnob.setSkewFactorFromMidPoint(1000.0); // Punto medio en 1000 Hz
+    filterCutoffKnob.setValue(20000.0, juce::sendNotificationSync);
 
     // Función auxiliar para los otros knobs
     auto setupKnob = [&](CustomKnob& knob, float minRange, float maxRange, auto setter) {
@@ -55,14 +57,30 @@ FilterComponent::~FilterComponent() {}
 
 void FilterComponent::paint(juce::Graphics& g)
 {
-    // Puedes dibujar un fondo o borde para esta sección si quieres
+    // Solo dibuja el borde si el designMode del editor está activo
+    if (auto* editor = findParentComponentOfClass<NeuraSynthAudioProcessorEditor>())
+    {
+        if (editor->designMode)
+        {
+            g.setColour(juce::Colours::red);
+            g.drawRect(getLocalBounds(), 2.0f);
+        }
+    }
 }
 
 void FilterComponent::resized()
 {
-    // Posiciona los controles DENTRO de este componente
-    filterCutoffKnob.setBounds(0, 0, 100, 100);
-    filterResonanceKnob.setBounds(78, 0, 100, 100);
-    filterEnvKnob.setBounds(166, 0, 100, 100);
-    keyButton.setBounds(112, 98, 35, 35);
+const auto& designBounds = LayoutConstants::FILTER_SECTION;
+float scaleX = (float)getWidth() / designBounds.getWidth();
+float scaleY = (float)getHeight() / designBounds.getHeight();
+
+auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) 
+{
+    comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
+};
+
+    scaleAndSet(filterCutoffKnob, LayoutConstants::Filter::CUTOFF_KNOB);
+    scaleAndSet(filterResonanceKnob, LayoutConstants::Filter::RES_KNOB);
+    scaleAndSet(filterEnvKnob, LayoutConstants::Filter::ENV_KNOB);
+    scaleAndSet(keyButton, LayoutConstants::Filter::KEY_BUTTON);
 }

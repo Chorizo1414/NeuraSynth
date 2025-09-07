@@ -1,6 +1,8 @@
 // DelayComponent.cpp
 #include "DelayComponent.h"
 #include "BinaryData.h"
+#include "LayoutConstants.h"
+#include "PluginEditor.h"
  
 DelayComponent::DelayComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
     dryKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 1.0),
@@ -51,21 +53,37 @@ DelayComponent::DelayComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
 
 DelayComponent::~DelayComponent() {}
 
-void DelayComponent::paint (juce::Graphics& g) {}
+void DelayComponent::paint (juce::Graphics& g) 
+{
+    // Solo dibuja el borde si el designMode del editor está activo
+    if (auto* editor = findParentComponentOfClass<NeuraSynthAudioProcessorEditor>())
+    {
+        if (editor->designMode)
+        {
+            g.setColour(juce::Colours::red);
+            g.drawRect(getLocalBounds(), 2.0f);
+        }
+    }
+}
 
 void DelayComponent::resized()
 {
-    // Fila Superior
-    dryKnob.setBounds(-17, 0, 100, 100);
-    centerVolKnob.setBounds(37, 0, 100, 100);
-    sideVolKnob.setBounds(88, 0, 100, 100);
-    hpKnob.setBounds(139, 0, 100, 100);
-    lpKnob.setBounds(191, 0, 100, 100);
+    const auto& designBounds = LayoutConstants::DELAY_SECTION;
+    float scaleX = (float)getWidth() / designBounds.getWidth();
+    float scaleY = (float)getHeight() / designBounds.getHeight();
 
-    // Fila Inferior
-    leftKnob.setBounds(-16, 65, 100, 100);
-    centerKnob.setBounds(36, 65, 100, 100);
-    rightKnob.setBounds(89, 65, 100, 100);
-    wowKnob.setBounds(140, 65, 100, 100);
-    feedbackKnob.setBounds(189, 65, 100, 100);
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) {
+        comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
+    };
+
+    scaleAndSet(dryKnob, LayoutConstants::Delay::DRY_KNOB);
+    scaleAndSet(centerVolKnob, LayoutConstants::Delay::CENTER_VOL_KNOB);
+    scaleAndSet(sideVolKnob, LayoutConstants::Delay::SIDE_VOL_KNOB);
+    scaleAndSet(hpKnob, LayoutConstants::Delay::HP_KNOB);
+    scaleAndSet(lpKnob, LayoutConstants::Delay::LP_KNOB);
+    scaleAndSet(leftKnob, LayoutConstants::Delay::LEFT_KNOB);
+    scaleAndSet(centerKnob, LayoutConstants::Delay::CENTER_KNOB);
+    scaleAndSet(rightKnob, LayoutConstants::Delay::RIGHT_KNOB);
+    scaleAndSet(wowKnob, LayoutConstants::Delay::WOW_KNOB);
+    scaleAndSet(feedbackKnob, LayoutConstants::Delay::FEEDBACK_KNOB);
 }

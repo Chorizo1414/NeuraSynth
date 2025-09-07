@@ -1,5 +1,7 @@
 // UnisonComponent.cpp
 #include "UnisonComponent.h"
+#include "LayoutConstants.h"
+#include "PluginEditor.h"
 
 // --- Implementación del Visualizador ---
 void UnisonComponent::UnisonVisualizer::paint(juce::Graphics & g)
@@ -10,7 +12,7 @@ void UnisonComponent::UnisonVisualizer::paint(juce::Graphics & g)
     
    if (voices <= 0) return;
     
-   const float barWidth = 4.0f;
+   const float barWidth = 2.0f;
    const float maxSpread = getWidth() * 0.8f; // Las barras ocuparán hasta el 80% del ancho
     
    g.setColour(juce::Colours::deepskyblue);
@@ -67,6 +69,11 @@ UnisonComponent::UnisonComponent()
         visualizer.setUnisonData(voicesControl.getValue(), newValue / 100.0);
         };
 
+    voicesControl.setName("Unison Voices");
+    balanceControl.setName("Unison Balance");
+    detuneControl.setName("Unison Detune");
+    visualizer.setName("Unison Visualizer");
+
     // --- Etiquetas ---
     addAndMakeVisible(voicesLabel);
     voicesLabel.setJustificationType(juce::Justification::centred);
@@ -85,27 +92,41 @@ UnisonComponent::UnisonComponent()
 
 UnisonComponent::~UnisonComponent() {}
 
+void UnisonComponent::paint(juce::Graphics& g)
+{
+    // Solo dibuja el borde si el designMode del editor está activo
+    if (auto* editor = findParentComponentOfClass<NeuraSynthAudioProcessorEditor>())
+    {
+        if (editor->designMode)
+        {
+            g.setColour(juce::Colours::red);
+            g.drawRect(getLocalBounds(), 2.0f);
+        }
+    }
+}
+
 void UnisonComponent::resized()
 {
-    auto bounds = getLocalBounds();
-    auto controlsArea = bounds.removeFromTop(bounds.getHeight() * 0.6f);
-    auto visualizerArea = bounds;
-    
-    auto labelBounds = controlsArea.removeFromTop(15);
-    const int controlWidth = controlsArea.getWidth() / 3;
-    
-    // Área para "Voices"
-    voicesLabel.setBounds(labelBounds.removeFromLeft(controlWidth));
-    voicesControl.setBounds(controlsArea.removeFromLeft(controlWidth).reduced(2));
-    
-    // Área para "Balance"
-    balanceLabel.setBounds(labelBounds.removeFromLeft(controlWidth));
-    balanceControl.setBounds(controlsArea.removeFromLeft(controlWidth).reduced(2));
+    // Ahora que Unison es una sección principal, su layout es simple.
+    // OBTENEMOS LAS DIMENSIONES DE DISEÑO DIRECTAMENTE DE UNISON_1_SECTION (usamos la 1 como referencia para todas)
+    const auto& designBounds = LayoutConstants::UNISON_1_SECTION;
 
-    // Área para "Detune"
-    detuneLabel.setBounds(labelBounds);
-    detuneControl.setBounds(controlsArea.reduced(2));
-    
-    // Área para el Visualizador
-    visualizer.setBounds(visualizerArea.reduced(5, 0));
+    // Calculamos la escala local basándonos en nuestro propio tamaño de diseño
+    float scaleX = (float)getWidth() / designBounds.getWidth();
+    float scaleY = (float)getHeight() / designBounds.getHeight();
+
+    // Función auxiliar simple
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
+    {
+        comp.setBounds(designRect.getX() * scaleX,
+                       designRect.getY() * scaleY,
+                       designRect.getWidth() * scaleX,
+                       designRect.getHeight() * scaleY);
+    };
+
+    // Posicionamos los controles usando el plano de namespace Unison
+    scaleAndSet(voicesControl,  LayoutConstants::Unison::VOICES_SLIDER);
+    scaleAndSet(balanceControl, LayoutConstants::Unison::BALANCE_SLIDER);
+    scaleAndSet(detuneControl,  LayoutConstants::Unison::DETUNE_SLIDER);
+    scaleAndSet(visualizer,     LayoutConstants::Unison::VISUALIZER);
 }
