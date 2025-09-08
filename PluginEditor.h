@@ -74,18 +74,33 @@ private:
 
         void mouseUp(const juce::MouseEvent& event) override
         {
-            // Reportamos la posición del componente que se movió
             if (auto* componentToReport = getDraggableComponentFrom(event))
             {
                 auto bounds = componentToReport->getBounds();
+                float unscaledX = 0.0f;
+                float unscaledY = 0.0f;
 
-                // "Des-escalamos" los valores para obtener las coordenadas de diseño
-                float unscaledX = bounds.getX() / owner->scale;
-                float unscaledY = bounds.getY() / owner->scale;
+                // NUEVA LÓGICA: Distinguimos entre mover un knob o una sección.
+                if (event.mods.isShiftDown())
+                {
+                    // MODO SHIFT: Se movió un knob DENTRO de una sección.
+                    // Sus coordenadas son relativas al padre, solo necesitamos des-escalar.
+                    unscaledX = bounds.getX() / owner->scale;
+                    unscaledY = bounds.getY() / owner->scale;
+                }
+                else
+                {
+                    // MODO NORMAL: Se movió una sección entera.
+                    // Sus coordenadas son relativas a la ventana, necesitamos corregir el desfase.
+                    unscaledX = (bounds.getX() - owner->scaledGuiArea.getX()) / owner->scale;
+                    unscaledY = (bounds.getY() - owner->scaledGuiArea.getY()) / owner->scale;
+                }
+
+                // El ancho y alto siempre se calculan de la misma forma.
                 float unscaledWidth = bounds.getWidth() / owner->scale;
                 float unscaledHeight = bounds.getHeight() / owner->scale;
 
-                DBG(componentToReport->getName() + " DESIGN bounds: "
+                DBG(componentToReport->getName() + " RELATIVE DESIGN bounds: "
                     + juce::String(unscaledX, 0) + ", "
                     + juce::String(unscaledY, 0) + ", "
                     + juce::String(unscaledWidth, 0) + ", "
@@ -130,6 +145,7 @@ public:
     bool designMode = true;
     // Factor de escala para la UI
     float scale = 1.0f;
+    juce::Rectangle<float> scaledGuiArea;
 
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessorEditor)

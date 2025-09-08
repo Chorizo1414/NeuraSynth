@@ -269,8 +269,6 @@ void NeuraSynthAudioProcessorEditor::resized()
     const float designAspectRatio = LayoutConstants::DESIGN_WIDTH / guiDesignHeight;
     const float guiAreaAspectRatio = (float)guiArea.getWidth() / (float)guiArea.getHeight();
 
-    juce::Rectangle<float> scaledGuiArea;
-
     if (guiAreaAspectRatio > designAspectRatio)
     {
         // El área es más ancha que el diseño: la altura es el límite.
