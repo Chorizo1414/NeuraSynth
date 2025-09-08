@@ -58,7 +58,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
             osc.pitchKnob.setValue(0.0);
 
             // Spread: 0.0 (mono) a 0.5 (ancho completo)
-            osc.spreadKnob.setRange(0.0, 2.5);
+            osc.spreadKnob.setRange(0.0, 1.5);
             osc.spreadKnob.setValue(0.0);
 
             // Pan (L/R): 0.5 (centro)
@@ -145,7 +145,16 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     unisonComp1.onVoicesChanged = [this](int voices) { audioProcessor.setOsc1UnisonVoices(voices); };
     unisonComp1.onDetuneChanged = [this](float detune) { audioProcessor.setOsc1UnisonDetune(detune); };
     unisonComp1.onBalanceChanged = [this](float balance) { audioProcessor.setOsc1UnisonBalance(balance); };
-    // (Los callbacks para unison 2 y 3 se añadirán cuando el procesador los soporte)
+    
+    // Conexión de Callbacks para el Unison del Oscilador 2
+    unisonComp2.onVoicesChanged = [this](int voices) { audioProcessor.setOsc2UnisonVoices(voices); };
+    unisonComp2.onDetuneChanged = [this](float detune) { audioProcessor.setOsc2UnisonDetune(detune); };
+    unisonComp2.onBalanceChanged = [this](float balance) { audioProcessor.setOsc2UnisonBalance(balance); };
+    
+    // Conexión de Callbacks para el Unison del Oscilador 3
+    unisonComp3.onVoicesChanged = [this](int voices) { audioProcessor.setOsc3UnisonVoices(voices); };
+    unisonComp3.onDetuneChanged = [this](float detune) { audioProcessor.setOsc3UnisonDetune(detune); };
+    unisonComp3.onBalanceChanged = [this](float balance) { audioProcessor.setOsc3UnisonBalance(balance); };
 
     // Agregar y configurar controles de master
     addAndMakeVisible(masterSection);

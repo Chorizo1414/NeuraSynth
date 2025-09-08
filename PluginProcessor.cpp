@@ -9,8 +9,8 @@ double SynthVoice::lastNoteFrequency = 0.0;
 // DEFINICIÓN de setParameters(...) (va en el .cpp, no en el .h)
 void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, int* unisonVoices1, float* unisonDetune1, float* unisonBalance1,
-    int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
-    int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
+    int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2, int* unisonVoices2, float* unisonDetune2, float* unisonBalance2,
+    int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3, int* unisonVoices3, float* unisonDetune3, float* unisonBalance3,
     double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr,
     float* glideSecondsPtr, double sr)
 {
@@ -25,6 +25,14 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     pUnisonVoices1 = unisonVoices1;
     pUnisonDetune1 = unisonDetune1;
     pUnisonBalance1 = unisonBalance1;
+
+    pUnisonVoices2 = unisonVoices2;
+    pUnisonDetune2 = unisonDetune2;
+    pUnisonBalance2 = unisonBalance2;
+    
+    pUnisonVoices3 = unisonVoices3;
+    pUnisonDetune3 = unisonDetune3;
+    pUnisonBalance3 = unisonBalance3;
 
     pCutoff = cutoffHzPtr;
     pQ = qPtr;
@@ -43,96 +51,48 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
 {
     if (!isVoiceActive()) return;
 
-    // --- Bucle principal muestra por muestra ---
     for (int sample = startSample; sample < startSample + numSamples; ++sample)
     {
-        // --- LÓGICA DE GLIDE ---
-        // Si la frecuencia actual no es la objetivo, la movemos un poco
+        // --- GLIDE Y ENVOLVENTE (SIN CAMBIOS) ---
         if (currentFrequency != targetFrequency)
         {
-            // Calculamos cuánto movernos en este sample. Usamos un coeficiente para un slide suave.
-            // Un valor más pequeño (ej. 0.0005f) da un glide más lento.
             const float glideCoefficient = 0.001f / (*pGlideSeconds + 0.001f);
             currentFrequency += (targetFrequency - currentFrequency) * glideCoefficient;
-            
-            // Si estamos muy cerca, simplemente saltamos al final para evitar errores de precisión
             if (std::abs(targetFrequency - currentFrequency) < 0.01)
-            {
                 currentFrequency = targetFrequency;
-            }
         }
-
         float envVal = env.getNextSample();
 
-        // --- LÓGICA DEL LFO ---
-        // 1. Generar la onda del LFO (seno)
+        // --- LFO Y FM (SIN CAMBIOS) ---
         float lfoSample = std::sin(lfoPhase);
         lfoPhase += (*pLfoSpeed / sampleRateHz) * juce::MathConstants<float>::twoPi;
-        if (lfoPhase >= juce::MathConstants<float>::twoPi)
-            lfoPhase -= juce::MathConstants<float>::twoPi;
-
-        // 2. Calcular cuánto afectará al tono (en semitonos)
-        // El Amount va de 0 a 1. Lo escalamos para que en su máximo, module +/- 2 semitonos.
-        // ¡Puedes cambiar el '2.0f' para un vibrato más sutil o más extremo!
+        if (lfoPhase >= juce::MathConstants<float>::twoPi) lfoPhase -= juce::MathConstants<float>::twoPi;
         float pitchModulation = lfoSample * *pLfoAmount * 2.0f;
 
-        // --- PASO 1: Calcular la señal del MODULADOR de FM dedicado ---
         float fmAmount = (pFmAmount ? *pFmAmount : 0.0f);
         float modulatorSample = 0.0f;
-
         if (fmAmount != 0.0f)
         {
-            // La frecuencia del modulador se basa en la frecuencia de OSC 1
             double osc1Freq = currentFrequency * std::pow(2.0, *pitchShift1);
-            double modulatorFreq;
-
-            if (fmAmount > 0.0f) // Derecha -> Brillante (una octava arriba)
-            {
-                modulatorFreq = osc1Freq * 2.0;
-            }
-            else // Izquierda -> Oscuro (una octava abajo)
-            {
-                modulatorFreq = osc1Freq * 0.5;
-            }
-
-            // Generamos la muestra del modulador (seno puro)
+            double modulatorFreq = (fmAmount > 0.0f) ? osc1Freq * 2.0 : osc1Freq * 0.5;
             modulatorSample = std::sin(fmModulatorPhase);
             fmModulatorPhase += (modulatorFreq / sampleRateHz) * juce::MathConstants<float>::twoPi;
-            if (fmModulatorPhase >= juce::MathConstants<float>::twoPi)
-                fmModulatorPhase -= juce::MathConstants<float>::twoPi;
+            if (fmModulatorPhase >= juce::MathConstants<float>::twoPi) fmModulatorPhase -= juce::MathConstants<float>::twoPi;
         }
-
-        // --- PASO 2: Calcular la PROFUNDIDAD de la modulación (la sutileza) ---
-        // ¡ESTE VALOR ES LA CLAVE DE LA SUTILEZA!
-        // Si el efecto sigue siendo muy brusco, reduce este número (p. ej. a 100.0, 50.0...)
         const float fmDepthScale = 200.0f;
         float modulationDepth = modulatorSample * std::abs(fmAmount) * fmDepthScale;
 
-        // --- PASO 3: Generar los osciladores principales con sus frecuencias ya moduladas ---
+        // --- CÁLCULO DE FRECUENCIAS (SIN CAMBIOS) ---
         float finalLeft = 0.0f;
         float finalRight = 0.0f;
-
-        // Convertimos la modulación de semitonos a un factor de frecuencia
         double lfoPitchFactor = std::pow(2.0, pitchModulation / 12.0);
-
-        // Convertimos el Detune en cents a un factor de frecuencia
         double detuneFactor2 = std::pow(2.0, *detuneOsc2 / 1200.0);
         double detuneFactor3 = std::pow(2.0, *detuneOsc3 / 1200.0);
-
-        // Frecuencias base de cada oscilador (¡AHORA USAN 'currentFrequency'!)
         double baseFreq1 = currentFrequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor;
         double baseFreq2 = currentFrequency * std::pow(2.0, *pitchShift2) * lfoPitchFactor * detuneFactor2;
         double baseFreq3 = currentFrequency * std::pow(2.0, *pitchShift3) * lfoPitchFactor * detuneFactor3;
 
-        // Aplicamos la modulación a cada uno
-        double modulatedFreq2 = baseFreq2 + modulationDepth;
-        double modulatedFreq3 = baseFreq3 + modulationDepth;
-
-        // Calculamos los incrementos DENTRO del bucle
-        double increment2 = (wt2 && modulatedFreq2 > 0) ? (modulatedFreq2 / getSampleRate()) * 2048.0 : 0.0;
-        double increment3 = (wt3 && modulatedFreq3 > 0) ? (modulatedFreq3 / getSampleRate()) * 2048.0 : 0.0;
-
-        // Función para generar el audio (simplificada)
+        // --- FUNCIÓN DE RENDER DE UN OSCILADOR (SIN CAMBIOS) ---
         auto getOscSample = [&](juce::AudioBuffer<float>* wt, int numFrames, float wavePosition, double& readPos, double increment, float gain, float pan) -> std::pair<float, float> {
             if (!wt || wt->getNumSamples() == 0 || gain <= 0.0f) return { 0.0f, 0.0f };
             float frameFloat = wavePosition * (numFrames > 1 ? numFrames - 1 : 0);
@@ -151,61 +111,54 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
             return { voiceSample * std::cos(panAngle) * gain, voiceSample * std::sin(panAngle) * gain };
             };
 
-        // --- NUEVA LÓGICA DE RENDER PARA OSCILADOR 1 CON UNISON ---
-        const int numVoices = *pUnisonVoices1;
-        float totalGainOsc1 = *oscGain1 / std::sqrt((float)numVoices); // Compensación de ganancia
-        
-        for (int i = 0; i < numVoices; ++i)
-        {
-            // Calcular detune y pan para esta voz de unison
-            float detuneCents = 0.0f;
-            float pan = *panOsc1;
-            
-            if (numVoices > 1)
+        // --- FUNCIÓN AUXILIAR PARA PROCESAR UNISON ---
+        auto processUnison = [&](int numVoices, float detuneParam, float balanceParam, float basePan, float spreadParam,
+            juce::AudioBuffer<float>* wt, int* numFrames, float* wavePos, float gain, double baseFreq,
+            std::function<double& (int)> getReadPos)
+            {
+                if (gain <= 0.0f) return;
+                float totalGain = gain / std::sqrt((float)numVoices);
+                for (int i = 0; i < numVoices; ++i)
                 {
-                // Mapear el índice de la voz a un rango de -1 a 1 (bipolar)
-                float bipolarSpread = juce::jmap((float)i, 0.0f, (float)numVoices - 1.0f, -1.0f, 1.0f);
-               
-                // El balance (-1 a 1) desplaza el centro del detune
-                float balance = *pUnisonBalance1;
-                float voicePosition = bipolarSpread + balance;
-                voicePosition = juce::jlimit(-1.0f, 1.0f, voicePosition - (bipolarSpread * balance));
-                
-                    // Detune: el máximo detune es de +/- 50 cents (un cuarto de tono)
-                    detuneCents = voicePosition * (*pUnisonDetune1) * 50.0f;
-                
-                    // Pan: esparce las voces en el campo estéreo
-                    pan = juce::jlimit(0.0f, 1.0f, *panOsc1 + voicePosition * (*spreadOsc1));
+                    float detuneCents = 0.0f;
+                    float pan = basePan;
+                    if (numVoices > 1) {
+                        float bipolarSpread = juce::jmap((float)i, 0.0f, (float)numVoices - 1.0f, -1.0f, 1.0f);
+                        float voicePosition = bipolarSpread + balanceParam;
+                        voicePosition = juce::jlimit(-1.0f, 1.0f, voicePosition - (bipolarSpread * balanceParam));
+                        detuneCents = voicePosition * detuneParam * 50.0f;
+                        pan = juce::jlimit(0.0f, 1.0f, basePan + voicePosition * spreadParam);
+                    }
+                    double detuneFactor = std::pow(2.0, detuneCents / 1200.0);
+                    double modulatedFreq = (baseFreq * detuneFactor) + modulationDepth;
+                    double increment = (wt && modulatedFreq > 0) ? (modulatedFreq / getSampleRate()) * 2048.0 : 0.0;
+
+                    auto osc_out = getOscSample(wt, *numFrames, *wavePos, getReadPos(i), increment, totalGain, pan);
+                    finalLeft += osc_out.first;
+                    finalRight += osc_out.second;
                 }
-            
-            double detuneFactor = std::pow(2.0, detuneCents / 1200.0);
-            double modulatedFreq1 = (baseFreq1 * detuneFactor) + modulationDepth;
-            double increment1 = (wt1 && modulatedFreq1 > 0) ? (modulatedFreq1 / getSampleRate()) * 2048.0 : 0.0;
-            
-            auto osc1_out = getOscSample(wt1, *numFrames1, *wavePosition1, unisonVoices[i].readPosOsc1, increment1, totalGainOsc1, pan);
-            finalLeft += osc1_out.first;
-            finalRight += osc1_out.second;
-        }
+            };
 
-        auto osc2_out = getOscSample(wt2, *numFrames2, *wavePosition2, unisonVoices[0].readPosOsc2, increment2, *oscGain2, *panOsc2);
-        finalLeft += osc2_out.first; finalRight += osc2_out.second;
+        // --- RENDER DE LOS 3 OSCILADORES USANDO LA FUNCIÓN DE UNISON ---
+        processUnison(*pUnisonVoices1, *pUnisonDetune1, *pUnisonBalance1, *panOsc1, *spreadOsc1, wt1, numFrames1, wavePosition1, *oscGain1, baseFreq1,
+            [&](int i) -> double& { return unisonVoices[i].readPosOsc1; });
 
-        auto osc3_out = getOscSample(wt3, *numFrames3, *wavePosition3, unisonVoices[0].readPosOsc3, increment3, *oscGain3, *panOsc3);
-        finalLeft += osc3_out.first; finalRight += osc3_out.second;
+        processUnison(*pUnisonVoices2, *pUnisonDetune2, *pUnisonBalance2, *panOsc2, *spreadOsc2, wt2, numFrames2, wavePosition2, *oscGain2, baseFreq2,
+            [&](int i) -> double& { return unisonVoices[i].readPosOsc2; });
 
-        // --- PASO 4: Filtrado y Salida ---
+        processUnison(*pUnisonVoices3, *pUnisonDetune3, *pUnisonBalance3, *panOsc3, *spreadOsc3, wt3, numFrames3, wavePosition3, *oscGain3, baseFreq3,
+            [&](int i) -> double& { return unisonVoices[i].readPosOsc3; });
+
+        // --- FILTRADO Y SALIDA (SIN CAMBIOS) ---
         double baseCutoff = (pCutoff ? *pCutoff : 20000.0);
-        // ... (resto del código del filtro y envolvente sin cambios)
         if (pKeyTrack && *pKeyTrack)
             baseCutoff *= std::pow(2.0, (currentMidiNote - 60) / 12.0);
         double modulationOctaves = (pEnvAmt ? *pEnvAmt : 0.0) * envVal * 5.0;
         double fc = baseCutoff * std::pow(2.0, modulationOctaves);
         fc = juce::jlimit(20.0, 20000.0, fc);
         const double q = (pQ ? juce::jlimit(0.1, 1.0, *pQ) : 0.707);
-
         float fl = processSVFLP(finalLeft, (float)fc, (float)q, svfL);
         float fr = processSVFLP(finalRight, (float)fc, (float)q, svfR);
-
         outputBuffer.addSample(0, sample, fl * envVal);
         outputBuffer.addSample(1, sample, fr * envVal);
 
@@ -299,7 +252,7 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // --- 1. EFECTO DRIVE ---
     if (driveAmount > 0.0f)
     {
-        float driveGain = juce::jmap(driveAmount, 0.0f, 1.0f, 1.0f, 3.0f);
+        float driveGain = juce::jmap(driveAmount, 0.0f, 1.0f, 1.0f, 1.5f);
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
             auto* channelData = buffer.getWritePointer(channel);
@@ -403,8 +356,8 @@ void NeuraSynthAudioProcessor::updateAllVoices()
         if (auto* voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
             voice->setParameters(adsrParams,
                 &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1UnisonVoices, &osc1UnisonDetune, &osc1UnisonBalance,
-                &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
-                &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
+                &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents, &osc2UnisonVoices, &osc2UnisonDetune, &osc2UnisonBalance,
+                &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents, &osc3UnisonVoices, &osc3UnisonDetune, &osc3UnisonBalance,
                 &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount, &glideSeconds, getSampleRate()
             );
 }
@@ -437,6 +390,16 @@ void NeuraSynthAudioProcessor::setOsc1Pan(float p) { osc1Pan = p; updateAllVoice
 void NeuraSynthAudioProcessor::setOsc1UnisonVoices(int numVoices) { osc1UnisonVoices = numVoices; updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc1UnisonDetune(float amount) { osc1UnisonDetune = amount; updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc1UnisonBalance(float balance) { osc1UnisonBalance = balance; updateAllVoices(); }
+
+// --- Setters de Unison (para OSC 2) ---
+void NeuraSynthAudioProcessor::setOsc2UnisonVoices(int numVoices) { osc2UnisonVoices = numVoices; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc2UnisonDetune(float amount) { osc2UnisonDetune = amount; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc2UnisonBalance(float balance) { osc2UnisonBalance = balance; updateAllVoices(); }
+
+// --- Setters de Unison (para OSC 3) ---
+void NeuraSynthAudioProcessor::setOsc3UnisonVoices(int numVoices) { osc3UnisonVoices = numVoices; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc3UnisonDetune(float amount) { osc3UnisonDetune = amount; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc3UnisonBalance(float balance) { osc3UnisonBalance = balance; updateAllVoices(); }
 
 // --- Setters Oscilador 2 ---
 void NeuraSynthAudioProcessor::setOsc2Gain(float g) { osc2Gain = g; }
