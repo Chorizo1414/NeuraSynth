@@ -31,9 +31,9 @@ public:
     // Asigna los parámetros globales del sintetizador a esta voz (DECLARACIÓN)
     void setParameters(juce::ADSR::Parameters& adsr,
         int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, int* unisonVoices1, float* unisonDetune1, float* unisonBalance1,
-        int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2, int* unisonVoices2, float* unisonDetune2, float* unisonBalance2,
-        int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3, int* unisonVoices3, float* unisonDetune3, float* unisonBalance3,
-        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr,
+        int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
+        int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
+        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr, 
         float* glideSecondsPtr, double sr);
 
     bool canPlaySound(juce::SynthesiserSound* sound) override
@@ -99,12 +99,6 @@ private:
     int* pUnisonVoices1 = nullptr;
     float* pUnisonDetune1 = nullptr;
     float* pUnisonBalance1 = nullptr;
-    int* pUnisonVoices2 = nullptr;
-    float* pUnisonDetune2 = nullptr;
-    float* pUnisonBalance2 = nullptr;
-    int* pUnisonVoices3 = nullptr;
-    float* pUnisonDetune3 = nullptr;
-    float* pUnisonBalance3 = nullptr;
 
     // ===== Filtro TPT SVF por canal =====
     struct SVFState { float ic1eq = 0.0f, ic2eq = 0.0f; };
@@ -234,16 +228,6 @@ public:
     void setOsc1UnisonDetune(float amount); // 0.0 a 1.0
     void setOsc1UnisonBalance(float balance); // -1.0 a 1.0
 
-    // --- Setters de Unison (para OSC 2) ---
-    void setOsc2UnisonVoices(int numVoices);
-    void setOsc2UnisonDetune(float amount);
-    void setOsc2UnisonBalance(float balance);
-    
-    // --- Setters de Unison (para OSC 3) ---
-    void setOsc3UnisonVoices(int numVoices);
-    void setOsc3UnisonDetune(float amount);
-    void setOsc3UnisonBalance(float balance);
-
     // --- Setters para ADSR ---
     void setAttack(float attack);
     void setDecay(float decay);
@@ -318,14 +302,6 @@ private:
     int osc1UnisonVoices = 1;
     float osc1UnisonDetune = 0.2f; // 20% por defecto
     float osc1UnisonBalance = 0.0f; // 0.0 = Bipolar (centrado)
-
-    // --- Parámetros de Unison (para OSC 2 y 3) ---
-    int osc2UnisonVoices = 1;
-    float osc2UnisonDetune = 0.2f;
-    float osc2UnisonBalance = 0.0f;
-    int osc3UnisonVoices = 1;
-    float osc3UnisonDetune = 0.2f;
-    float osc3UnisonBalance = 0.0f;
 
     // --- Parámetros de filtro globales (aplicados por voz)
     double filterCutoffHz = 20000.0; // abierto por defecto
