@@ -253,52 +253,31 @@ void NeuraSynthAudioProcessorEditor::paint(juce::Graphics& g)
 
 void NeuraSynthAudioProcessorEditor::resized()
 {
-    // --- 1. Define el área para el teclado (sin cambios) ---
+    // --- 1. Define el área para el teclado (Esto no cambia) ---
     const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
     int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
     if (keyboardHeight < 0) keyboardHeight = 0;
     midiKeyboardComponent.setBounds(0, getHeight() - keyboardHeight, getWidth(), keyboardHeight);
 
-    // --- 2. Define el área segura para la GUI (sin cambios) ---
+    // --- 2. Define el área para la GUI (Esto no cambia) ---
     juce::Rectangle<int> guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
 
-    // --- 3. CÁLCULO MANUAL PARA AJUSTAR LA GUI (NUEVO CÓDIGO) ---
-    // En lugar de usar la función problemática, lo calculamos manualmente.
+    // --- 3. LÓGICA DE ESCALADO SIMPLIFICADA ---
+    // Como tu ComboBox asegura que la proporción es siempre correcta, no necesitamos
+    // el cálculo complejo de antes. El área de la GUI ya es perfecta.
+    const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
 
-    const float guiDesignHeight = LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT;
-    const float designAspectRatio = LayoutConstants::DESIGN_WIDTH / guiDesignHeight;
-    const float guiAreaAspectRatio = (float)guiArea.getWidth() / (float)guiArea.getHeight();
-
-    if (guiAreaAspectRatio > designAspectRatio)
-    {
-        // El área es más ancha que el diseño: la altura es el límite.
-        float scaledHeight = guiArea.getHeight();
-        float scaledWidth = scaledHeight * designAspectRatio;
-        scaledGuiArea.setSize(scaledWidth, scaledHeight);
-        scaledGuiArea.setCentre(guiArea.getCentreX(), guiArea.getCentreY());
-    }
-    else
-    {
-        // El área es más alta que el diseño: la anchura es el límite.
-        float scaledWidth = guiArea.getWidth();
-        float scaledHeight = scaledWidth / designAspectRatio;
-        scaledGuiArea.setSize(scaledWidth, scaledHeight);
-        scaledGuiArea.setCentre(guiArea.getCentreX(), guiArea.getCentreY());
-    }
-
-    // --- 4. Obtenemos el factor de escala correcto y definitivo (sin cambios) ---
-    const float scale = scaledGuiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
-
-    // Función auxiliar para posicionar los componentes (sin cambios)
+    // La función para posicionar ahora es más directa.
     auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
         {
-            comp.setBounds(scaledGuiArea.getX() + designRect.getX() * scale,
-                scaledGuiArea.getY() + designRect.getY() * scale,
+            // Posiciona los componentes relativo al inicio del guiArea (que es 0,0).
+            comp.setBounds(guiArea.getX() + designRect.getX() * scale,
+                guiArea.getY() + designRect.getY() * scale,
                 designRect.getWidth() * scale,
                 designRect.getHeight() * scale);
         };
 
-    // --- 5. Posicionamos todas las secciones (sin cambios) ---
+    // --- 4. Posicionamos todas las secciones (Esto no cambia) ---
     scaleAndSet(masterSection, LayoutConstants::MASTER_SECTION);
     scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
     scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);
@@ -312,11 +291,11 @@ void NeuraSynthAudioProcessorEditor::resized()
     scaleAndSet(modulationComp, LayoutConstants::LFO_FM_SECTION);
     scaleAndSet(envelopeSection, LayoutConstants::ENVELOPE_SECTION);
 
-    // --- Posicionar Selector de Tamaño (sin cambios) ---
+    // --- Posicionar Selector de Tamaño (Esto no cambia) ---
     sizeLabel.setBounds(getWidth() - 160, 5, 50, 25);
     sizeComboBox.setBounds(getWidth() - 100, 5, 90, 25);
 
-    // Actualizamos el factor de escala para el DesignMouseListener (sin cambios)
+    // Actualizamos el factor de escala (Esto no cambia)
     this->scale = scale;
 }
 
