@@ -53,8 +53,8 @@ private:
             return;
         }
 
-        // --- LÓGICA MODIFICADA ---
-        // 1. Calcular qué frame dibujar
+        // --- LICA MODIFICADA ---
+        // 1. Calcular qu	 frame dibujar
         float frameFloat = currentPosition * (numFrames - 1);
         int frameIndex = static_cast<int>(std::floor(frameFloat));
 

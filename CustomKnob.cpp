@@ -44,12 +44,12 @@ void CustomKnob::paint(juce::Graphics& g)
 
 void CustomKnob::mouseDoubleClick(const juce::MouseEvent&)
 {
-    // Calculamos el valor de destino basándonos en el 'defaultValue' (0.0, 0.5, o 1.0)
+    // Calculamos el valor de destino basonos en el 'defaultValue' (0.0, 0.5, o 1.0)
     // y el rango actual del knob (por ejemplo, -12 a 12).
     double targetValue = getMinimum() + (getMaximum() - getMinimum()) * defaultValue;
 
     // Para los knobs que se mueven en pasos (como octava o pitch),
-    // nos aseguramos de que el valor se ajuste al paso más cercano.
+    // nos aseguramos de que el valor se ajuste al paso ms cercano.
     if (getInterval() > 0)
         targetValue = std::round(targetValue / getInterval()) * getInterval();
 

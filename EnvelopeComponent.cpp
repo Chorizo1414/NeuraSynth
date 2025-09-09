@@ -46,9 +46,9 @@ EnvelopeComponent::~EnvelopeComponent() {}
 void EnvelopeComponent::paint(juce::Graphics& g)
 {
 	// Solo dibuja el borde si el designMode del editor está activo
-	if (auto* editor = findParentComponentOfClass<NeuraSynthAudioProcessorEditor>())
+	if (auto* tab = findParentComponentOfClass<SynthTabComponent>())
 	{
-		if (editor->designMode)
+		if (tab->designMode)
 		{
 			g.setColour(juce::Colours::red);
 			g.drawRect(getLocalBounds(), 2.0f);
