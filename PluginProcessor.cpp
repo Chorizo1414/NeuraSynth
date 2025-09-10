@@ -221,11 +221,27 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
 // --- IMPLEMENTACIÓN DEL PROCESADOR PRINCIPAL (NeuraSynthAudioProcessor) ---
 
 NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
+#ifndef JucePlugin_PreferredChannelConfigurations
+    : AudioProcessor(BusesProperties()
+                    #if ! JucePlugin_IsMidiEffect
+                    #if ! JucePlugin_IsSynth
+                    .withInput("Input", juce::AudioChannelSet::stereo(), true)
+                    #endif
+                    .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+                    #endif
+                      ),
+    apvts(*this, nullptr, "Parameters", createParameterLayout()),
+    Thread("Python Generation Thread")
+#endif
 {
-    const int numVoices = 16;
-    for (int i = 0; i < numVoices; ++i)
+    // --- Inicialización del Sintetizador ---
+    for (int i = 0; i < 16; i++) // 16 voces de polifonía
+    {
         synth.addVoice(new SynthVoice());
+    }
     synth.addSound(new SynthSound());
+
+    pythonManager = std::make_unique<PythonManager>();
 }
 
 NeuraSynthAudioProcessor::~NeuraSynthAudioProcessor() {}
@@ -576,3 +592,52 @@ void NeuraSynthAudioProcessor::changeProgramName(int /*index*/, const juce::Stri
 void NeuraSynthAudioProcessor::getStateInformation(juce::MemoryBlock& /*destData*/) {}
 void NeuraSynthAudioProcessor::setStateInformation(const void* /*data*/, int /*sizeInBytes*/) {}
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new NeuraSynthAudioProcessor(); }
+
+// +++ AÑADE ESTAS DOS NUEVAS FUNCIONES AL FINAL DEL ARCHIVO +++
+void NeuraSynthAudioProcessor::startGeneration(const juce::String& prompt)
+{
+    if (isThreadRunning())
+    {
+        DBG("Generation already in progress...");
+        return;
+    }
+    promptParaGenerar = prompt;
+    startThread(); // Inicia el hilo secundario para no congelar la UI
+}
+
+void NeuraSynthAudioProcessor::run()
+{
+    DBG("Hilo secundario iniciado. Generando con prompt: " << promptParaGenerar);
+
+    auto result = pythonManager->generateMusicData(promptParaGenerar);
+
+    if (result && !result.empty())
+    {
+        std::string estilo = result["estilo"].cast<std::string>();
+        std::string raiz = result["raiz"].cast<std::string>();
+        std::string modo = result["modo"].cast<std::string>();
+
+        DBG("Python devolvió: Estilo=" << estilo << ", Tonalidad=" << raiz << " " << modo);
+    }
+    else
+    {
+        DBG("La generación desde Python falló o no devolvió resultados.");
+    }
+
+}
+
+// ++ AÑADE ESTA FUNCIÓN COMPLETA AL FINAL DE TU ARCHIVO .CPP ++
+
+juce::AudioProcessorValueTreeState::ParameterLayout NeuraSynthAudioProcessor::createParameterLayout()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    // AQUÍ ES DONDE NORMALMENTE SE AÑADEN TODOS LOS PARÁMETROS DEL SINTETIZADOR
+    // (knobs, sliders, etc.). 
+    // Por ahora, la dejaremos vacía para que el proyecto pueda compilar.
+    //
+    // Ejemplo de cómo añadirías un parámetro en el futuro:
+    // params.push_back(std::make_unique<juce::AudioParameterFloat>("GAIN", "Gain", 0.0f, 1.0f, 0.5f));
+
+    return { params.begin(), params.end() };
+}

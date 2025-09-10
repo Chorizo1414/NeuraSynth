@@ -17,8 +17,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     setWantsKeyboardFocus(true);
     backgroundImage = juce::ImageCache::getFromMemory(BinaryData::boceto_png, BinaryData::boceto_pngSize);
 
-    // Asignamos nombres para el modo diseño
-    osc1.setName("Oscillator 1");
+    // Asignamos nombres para el modo dise    osc1.setName("Oscillator 1");
     osc2.setName("Oscillator 2");
     osc3.setName("Oscillator 3");
     unisonComp1.setName("Unison 1");
@@ -29,7 +28,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     delaySection.setName("Delay Section");
     modulationComp.setName("Modulation Section");
 
-    // --- SECCIÓN OSCILADORES ---
+    // --- SECCIN OSCILADORES ---
     addAndMakeVisible(osc1);
     addAndMakeVisible(osc2);
     addAndMakeVisible(osc3);
@@ -70,7 +69,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     setupOscillatorKnobs(osc2);
     setupOscillatorKnobs(osc3);
 
-    // Conexión de Callbacks para el Oscilador 1 (el que está activo)
+    // Conexin de Callbacks para el Oscilador 1 (el que est activo)
     osc1.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
         audioProcessor.setWavetable1(buffer); // <-- CORREGIDO
         osc1.waveDisplay.setAudioBuffer(buffer, audioProcessor.getNumFrames1());
@@ -87,7 +86,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
         osc1.waveDisplay.setDisplayPosition(newPosition);
         };
 
-    // Conexión de displays para OSC2 y OSC3 (solo visual, sin afectar audio)
+    // Conexin de displays para OSC2 y OSC3 (solo visual, sin afectar audio)
     osc2.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
         audioProcessor.setWavetable2(buffer); // <-- CORREGIDO
         osc2.waveDisplay.setAudioBuffer(buffer, audioProcessor.getNumFrames2());
@@ -104,7 +103,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
         osc2.waveDisplay.setDisplayPosition(newPosition);
         };
 
-    // --- Conexión de Callbacks para el Oscilador 3 ---
+    // --- Conexin de Callbacks para el Oscilador 3 ---
     osc3.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
         audioProcessor.setWavetable3(buffer);
         if (buffer.getNumSamples() > 0 && buffer.getNumSamples() % 2048 == 0)
@@ -122,39 +121,39 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
         osc3.waveDisplay.setDisplayPosition(newPosition);
         };
 
-    // Carga de wavetables en cada sección
+    // Carga de wavetables en cada seccin
     juce::String waveFolderPath = "C:/Users/Progra.CHORI1414/Desktop/Proyectos/JUCE/NeuraSynth/Source/wavetables";
     osc1.oscSection.loadWavetablesFromFolder(waveFolderPath);
     osc2.oscSection.loadWavetablesFromFolder(waveFolderPath);
     osc3.oscSection.loadWavetablesFromFolder(waveFolderPath);
 
-    // --- SECCIÓN UNISON ---
+    // --- SECCIN UNISON ---
     addAndMakeVisible(unisonComp1);
     addAndMakeVisible(unisonComp2);
     addAndMakeVisible(unisonComp3);
 
-    // Conexión de Callbacks para el Unison del Oscilador 1
+    // Conexin de Callbacks para el Unison del Oscilador 1
     unisonComp1.onVoicesChanged = [this](int voices) { audioProcessor.setOsc1UnisonVoices(voices); };
     unisonComp1.onDetuneChanged = [this](float detune) { audioProcessor.setOsc1UnisonDetune(detune); };
     unisonComp1.onBalanceChanged = [this](float balance) { audioProcessor.setOsc1UnisonBalance(balance); };
-    // (Los callbacks para unison 2 y 3 se añadirán cuando el procesador los soporte)
+    // (Los callbacks para unison 2 y 3 se aadirn cuando el procesador los soporte)
 
     // Agregar y configurar controles de master
     addAndMakeVisible(masterSection);
 
-    // --- SECCIÓN FILTER ---
+    // --- SECCIN FILTER ---
     addAndMakeVisible(filterSection);
 
-    // --- SECCIÓN ENVELOPE ---
+    // --- SECCIN ENVELOPE ---
     addAndMakeVisible(envelopeSection);
 
-    // --- SECCIÓN MODULACIÓN (LFO & FM) ---
+    // --- SECCIN MODULACIN (LFO & FM) ---
     addAndMakeVisible(modulationComp);
 
-    // --- SECCIÓN REVERB ---
+    // --- SECCIN REVERB ---
     addAndMakeVisible(reverbSection);
 
-    // --- SECCIÓN DELAY ---
+    // --- SECCIN DELAY ---
     addAndMakeVisible(delaySection);
 
     addAndMakeVisible(midiKeyboardComponent);
@@ -183,7 +182,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     }
 
-    // -- - Selector de Tamaño-- -
+    // -- - Selector de Tamao-- -
     addAndMakeVisible(sizeLabel);
     sizeLabel.setText("Size:", juce::dontSendNotification);
     sizeLabel.setJustificationType(juce::Justification::centredRight);
@@ -196,13 +195,13 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     sizeComboBox.onChange = [this]
         {
-            float finalScale = 0.5f; // El 100% será la mitad del tamaño del diseño
+            float finalScale = 0.5f; // El 100% ser la mitad del tamao del diseo
             int choice = sizeComboBox.getSelectedId();
-            if (choice == 1) finalScale = 0.25f;  // El 50% será un cuarto del diseño
-            if (choice == 2) finalScale = 0.375f; // El 75% será 3/8 del diseño
-            if (choice == 3) finalScale = 0.5f;   // El 100% será la mitad del diseño
+            if (choice == 1) finalScale = 0.25f;  // El 50% ser un cuarto del diseo
+            if (choice == 2) finalScale = 0.375f; // El 75% ser 3/8 del diseo
+            if (choice == 3) finalScale = 0.5f;   // El 100% ser la mitad del diseo
 
-            // Usamos la función correcta para obtener la ventana principal del plugin
+            // Usamos la funcin correcta para obtener la ventana principal del plugin
             if (auto* parent = findParentComponentOfClass<juce::TopLevelWindow>())
             {
                 const int newWidth = LayoutConstants::DESIGN_WIDTH * finalScale;
@@ -211,7 +210,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
             }
         };
 
-    // Tamaño inicial
+    // Tamao inicial
     const float initialScale = 0.75f;
     const int initialWidth = LayoutConstants::DESIGN_WIDTH * initialScale;
     const int initialHeight = LayoutConstants::DESIGN_HEIGHT * initialScale;
@@ -224,17 +223,17 @@ SynthTabComponent::~SynthTabComponent()
 
 void SynthTabComponent::paint(juce::Graphics& g)
 {
-    // 1. Rellena todo el fondo de negro. Este será el color base para la sección del piano.
+    // 1. Rellena todo el fondo de negro. Este ser el color base para la seccin del piano.
     g.fillAll(juce::Colours::black);
 
-    // 2. Calcula la altura actual del teclado para saber dónde termina la sección de la GUI.
-    //    Esta lógica es idéntica a la de `resized()` para que siempre estén sincronizadas.
+    // 2. Calcula la altura actual del teclado para saber dnde termina la seccin de la GUI.
+    //    Esta lgica es id	ntica a la de `resized()` para que siempre est	n sincronizadas.
     const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
     int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
     if (keyboardHeight < 0) keyboardHeight = 0;
     juce::Rectangle<int> guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
 
-    // 3. Dibuja la imagen de fondo SOLAMENTE en el área superior (guiArea).
+    // 3. Dibuja la imagen de fondo SOLAMENTE en el rea superior (guiArea).
     if (backgroundImage.isValid())
     {
         g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::stretchToFit);
@@ -243,21 +242,21 @@ void SynthTabComponent::paint(juce::Graphics& g)
 
 void SynthTabComponent::resized()
 {
-    // --- 1. Define el área para el teclado (Esto no cambia) ---
+    // --- 1. Define el rea para el teclado (Esto no cambia) ---
     const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
     int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
     if (keyboardHeight < 0) keyboardHeight = 0;
     midiKeyboardComponent.setBounds(0, getHeight() - keyboardHeight, getWidth(), keyboardHeight);
 
-    // --- 2. Define el área para la GUI (Esto no cambia) ---
+    // --- 2. Define el rea para la GUI (Esto no cambia) ---
     juce::Rectangle<int> guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
 
-    // --- 3. LÓGICA DE ESCALADO SIMPLIFICADA ---
-    // Como tu ComboBox asegura que la proporción es siempre correcta, no necesitamos
-    // el cálculo complejo de antes. El área de la GUI ya es perfecta.
+    // --- 3. LGICA DE ESCALADO SIMPLIFICADA ---
+    // Como tu ComboBox asegura que la proporcin es siempre correcta, no necesitamos
+    // el clculo complejo de antes. El rea de la GUI ya es perfecta.
     const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
 
-    // La función para posicionar ahora es más directa.
+    // La funcin para posicionar ahora es ms directa.
     auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
         {
             // Posiciona los componentes relativo al inicio del guiArea (que es 0,0).
@@ -281,7 +280,7 @@ void SynthTabComponent::resized()
     scaleAndSet(modulationComp, LayoutConstants::LFO_FM_SECTION);
     scaleAndSet(envelopeSection, LayoutConstants::ENVELOPE_SECTION);
 
-    // --- Posicionar Selector de Tamaño (Esto no cambia) ---
+    // --- Posicionar Selector de Tamao (Esto no cambia) ---
     sizeLabel.setBounds(getWidth() - 160, 5, 50, 25);
     sizeComboBox.setBounds(getWidth() - 100, 5, 90, 25);
 

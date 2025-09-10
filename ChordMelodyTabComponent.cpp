@@ -1,26 +1,39 @@
 #include <JuceHeader.h>
 #include "ChordMelodyTabComponent.h"
+#include "PluginProcessor.h" // <--- ¡AÑADE ESTA LÍNEA IMPORTANTE!
 
 //==============================================================================
-/*
-*/
-ChordMelodyTabComponent::ChordMelodyTabComponent()
+// ++ MODIFICA EL CONSTRUCTOR COMPLETAMENTE ++
+ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& p)
+    : audioProcessor(p), generateButton("Generar")
 {
-    // Constructor: Aqu
- irn los componentes de esta pestaa en el futuro
+    addAndMakeVisible(promptEditor);
+    promptEditor.setMultiLine(true);
+    promptEditor.setReturnKeyStartsNewLine(true);
+    promptEditor.setText("reggaeton en Eb major"); // Texto de ejemplo
+
+    addAndMakeVisible(generateButton);
+
+    generateButton.onClick = [this]
+        {
+            audioProcessor.startGeneration(promptEditor.getText());
+        };
 }
 
-ChordMelodyTabComponent::~ChordMelodyTabComponent()  
-}
+ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
 
-void ChordMelodyTabComponent::paint(juce::Graphics & g)
+void ChordMelodyTabComponent::paint(juce::Graphics& g)
 {
-    // Dibuja el fondo negro solicitado
     g.fillAll(juce::Colours::black);
 }
 
+// ++ MODIFICA LA FUNCIÓN RESIZED COMPLETAMENTE ++
 void ChordMelodyTabComponent::resized()
 {
-    // Aqu
- se posicionarn los futuros componentes de esta seccin
+    auto bounds = getLocalBounds().reduced(20); // Un poco de margen
+
+    auto topArea = bounds.removeFromTop(100);
+
+    generateButton.setBounds(topArea.removeFromRight(120).withTrimmedRight(10));
+    promptEditor.setBounds(topArea);
 }

@@ -5,6 +5,7 @@
 #include <JuceHeader.h>
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
+#include "PythonManager.h"
 
 // ==============================================================================
 // 1. CLASE "SOUND": Simplemente le dice al sinte qué tipo de sonidos puede tocar.
@@ -161,7 +162,8 @@ private:
 // ==============================================================================
 // 3. CLASE PRINCIPAL DEL PROCESADOR: Ahora gestiona el sintetizador polifónico.
 // ==============================================================================
-class NeuraSynthAudioProcessor : public juce::AudioProcessor
+class NeuraSynthAudioProcessor : public juce::AudioProcessor,
+                                 public juce::Thread
 {
 public:
     NeuraSynthAudioProcessor();
@@ -186,6 +188,14 @@ public:
     void changeProgramName(int index, const juce::String& newName) override;
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
+
+    // --- Funciones para actualizar parámetros desde el Editor ---
+    void updateADSR();
+    void updateFilter();
+    void updateTone();
+    void updateChorus();
+    void updateReverb();
+    void updateDelay();
 
     // --- Setters de Wavetable ---
     void setWavetable1(const juce::AudioBuffer<float>& newWavetable);
@@ -278,7 +288,12 @@ public:
     double getFilterEnvAmt()   const { return filterEnvAmt; }
     bool   getKeyTrack()       const { return keyTrack; }
 
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    juce::AudioProcessorValueTreeState apvts;
     juce::MidiKeyboardState keyboardState;
+
+    void startGeneration(const juce::String& prompt);
+    void run() override; 
 
 private:
     void updateAllVoices(); // Nueva función para actualizar parámetros
@@ -370,6 +385,9 @@ private:
     
     // El 'spec' guarda información como la frecuencia de muestreo
     juce::dsp::ProcessSpec spec;
+
+    std::unique_ptr<PythonManager> pythonManager;
+    juce::String promptParaGenerar;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessor)
 };

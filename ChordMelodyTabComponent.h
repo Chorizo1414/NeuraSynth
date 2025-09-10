@@ -1,17 +1,22 @@
+#pragma once
 #include <JuceHeader.h>
 
-//==============================================================================
-/*
-*/
+class NeuraSynthAudioProcessor;
+
 class ChordMelodyTabComponent : public juce::Component
 {
 public:
-	ChordMelodyTabComponent();
-	~ChordMelodyTabComponent() override;
-	
-	void paint(juce::Graphics&) override;
-	void resized() override;
-	
+    ChordMelodyTabComponent(NeuraSynthAudioProcessor& p);
+    ~ChordMelodyTabComponent() override;
+
+    void paint(juce::Graphics&) override;
+    void resized() override;
+
 private:
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChordMelodyTabComponent)
+    NeuraSynthAudioProcessor& audioProcessor;
+
+    juce::TextEditor promptEditor;
+    juce::TextButton generateButton;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChordMelodyTabComponent)
 };
