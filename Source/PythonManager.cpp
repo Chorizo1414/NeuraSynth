@@ -32,7 +32,9 @@ PythonManager::PythonManager()
 
 PythonManager::~PythonManager()
 {
-    py::finalize_interpreter();
+    // El 'scoped_interpreter' del .h se encarga de esto automáticamente.
+    // Pero si quieres ser explícito, puedes añadir py::finalize_interpreter();
+    // aunque no es estrictamente necesario con el 'guard'.
 }
 
 juce::StringArray PythonManager::generateChordProgression(const juce::String& prompt)
@@ -54,21 +56,15 @@ juce::StringArray PythonManager::generateChordProgression(const juce::String& pr
         //    Ahora se llama "generar_progresion" en la API de Python
         auto generateFunc = neuraChordApi.attr("generar_progresion");
 
-        // 2. Llamar a la función de Python pasándole el prompt como argumento y obtener un diccionario
-        py::dict result = generateFunc(prompt.toStdString()).cast<py::dict>();
+        // 2. Llamar a la función de Python pasándole el prompt como argumento
+        py::list pyResult = generateFunc(prompt.toStdString());
 
-            // Verificar que exista la clave "acordes" en el resultado
-            if (!result.contains("acordes"))
-            {
-                DBG("Error: la respuesta de Python no contiene la clave 'acordes'.");
-                return generatedChords;
-            }
-
-        // 3. Obtener la lista de acordes y convertirla en juce::StringArray
-        py::list pyChords = result["acordes"].cast<py::list>();
-        for (auto item : pyChords)
+        // 3. Convertir la lista de Python a un juce::StringArray
+        for (auto item : pyResult)
         {
+            // Primero convertimos el objeto de Python a un std::string de C++
             std::string stdString = py::str(item);
+            // Luego, creamos un juce::String a partir del std::string
             generatedChords.add(juce::String(stdString));
         }
     }
