@@ -7,9 +7,20 @@ from generos import detectar_estilo
 import traceback
 
 def generar_progresion(prompt: str, num_acordes: int = -1):
-    """
-    Función principal que C++ llamará para obtener acordes.
-    Devuelve un diccionario con los resultados.
+    """Genera una progresión de acordes a partir de un ``prompt``.
+
+    Parameters
+    ----------
+    prompt: str
+        Texto descriptivo que guía la generación.
+    num_acordes: int, optional
+        Número deseado de acordes; si se omite o es ``-1``, se genera una
+        cantidad por defecto.
+
+    Returns
+    -------
+    dict
+        Diccionario con la progresión generada y metadatos.
     """
     try:
         if num_acordes == -1:

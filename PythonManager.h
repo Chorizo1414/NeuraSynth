@@ -13,6 +13,7 @@ public:
     PythonManager();
     ~PythonManager();
     juce::StringArray generateChordProgression(const juce::String& prompt);
+    py::dict generateMusicData(const juce::String& prompt);
 private:
     py::scoped_interpreter guard{};
     py::module neuraChordApi;

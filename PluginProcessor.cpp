@@ -610,20 +610,21 @@ void NeuraSynthAudioProcessor::run()
     DBG("Hilo secundario iniciado. Generando con prompt: " << promptParaGenerar);
     py::gil_scoped_acquire acquire;
 
-    auto result = pythonManager->generateMusicData(promptParaGenerar);
-
-    if (result && !result.empty())
-    {
-        std::string estilo = result["estilo"].cast<std::string>();
-        std::string raiz = result["raiz"].cast<std::string>();
-        std::string modo = result["modo"].cast<std::string>();
-
-        DBG("Python devolvió: Estilo=" << estilo << ", Tonalidad=" << raiz << " " << modo);
-    }
-    else
-    {
-        DBG("La generación desde Python falló o no devolvió resultados.");
-    }
+    py::dict result = pythonManager->generateMusicData(promptParaGenerar);
+    
+        if (!result.is_none() && !result.empty())
+        {
+            
+                std::string estilo = result["estilo"].cast<std::string>();
+                std::string raiz = result["raiz"].cast<std::string>();
+                std::string modo = result["modo"].cast<std::string>();
+                
+                DBG("Python devolvió: Estilo=" << estilo << ", Tonalidad=" << raiz << " " << modo);
+        }
+            else
+            { 
+                DBG("La generación desde Python falló o no devolvió resultados.");
+            }
 
 }
 

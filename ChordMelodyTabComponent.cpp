@@ -53,7 +53,7 @@ void ChordMelodyTabComponent::generateChords()
     
     // 2. Llamamos a la función de Python a través del manager
     resultsLabel.setText("Generating...", juce::dontSendNotification);
-    juce::StringArray chords = audioProcessor.pythonManager.generateChordProgression(prompt);
+    juce::StringArray chords = audioProcessor.pythonManager->generateChordProgression(prompt);
     
     // 3. Mostramos los resultados
     if (chords.isEmpty())

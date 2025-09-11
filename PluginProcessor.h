@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include <JuceHeader.h>
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
+#include <memory>
 #include "PythonManager.h"
 
 // ==============================================================================
@@ -295,11 +295,12 @@ public:
     void startGeneration(const juce::String& prompt);
     void run() override; 
 
-    PythonManager pythonManager;
+    std::unique_ptr<PythonManager> pythonManager;
 
 private:
     void updateAllVoices(); // Nueva función para actualizar parámetros
 
+    juce::String promptParaGenerar;
     juce::Synthesiser synth;
     juce::ADSR::Parameters adsrParams;
     double pitchShift1 = 0.0, pitchShift2 = 0.0, pitchShift3 = 0.0;

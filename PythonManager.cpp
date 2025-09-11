@@ -53,8 +53,8 @@ juce::StringArray PythonManager::generateChordProgression(const juce::String& pr
 
     try
     {
-        // 1. Obtener la función de Python desde el módulo importado
-        auto generateFunc = neuraChordApi.attr("generar_acordes_desde_prompt");
+        //    Ahora se llama "generar_progresion" en la API de Python
+        auto generateFunc = neuraChordApi.attr("generar_progresion");
 
         // 2. Llamar a la función de Python pasándole el prompt como argumento
         py::list pyResult = generateFunc(prompt.toStdString());
@@ -75,4 +75,28 @@ juce::StringArray PythonManager::generateChordProgression(const juce::String& pr
     }
 
     return generatedChords;
+}
+
+py::dict PythonManager::generateMusicData(const juce::String& prompt)
+{
+    py::dict result;
+
+    if (!neuraChordApi)
+    {
+        DBG("ERROR: Módulo neurachord_api no cargado.");
+        return result;
+    }
+
+    py::gil_scoped_acquire acquire;
+
+    try
+    {
+        result = neuraChordApi.attr("generar_progresion")(prompt.toStdString()).cast<py::dict>();
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("Error de Python: " << e.what());
+    }
+
+    return result;
 }
