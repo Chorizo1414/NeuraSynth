@@ -608,6 +608,7 @@ void NeuraSynthAudioProcessor::startGeneration(const juce::String& prompt)
 void NeuraSynthAudioProcessor::run()
 {
     DBG("Hilo secundario iniciado. Generando con prompt: " << promptParaGenerar);
+    py::gil_scoped_acquire acquire;
 
     auto result = pythonManager->generateMusicData(promptParaGenerar);
 

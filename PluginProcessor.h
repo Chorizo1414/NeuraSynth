@@ -295,6 +295,8 @@ public:
     void startGeneration(const juce::String& prompt);
     void run() override; 
 
+    PythonManager pythonManager;
+
 private:
     void updateAllVoices(); // Nueva función para actualizar parámetros
 
@@ -385,9 +387,6 @@ private:
     
     // El 'spec' guarda información como la frecuencia de muestreo
     juce::dsp::ProcessSpec spec;
-
-    std::unique_ptr<PythonManager> pythonManager;
-    juce::String promptParaGenerar;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessor)
 };

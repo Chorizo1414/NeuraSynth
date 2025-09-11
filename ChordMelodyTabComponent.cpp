@@ -3,21 +3,24 @@
 #include "PluginProcessor.h" // <--- ¡AÑADE ESTA LÍNEA IMPORTANTE!
 
 //==============================================================================
-// ++ MODIFICA EL CONSTRUCTOR COMPLETAMENTE ++
-ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& p)
-    : audioProcessor(p), generateButton("Generar")
+ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor & p)
+    : audioProcessor(p)
 {
+    // --- Editor de Prompt ---
     addAndMakeVisible(promptEditor);
-    promptEditor.setMultiLine(true);
-    promptEditor.setReturnKeyStartsNewLine(true);
+    promptEditor.setMultiLine(false);
+    promptEditor.setReturnKeyStartsNewLine(false);
     promptEditor.setText("reggaeton en Eb major"); // Texto de ejemplo
-
+    
+    // --- Botón de Generar ---
     addAndMakeVisible(generateButton);
-
-    generateButton.onClick = [this]
-        {
-            audioProcessor.startGeneration(promptEditor.getText());
-        };
+    generateButton.onClick = [this] { generateChords(); };
+    
+    // --- Etiqueta de Resultados ---
+    addAndMakeVisible(resultsLabel);
+    resultsLabel.setFont(juce::Font(16.0f));
+    resultsLabel.setJustificationType(juce::Justification::centredTop);
+    resultsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
 }
 
 ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
@@ -27,13 +30,38 @@ void ChordMelodyTabComponent::paint(juce::Graphics& g)
     g.fillAll(juce::Colours::black);
 }
 
-// ++ MODIFICA LA FUNCIÓN RESIZED COMPLETAMENTE ++
 void ChordMelodyTabComponent::resized()
 {
-    auto bounds = getLocalBounds().reduced(20); // Un poco de margen
+    // Posicionamos los controles en la pestaña
+    auto bounds = getLocalBounds().reduced(20);
+    promptEditor.setBounds(bounds.removeFromTop(30));
+    bounds.removeFromTop(10); // Espacio
+    generateButton.setBounds(bounds.removeFromTop(30));
+    bounds.removeFromTop(10); // Espacio
+    resultsLabel.setBounds(bounds);
+}
 
-    auto topArea = bounds.removeFromTop(100);
-
-    generateButton.setBounds(topArea.removeFromRight(120).withTrimmedRight(10));
-    promptEditor.setBounds(topArea);
+void ChordMelodyTabComponent::generateChords()
+{
+    // 1. Obtenemos el texto del prompt
+    juce::String prompt = promptEditor.getText();
+    if (prompt.isEmpty())
+    {
+        resultsLabel.setText("Please enter a prompt.", juce::dontSendNotification);
+        return;
+    }
+    
+    // 2. Llamamos a la función de Python a través del manager
+    resultsLabel.setText("Generating...", juce::dontSendNotification);
+    juce::StringArray chords = audioProcessor.pythonManager.generateChordProgression(prompt);
+    
+    // 3. Mostramos los resultados
+    if (chords.isEmpty())
+    {
+        resultsLabel.setText("Failed to generate chords.", juce::dontSendNotification);
+    }
+    else
+    {
+        resultsLabel.setText(chords.joinIntoString(" - "), juce::dontSendNotification);
+    }
 }
