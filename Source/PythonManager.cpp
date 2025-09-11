@@ -2,120 +2,106 @@
 
 PythonManager::PythonManager()
 {
-    initializePython();
-    midiFile = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("temp_midi.mid");
+    try
+    {
+        // ++ PASO 1: ESTABLECEMOS EL "HOGAR" DE PYTHON ++
+        // Pon aquí la ruta a tu carpeta principal de Python 3.8
+        _putenv_s("PYTHONHOME", "C:\\Users\\Progra.CHORI1414\\AppData\\Local\\Programs\\Python\\Python38");
+        
+        py::initialize_interpreter();
+        auto sys = py::module::import("sys");
+        
+        // ++ PASO 2: AÑADIMOS LA RUTA A TUS SCRIPTS ++
+        // Usa la ruta absoluta a tu carpeta NeuraChord
+        sys.attr("path").attr("append")("C:\\Users\\Progra.CHORI1414\\Desktop\\Proyectos\\JUCE\\NeuraSynth\\Source\\NeuraChord");
+        
+        // ++ PASO 3: INTENTAMOS IMPORTAR TU API ++
+        neuraChordApi = py::module::import("neurachord_api");
+        
+        DBG("PythonManager: Interprete y neurachord_api importados con EXITO!");
+    }
+    catch (py::error_already_set& e)
+    {
+        DBG("!!! PYBIND11 ERROR: " << e.what());
+    }
+    catch (const std::exception& e)
+    {
+        DBG("!!! STD EXCEPTION ERROR: " << e.what());
+    }
 }
 
 PythonManager::~PythonManager()
 {
-    shutdownPython();
+    py::finalize_interpreter();
 }
 
-void PythonManager::initializePython()
+juce::StringArray PythonManager::generateChordProgression(const juce::String& prompt, const juce::String& genre, const juce::String& sentiment)
 {
+    juce::StringArray generatedChords;
+
+    // Asegurarnos de que el módulo de la API esté cargado
+    if (!neuraChordApi)
+    {
+        DBG("ERROR: Modulo neurachord_api no cargado.");
+        return generatedChords;
+    }
+
+    // Bloqueo del Global Interpreter Lock (GIL) para seguridad en hilos
+    py::gil_scoped_acquire acquire;
+
     try
     {
-        py::module_ sys = py::module_::import("sys");
-        // La ruta debe apuntar a la carpeta que contiene neurachord_api.py
-        sys.attr("path").attr("append")("C:/Users/Darkm/Documents/GitHub/NeuraSynth/Source/NeuraChord");
-        neurachord_api = py::module_::import("neurachord_api");
+        //    Ahora se llama "generar_progresion" en la API de Python
+        auto generateFunc = neuraChordApi.attr("generar_progresion");
+
+        // 2. Llamar a la función de Python pasándole el prompt como argumento y obtener un diccionario
+        py::dict result = generateFunc(prompt.toStdString()).cast<py::dict>();
+
+        // Verificar que exista la clave "acordes" en el resultado
+        if (!result.contains("acordes"))
+        {
+            DBG("Error: la respuesta de Python no contiene la clave 'acordes'.");
+            return generatedChords;
+        }
+
+        // 3. Obtener la lista de acordes y convertirla en juce::StringArray
+        py::list pyChords = result["acordes"].cast<py::list>();
+
+        for (auto item : pyChords)
+        {
+            std::string stdString = py::str(item);
+            generatedChords.add(juce::String(stdString));
+        }
     }
-    catch (py::error_already_set& e)
+    catch (const py::error_already_set& e)
     {
-        juce::Logger::writeToLog(e.what());
+        // Si algo sale mal en Python, lo mostramos en la consola de JUCE
+        DBG("Error de Python: " << e.what());
     }
+
+    return generatedChords;
 }
 
-void PythonManager::shutdownPython()
+py::dict PythonManager::generateMusicData(const juce::String& prompt)
 {
-    neurachord_api.release();
-}
+    py::dict result;
 
-// ---- IMPLEMENTACIÓN DE LAS NUEVAS FUNCIONES ----
-
-void PythonManager::callGenerateMusic(const std::string& text)
-{
-    if (python_thread && python_thread->joinable()) {
-        python_thread->join();
+    if (!neuraChordApi)
+    {
+        DBG("ERROR: Modulo neurachord_api no cargado.");
+        return result;
     }
-    python_thread = std::make_unique<std::thread>([this, text]() {
-        try {
-            if (neurachord_api) {
-                // Llama solo a la generación y guardado del MIDI
-                neurachord_api.attr("generar_y_guardar_midi")(text, midiFile.getFullPathName().toStdString());
-                juce::Logger::writeToLog("MIDI generado en: " + midiFile.getFullPathName());
-            }
-        }
-        catch (py::error_already_set& e) {
-            juce::Logger::writeToLog(e.what());
-        }
-        });
-    // Esperamos a que el hilo de generación termine para asegurar que el archivo existe
-    if (python_thread && python_thread->joinable()) {
-        python_thread->join();
+
+    py::gil_scoped_acquire acquire;
+
+    try
+    {
+        result = neuraChordApi.attr("generar_progresion")(prompt.toStdString()).cast<py::dict>();
     }
-}
-
-void PythonManager::playGeneratedMidi()
-{
-    if (python_thread && python_thread->joinable()) {
-        python_thread->join();
+    catch (const py::error_already_set& e)
+    {
+        DBG("Error de Python: " << e.what());
     }
-    python_thread = std::make_unique<std::thread>([this]() {
-        try {
-            if (neurachord_api && midiFile.existsAsFile()) {
-                // Llama solo a la reproducción
-                neurachord_api.attr("reproducir_midi")(midiFile.getFullPathName().toStdString());
-            }
-        }
-        catch (py::error_already_set& e) {
-            juce::Logger::writeToLog(e.what());
-        }
-        });
-}
 
-void PythonManager::stopMidiPlayback()
-{
-    detenerMusica(); // Reutilizamos la función original para detener
-}
-
-juce::File PythonManager::getMidiFilePath()
-{
-    return midiFile;
-}
-
-// ---- FUNCIONES ORIGINALES ----
-
-void PythonManager::generarYReproducirMusica(const std::string& text)
-{
-    if (python_thread && python_thread->joinable()) {
-        python_thread->join();
-    }
-    python_thread = std::make_unique<std::thread>([this, text]() {
-        try {
-            if (neurachord_api) {
-                neurachord_api.attr("generar_y_reproducir_musica")(text);
-            }
-        }
-        catch (py::error_already_set& e) {
-            juce::Logger::writeToLog(e.what());
-        }
-        });
-}
-
-void PythonManager::detenerMusica()
-{
-    if (python_thread && python_thread->joinable()) {
-        python_thread->join();
-    }
-    python_thread = std::make_unique<std::thread>([this]() {
-        try {
-            if (neurachord_api) {
-                neurachord_api.attr("detener_musica")();
-            }
-        }
-        catch (py::error_already_set& e) {
-            juce::Logger::writeToLog(e.what());
-        }
-        });
+    return result;
 }

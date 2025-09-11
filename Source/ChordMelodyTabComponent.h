@@ -1,33 +1,43 @@
 #pragma once
+
 #include <JuceHeader.h>
 #include "PythonManager.h"
-#include "PianoRollComponent.h" // <-- Incluir nuestro nuevo componente
 
+// Adelantamos la declaración para poder usar la clase sin incluir el header completo
+class NeuraSynthAudioProcessor;
+
+//==============================================================================
 class ChordMelodyTabComponent : public juce::Component
 {
 public:
-    ChordMelodyTabComponent(PythonManager& pm);
+    // El constructor ahora recibe correctamente el procesador de audio
+    ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor);
     ~ChordMelodyTabComponent() override;
 
-    void paint(juce::Graphics& g) override;
+    void paint(juce::Graphics&) override;
     void resized() override;
 
 private:
-    PythonManager& pythonManager;
+    // Guardamos una referencia al procesador para acceder a sus datos, como el PythonManager
+    NeuraSynthAudioProcessor& audioProcessor;
 
+    // --- Componentes de la Interfaz ---
     juce::TextEditor promptEditor;
-    PianoRollComponent pianoRollComponent; // <-- Añadir el piano roll
+    juce::Label promptLabel;
 
-    // Usaremos ImageButton para los iconos
-    juce::ImageButton generateButton;
-    juce::ImageButton playButton;
-    juce::ImageButton stopButton;
-    juce::ImageButton likeButton;
-    juce::ImageButton dislikeButton;
-    juce::ImageButton exportButton;
+    juce::ComboBox genreComboBox;
+    juce::Label genreLabel;
 
-    // Función para cargar las imágenes de los botones
-    void loadButtonImages();
+    juce::ComboBox sentimentComboBox;
+    juce::Label sentimentLabel;
+
+    juce::TextButton generateButton;
+    juce::TextButton playButton;
+    juce::TextButton stopButton;
+    juce::TextButton exportButton;
+
+    // Componente para simular el Piano Roll
+    juce::Component pianoRollComponent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChordMelodyTabComponent)
 };
