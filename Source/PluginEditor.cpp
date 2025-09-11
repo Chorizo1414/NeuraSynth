@@ -8,8 +8,7 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     // Inicializamos el componente de pestañas en la parte superior
     tabbedComponent(juce::TabbedButtonBar::Orientation::TabsAtTop),
     // Inicializamos nuestras pestañas, pasando el procesador a la del sinte
-    synthTab(p),
-    chordMelodyTab(p)
+    synthTab(p)
     {
     addAndMakeVisible(tabbedComponent);
     

@@ -1,47 +1,33 @@
 #pragma once
 #include <JuceHeader.h>
-
-class NeuraSynthAudioProcessor;
+#include "PythonManager.h"
+#include "PianoRollComponent.h" // <-- Incluir nuestro nuevo componente
 
 class ChordMelodyTabComponent : public juce::Component
 {
 public:
-    ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor);
+    ChordMelodyTabComponent(PythonManager& pm);
     ~ChordMelodyTabComponent() override;
 
-    void paint(juce::Graphics&) override;
+    void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
-    // Controles de la UI
-    juce::Label promptLabel;
+    PythonManager& pythonManager;
+
     juce::TextEditor promptEditor;
-    juce::Label numChordsLabel;
-    juce::ComboBox numChordsBox;
-    juce::TextButton newRhythmButton{ "Nuevo Ritmo" };
-    juce::TextButton pauseButton{ "Pausa" };
+    PianoRollComponent pianoRollComponent; // <-- Añadir el piano roll
 
-    juce::Label bpmLabel;
-    juce::Slider bpmSlider;
+    // Usaremos ImageButton para los iconos
+    juce::ImageButton generateButton;
+    juce::ImageButton playButton;
+    juce::ImageButton stopButton;
+    juce::ImageButton likeButton;
+    juce::ImageButton dislikeButton;
+    juce::ImageButton exportButton;
 
-    juce::TextButton createChordsButton{ "Crear Acordes" };
-    juce::TextButton generateMelodyButton{ "Generar Melodia" };
-    juce::TextButton playAllButton{ "Reproducir Todo" };
-    juce::TextButton transposeUpButton{ "Subir Semitono" };
-    juce::TextButton transposeDownButton{ "Bajar Semitono" };
-    juce::TextButton playMelodyButton{ "Reproducir Melodia" };
-
-    juce::Component pianoRollPlaceholder;
-    juce::Label resultsLabel;
-    
-    // Funciones de acción
-    void createChords();
-    void generateMelody();
-    void playAll();
-    void playMelody();
-    void transpose(bool up);
-
-    NeuraSynthAudioProcessor& audioProcessor;
+    // Función para cargar las imágenes de los botones
+    void loadButtonImages();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChordMelodyTabComponent)
 };

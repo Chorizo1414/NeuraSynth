@@ -1,147 +1,124 @@
-#include <JuceHeader.h>
 #include "ChordMelodyTabComponent.h"
-#include "PluginProcessor.h" // <--- ¡AÑADE ESTA LÍNEA IMPORTANTE!
 
-//==============================================================================
-ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& p)
-    : audioProcessor(p)
+ChordMelodyTabComponent::ChordMelodyTabComponent(PythonManager& pm) : pythonManager(pm)
 {
-    // Prompt
-    addAndMakeVisible(promptLabel);
-    promptLabel.setText("Prompt:", juce::dontSendNotification);
-    promptLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-
+    // --- Configuración del Editor de Texto (Prompt) ---
     addAndMakeVisible(promptEditor);
-    promptEditor.setText("reggaeton en Eb major");
-    promptEditor.setMultiLine(false);
-    promptEditor.setReturnKeyStartsNewLine(false);
-    // Número de acordes
-    addAndMakeVisible(numChordsLabel);
-    // Evitar caracteres no ASCII para prevenir aserciones de JUCE
-    numChordsLabel.setText("Num Acordes:", juce::dontSendNotification);
-    numChordsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    promptEditor.setMultiLine(true);
+    promptEditor.setReturnKeyStartsNewLine(true);
+    promptEditor.setTextToShowWhenEmpty("Escribe tu idea musical...", juce::Colours::grey);
+    promptEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::darkgrey.darker());
 
-    addAndMakeVisible(numChordsBox);
-    numChordsBox.addItem("Sin limite", 1);
-    for (int i = 1; i <= 16; ++i)
-        numChordsBox.addItem(juce::String(i), i + 1);
-    numChordsBox.setSelectedId(1);
+    // --- Añadir el Piano Roll ---
+    addAndMakeVisible(pianoRollComponent);
 
-    // Botones de ritmo y pausa
-    addAndMakeVisible(newRhythmButton);
-    addAndMakeVisible(pauseButton);
+    // --- Configuración de los Botones ---
+    addAndMakeVisible(generateButton);
+    addAndMakeVisible(playButton);
+    addAndMakeVisible(stopButton);
+    addAndMakeVisible(likeButton);
+    addAndMakeVisible(dislikeButton);
+    addAndMakeVisible(exportButton);
 
-    // Control de BPM
-    addAndMakeVisible(bpmLabel);
-    bpmLabel.setText("BPM:", juce::dontSendNotification);
-    bpmLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    loadButtonImages(); // Cargar las imágenes para los botones
 
-    addAndMakeVisible(bpmSlider);
-    bpmSlider.setRange(40.0, 200.0, 1.0);
-    bpmSlider.setValue(95.0);
-    bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 50, 20);
+    // --- Lógica de los Botones ---
 
-    // Botones de acción
-    addAndMakeVisible(createChordsButton);
-    createChordsButton.onClick = [this] { createChords(); };
+    generateButton.onClick = [this]() {
+        juce::String prompt = promptEditor.getText();
+        if (prompt.isNotEmpty()) {
+            pythonManager.callGenerateMusic(prompt.toStdString());
 
-    addAndMakeVisible(generateMelodyButton);
-    generateMelodyButton.onClick = [this] { generateMelody(); };
+            // Cargar el MIDI generado en el Piano Roll
+            juce::File midiFile = pythonManager.getMidiFilePath();
+            if (midiFile.existsAsFile())
+            {
+                juce::FileInputStream stream(midiFile);
+                juce::MidiFile midi;
+                if (midi.readFrom(stream))
+                {
+                    // Asumimos que la pista 1 tiene las notas de la melodía
+                    const auto* track = midi.getTrack(1);
+                    if (track)
+                        pianoRollComponent.setMidiSequence(*track);
+                }
+            }
+        }
+        };
 
-    addAndMakeVisible(playAllButton);
-    playAllButton.onClick = [this] { playAll(); };
+    playButton.onClick = [this]() { pythonManager.playGeneratedMidi(); };
+    stopButton.onClick = [this]() { pythonManager.stopMidiPlayback(); };
 
-    addAndMakeVisible(transposeUpButton);
-    transposeUpButton.onClick = [this] { transpose(true); };
-
-    addAndMakeVisible(transposeDownButton);
-    transposeDownButton.onClick = [this] { transpose(false); };
-
-    addAndMakeVisible(playMelodyButton);
-    playMelodyButton.onClick = [this] { playMelody(); };
-
-    // Área de resultados
-        
-    // El marcador de posicion no pinta nada, asi que no debe ser opaco
-    pianoRollPlaceholder.setOpaque(false);
-
-    addAndMakeVisible(resultsLabel);
-    resultsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    resultsLabel.setJustificationType(juce::Justification::centred);
+    // TODO: Implementar la lógica para estos botones
+    likeButton.onClick = []() { DBG("Botón 'Me Gusta' presionado"); };
+    dislikeButton.onClick = []() { DBG("Botón 'No me Gusta' presionado"); };
+    exportButton.onClick = []() { DBG("Botón 'Exportar' presionado"); };
 }
 
-ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
+ChordMelodyTabComponent::~ChordMelodyTabComponent()
+{
+}
 
 void ChordMelodyTabComponent::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black);
-    g.setColour(juce::Colours::darkgrey);
-    g.drawRect(pianoRollPlaceholder.getBounds());
+    // Fondo general
+    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId).darker(0.5));
 }
 
 void ChordMelodyTabComponent::resized()
 {
-    auto area = getLocalBounds().reduced(10);
+    auto bounds = getLocalBounds().reduced(10); // Margen general
 
-    auto topRow = area.removeFromTop(25);
-    promptLabel.setBounds(topRow.removeFromLeft(60));
-    promptEditor.setBounds(topRow.removeFromLeft(300));
+    // 1. Área para el prompt de texto (15% superior)
+    auto promptArea = bounds.removeFromTop(bounds.getHeight() * 0.20);
+    promptEditor.setBounds(promptArea);
 
-    area.removeFromTop(5);
-    auto controlRow = area.removeFromTop(40);
-    numChordsLabel.setBounds(controlRow.removeFromLeft(90));
-    numChordsBox.setBounds(controlRow.removeFromLeft(100));
-    newRhythmButton.setBounds(controlRow.removeFromLeft(100));
-    pauseButton.setBounds(controlRow.removeFromLeft(80));
-    bpmLabel.setBounds(controlRow.removeFromLeft(40));
-    bpmSlider.setBounds(controlRow.removeFromLeft(150));
-    createChordsButton.setBounds(controlRow.removeFromLeft(110));
-    generateMelodyButton.setBounds(controlRow.removeFromLeft(130));
-    playAllButton.setBounds(controlRow.removeFromLeft(130));
-    transposeUpButton.setBounds(controlRow.removeFromLeft(130));
-    transposeDownButton.setBounds(controlRow.removeFromLeft(130));
-    playMelodyButton.setBounds(controlRow.removeFromLeft(150));
+    // 2. Área para la barra de botones (50px en la parte inferior)
+    auto buttonBarArea = bounds.removeFromBottom(50);
 
-    area.removeFromTop(10);
-    pianoRollPlaceholder.setBounds(area);
-    resultsLabel.setBounds(area);
+    // 3. El resto del espacio es para el Piano Roll
+    pianoRollComponent.setBounds(bounds.reduced(0, 10)); // Margen vertical
+
+    // --- Distribuir los botones en la barra inferior ---
+    auto buttonWidth = buttonBarArea.getWidth() / 6;
+    generateButton.setBounds(buttonBarArea.removeFromLeft(buttonWidth).reduced(5));
+    playButton.setBounds(buttonBarArea.removeFromLeft(buttonWidth).reduced(5));
+    stopButton.setBounds(buttonBarArea.removeFromLeft(buttonWidth).reduced(5));
+    likeButton.setBounds(buttonBarArea.removeFromLeft(buttonWidth).reduced(5));
+    dislikeButton.setBounds(buttonBarArea.removeFromLeft(buttonWidth).reduced(5));
+    exportButton.setBounds(buttonBarArea.removeFromLeft(buttonWidth).reduced(5));
 }
 
-void ChordMelodyTabComponent::createChords()
+// Nueva función para cargar las imágenes de los botones
+void ChordMelodyTabComponent::loadButtonImages()
 {
-    juce::String prompt = promptEditor.getText();
-    if (prompt.isEmpty())
-    {
-        resultsLabel.setText("Please enter a prompt.", juce::dontSendNotification);
-        return;
-    }
-    
-    resultsLabel.setText("Generating...", juce::dontSendNotification);
-    juce::StringArray chords = audioProcessor.pythonManager->generateChordProgression(prompt);
-    
-    if (chords.isEmpty())
-    
-        resultsLabel.setText("Failed to generate chords.", juce::dontSendNotification);
-    
-    else
-    
-        resultsLabel.setText(chords.joinIntoString(" - "), juce::dontSendNotification);
-    
-}
+    // Carga las imágenes desde los datos binarios (o desde archivos si los tienes en otro lado)
+    // Asegúrate de que las rutas a las imágenes son correctas.
+    // Estas rutas asumen que las imágenes están en Source/NeuraChord/sources
+    // Para que esto funcione, debes añadir estas imágenes a tu proyecto en el Projucer.
 
-void ChordMelodyTabComponent::generateMelody()
-{
-    // Stub: implementacion futura
-    resultsLabel.setText(resultsLabel.getText() + "\n[Melodia pendiente]", juce::dontSendNotification);
-}
+    // NOTA: La forma más robusta es añadir los PNG al Projucer y cargarlos desde memoria.
+    // Aquí muestro cómo cargarlos desde un archivo como ejemplo.
+    // Debes tener una forma de encontrar la ruta correcta en tiempo de ejecución.
 
-void ChordMelodyTabComponent::playAll() {}
+    // Esta es una forma SIMPLIFICADA. La mejor práctica es usar BinaryData.
+    juce::File imageFolder = juce::File::getSpecialLocation(juce::File::currentApplicationFile)
+        .getParentDirectory().getParentDirectory()
+        .getChildFile("Resources/sources"); // Esto puede variar!
 
-void ChordMelodyTabComponent::playMelody() {}
+    auto playImg = juce::ImageFileFormat::loadFrom(imageFolder.getChildFile("reproducir.png"));
+    auto stopImg = juce::ImageFileFormat::loadFrom(imageFolder.getChildFile("pausa.png"));
+    auto likeImg = juce::ImageFileFormat::loadFrom(imageFolder.getChildFile("corazon.png"));
+    auto dislikeImg = juce::ImageFileFormat::loadFrom(imageFolder.getChildFile("pulgar_abajo.png"));
+    auto exportImg = juce::ImageFileFormat::loadFrom(imageFolder.getChildFile("nota.png"));
+    // No hay un icono claro para "Generar", usaré el de "nota" también por ahora
+    auto generateImg = juce::ImageFileFormat::loadFrom(imageFolder.getChildFile("nota.png"));
 
-void ChordMelodyTabComponent::transpose(bool up)
-{
-    juce::String txt = up ? "Transponer +1" : "Transponer -1";
-    DBG(txt);
+
+    playButton.setImages(true, true, true, playImg, 1.0f, {}, playImg, 0.8f, {}, playImg, 0.5f, {});
+    stopButton.setImages(true, true, true, stopImg, 1.0f, {}, stopImg, 0.8f, {}, stopImg, 0.5f, {});
+    likeButton.setImages(true, true, true, likeImg, 1.0f, {}, likeImg, 0.8f, {}, likeImg, 0.5f, {});
+    dislikeButton.setImages(true, true, true, dislikeImg, 1.0f, {}, dislikeImg, 0.8f, {}, dislikeImg, 0.5f, {});
+    exportButton.setImages(true, true, true, exportImg, 1.0f, {}, exportImg, 0.8f, {}, exportImg, 0.5f, {});
+    generateButton.setImages(true, true, true, generateImg, 1.0f, {}, generateImg, 0.8f, {}, generateImg, 0.5f, {});
 }

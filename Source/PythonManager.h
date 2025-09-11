@@ -1,9 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
-
-// --- Incluir Pybind11 ---
 #include <pybind11/embed.h>
-#include <pybind11/stl.h>
+#include <thread>
 
 namespace py = pybind11;
 
@@ -12,8 +10,23 @@ class PythonManager
 public:
     PythonManager();
     ~PythonManager();
-    juce::StringArray generateChordProgression(const juce::String& prompt);
-    py::dict generateMusicData(const juce::String& prompt);
+
+    // NUEVAS FUNCIONES (MÁS ESPECÍFICAS)
+    void callGenerateMusic(const std::string& text);
+    void playGeneratedMidi();
+    void stopMidiPlayback();
+    juce::File getMidiFilePath();
+
+    // Funciones originales (las mantenemos por si acaso)
+    void generarYReproducirMusica(const std::string& text);
+    void detenerMusica();
+
 private:
-    py::module neuraChordApi;
+    void initializePython();
+    void shutdownPython();
+
+    py::scoped_interpreter guard{};
+    py::object neurachord_api;
+    std::unique_ptr<std::thread> python_thread;
+    juce::File midiFile;
 };
