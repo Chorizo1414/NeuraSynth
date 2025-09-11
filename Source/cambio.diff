@@ -1,0 +1,38 @@
+diff --git a/ChordMelodyTabComponent.h b/ChordMelodyTabComponent.h
+index 5b448a57e5aec2d8e258069d5af14a0eb31c43d7..d549c97213d53bdf1ada9a03d9338ea44a858d59 100644
+--- a/ChordMelodyTabComponent.h
++++ b/ChordMelodyTabComponent.h
+@@ -1,25 +1,28 @@
+ #pragma once
+ #include <JuceHeader.h>
+ 
+ class NeuraSynthAudioProcessor;
+ 
+ class ChordMelodyTabComponent : public juce::Component
+ {
+ public:
+     ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor);
+     ~ChordMelodyTabComponent() override;
+ 
+     void paint(juce::Graphics&) override;
+     void resized() override;
+ 
+ private:
+     // Controles de la UI
+     juce::TextEditor promptEditor;
+-    juce::TextButton generateButton{ "Generate" };
+-    juce::Label resultsLabel;
+-    
+-    void generateChords(); // Funcion que llamar a Python
++    juce::TextButton generateButton{ "Generar Acordes" };
++    juce::TextButton generateMelodyButton{ "Generar Melodía" };
++    juce::Label chordsLabel;
++    juce::Label melodyLabel;
++
++    void generateChords();
++    void generateMelody();
+     NeuraSynthAudioProcessor& audioProcessor;
+ 
+     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChordMelodyTabComponent)
+-};
++};

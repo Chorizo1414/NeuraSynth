@@ -1,0 +1,121 @@
+diff --git a/ChordMelodyTabComponent.cpp b/ChordMelodyTabComponent.cpp
+index 401e5043a871cd0c016630b30855bfa4a7f060d9..3a1c041afb95d3f7a01b28a7ea36ba501b80f2c5 100644
+--- a/ChordMelodyTabComponent.cpp
++++ b/ChordMelodyTabComponent.cpp
+@@ -1,67 +1,102 @@
+ #include <JuceHeader.h>
+ #include "ChordMelodyTabComponent.h"
+ #include "PluginProcessor.h" // <--- ¡AÑADE ESTA LÍNEA IMPORTANTE!
+ 
+ //==============================================================================
+ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor & p)
+     : audioProcessor(p)
+ {
+     // --- Editor de Prompt ---
+     addAndMakeVisible(promptEditor);
+     promptEditor.setMultiLine(false);
+     promptEditor.setReturnKeyStartsNewLine(false);
+     promptEditor.setText("reggaeton en Eb major"); // Texto de ejemplo
+     
+-    // --- Botón de Generar ---
++    // --- Botón de Generar Acordes ---
+     addAndMakeVisible(generateButton);
+     generateButton.onClick = [this] { generateChords(); };
+-    
+-    // --- Etiqueta de Resultados ---
+-    addAndMakeVisible(resultsLabel);
+-    resultsLabel.setFont(juce::Font(16.0f));
+-    resultsLabel.setJustificationType(juce::Justification::centredTop);
+-    resultsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
++
++    // --- Botón de Generar Melodía ---
++    addAndMakeVisible(generateMelodyButton);
++    generateMelodyButton.onClick = [this] { generateMelody(); };
++
++    // --- Etiquetas de Resultados ---
++    addAndMakeVisible(chordsLabel);
++    chordsLabel.setFont(juce::Font(16.0f));
++    chordsLabel.setJustificationType(juce::Justification::centredTop);
++    chordsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
++
++    addAndMakeVisible(melodyLabel);
++    melodyLabel.setFont(juce::Font(16.0f));
++    melodyLabel.setJustificationType(juce::Justification::centredTop);
++    melodyLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+ }
+ 
+ ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
+ 
+ void ChordMelodyTabComponent::paint(juce::Graphics& g)
+ {
+     g.fillAll(juce::Colours::black);
+ }
+ 
+ void ChordMelodyTabComponent::resized()
+ {
+     // Posicionamos los controles en la pestaña
+     auto bounds = getLocalBounds().reduced(20);
+     promptEditor.setBounds(bounds.removeFromTop(30));
+     bounds.removeFromTop(10); // Espacio
+     generateButton.setBounds(bounds.removeFromTop(30));
+     bounds.removeFromTop(10); // Espacio
+-    resultsLabel.setBounds(bounds);
++    generateMelodyButton.setBounds(bounds.removeFromTop(30));
++    bounds.removeFromTop(10); // Espacio
++    auto chordArea = bounds.removeFromTop(bounds.getHeight() / 2);
++    chordsLabel.setBounds(chordArea);
++    melodyLabel.setBounds(bounds);
+ }
+ 
+ void ChordMelodyTabComponent::generateChords()
+ {
+     // 1. Obtenemos el texto del prompt
+     juce::String prompt = promptEditor.getText();
+     if (prompt.isEmpty())
+     {
+-        resultsLabel.setText("Please enter a prompt.", juce::dontSendNotification);
++        chordsLabel.setText("Please enter a prompt.", juce::dontSendNotification);
+         return;
+     }
+-    
++
+     // 2. Llamamos a la función de Python a través del manager
+-    resultsLabel.setText("Generating...", juce::dontSendNotification);
++    chordsLabel.setText("Generating...", juce::dontSendNotification);
+     juce::StringArray chords = audioProcessor.pythonManager->generateChordProgression(prompt);
+-    
++
+     // 3. Mostramos los resultados
+     if (chords.isEmpty())
+     {
+-        resultsLabel.setText("Failed to generate chords.", juce::dontSendNotification);
++        chordsLabel.setText("Failed to generate chords.", juce::dontSendNotification);
++    }
++    else
++    {
++        chordsLabel.setText(chords.joinIntoString(" - "), juce::dontSendNotification);
++    }
++}
++
++void ChordMelodyTabComponent::generateMelody()
++{
++    juce::String prompt = promptEditor.getText();
++    if (prompt.isEmpty())
++    {
++        melodyLabel.setText("Please enter a prompt.", juce::dontSendNotification);
++        return;
++    }
++
++    melodyLabel.setText("Generating melody...", juce::dontSendNotification);
++    juce::String melody = audioProcessor.pythonManager->generateMelody(prompt);
++
++    if (melody.isEmpty())
++    {
++        melodyLabel.setText("Failed to generate melody.", juce::dontSendNotification);
+     }
+     else
+     {
+-        resultsLabel.setText(chords.joinIntoString(" - "), juce::dontSendNotification);
++        melodyLabel.setText(melody, juce::dontSendNotification);
+     }
+ }
