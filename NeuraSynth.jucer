@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="OimeOk" name="NeuraSynth" projectType="audioplug" useAppConfig="0"
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildAAX,buildStandalone,buildVST3"
+              pluginCharacteristicsValue="pluginEditorRequiresKeys,pluginIsSynth,pluginProducesMidiOut,pluginWantsMidiIn"
+              pluginAUMainType="'aumu'" pluginVST3Category="Instrument,Synth"
+              pluginAAXCategory="2048" pluginVSTCategory="kPlugCategSynth">
+  <MAINGROUP id="KHQMYL" name="NeuraSynth">
+    <GROUP id="{2755D2D3-BF9B-5AFD-F617-938218E8F244}" name="Source">
+      <FILE id="cne9CY" name="PythonManager.cpp" compile="1" resource="0"
+            file="Source/PythonManager.cpp"/>
+      <FILE id="eUVoeq" name="PythonManager.h" compile="0" resource="0" file="Source/PythonManager.h"/>
+      <GROUP id="{616A6C66-81D7-6822-8F80-AA2B300182E4}" name="NeuraChord">
+        <GROUP id="{85C35654-38F2-BAF9-4C04-C37520166CD2}" name="estilos">
+          <FILE id="U6dvqE" name="base_jazz.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_jazz.py"/>
+          <FILE id="atG8x8" name="base_lofi.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_lofi.py"/>
+          <FILE id="u3PXgj" name="base_pop.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_pop.py"/>
+          <FILE id="f5BEEw" name="base_r&amp;b.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_r&amp;b.py"/>
+          <FILE id="bN4BuA" name="base_reggaeton.py" compile="0" resource="1"
+                file="Source/NeuraChord/estilos/base_reggaeton.py"/>
+          <FILE id="JOmgVY" name="base_techno.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_techno.py"/>
+          <FILE id="L4Aw4T" name="base_vals.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_vals.py"/>
+        </GROUP>
+        <GROUP id="{18F98FE3-1F80-E254-ADFA-35DA4682487A}" name="MIDI_EXPORTADO">
+          <FILE id="kfsQZj" name="acordes.mid" compile="0" resource="1" file="Source/NeuraChord/MIDI_EXPORTADO/acordes.mid"/>
+        </GROUP>
+        <GROUP id="{2D3561D2-C542-3293-D55C-AB7C266F3FD5}" name="sources">
+          <FILE id="flB4e6" name="corazon.png" compile="0" resource="1" file="Source/NeuraChord/sources/corazon.png"/>
+          <FILE id="IMKSH1" name="nota.png" compile="0" resource="1" file="Source/NeuraChord/sources/nota.png"/>
+          <FILE id="CwA5a8" name="pausa.png" compile="0" resource="1" file="Source/NeuraChord/sources/pausa.png"/>
+          <FILE id="krK7ag" name="piano.ico" compile="0" resource="1" file="Source/NeuraChord/sources/piano.ico"/>
+          <FILE id="HpyBLc" name="piano.png" compile="0" resource="1" file="Source/NeuraChord/sources/piano.png"/>
+          <FILE id="F1mIK5" name="pulgar_abajo.png" compile="0" resource="1"
+                file="Source/NeuraChord/sources/pulgar_abajo.png"/>
+          <FILE id="a4KT3b" name="reproducir.png" compile="0" resource="1" file="Source/NeuraChord/sources/reproducir.png"/>
+        </GROUP>
+        <FILE id="dysLbQ" name="base_estilos.py" compile="0" resource="1" file="Source/NeuraChord/base_estilos.py"/>
+        <FILE id="WGQjYt" name="build_exe.py" compile="0" resource="1" file="Source/NeuraChord/build_exe.py"/>
+        <FILE id="jEfo06" name="generador_acordes.py" compile="0" resource="1"
+              file="Source/NeuraChord/generador_acordes.py"/>
+        <FILE id="UqX053" name="generador_melodia.py" compile="0" resource="1"
+              file="Source/NeuraChord/generador_melodia.py"/>
+        <FILE id="QplAJU" name="generos.py" compile="0" resource="1" file="Source/NeuraChord/generos.py"/>
+        <FILE id="QO4Ten" name="main.py" compile="0" resource="1" file="Source/NeuraChord/main.py"/>
+        <FILE id="oT1sKs" name="NeuraChord.spec" compile="0" resource="1" file="Source/NeuraChord/NeuraChord.spec"/>
+        <FILE id="VkcpeD" name="piano_roll_visualizer.py" compile="0" resource="1"
+              file="Source/NeuraChord/piano_roll_visualizer.py"/>
+        <FILE id="QUhlY6" name="procesador_prompt.py" compile="0" resource="1"
+              file="Source/NeuraChord/procesador_prompt.py"/>
+        <FILE id="liozAg" name="procesador_sentimientos.py" compile="0" resource="1"
+              file="Source/NeuraChord/procesador_sentimientos.py"/>
+      </GROUP>
+      <GROUP id="{AFE3B519-BF1E-4F60-F016-A6D0CE88FB27}" name="pybind11-include">
+        <GROUP id="{1C663DF2-58E2-EB4D-8C35-8039047E608B}" name="pybind11">
+          <GROUP id="{6093A843-3E84-B7BC-3D07-56EC9D065BD6}" name="conduit">
+            <FILE id="gbvQzY" name="pybind11_conduit_v1.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/conduit/pybind11_conduit_v1.h"/>
+            <FILE id="IV1qQI" name="pybind11_platform_abi_id.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/conduit/pybind11_platform_abi_id.h"/>
+            <FILE id="BUVj44" name="README.txt" compile="0" resource="1" file="Source/pybind11-include/pybind11/conduit/README.txt"/>
+            <FILE id="O2MxE5" name="wrap_include_python_h.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/conduit/wrap_include_python_h.h"/>
+          </GROUP>
+          <GROUP id="{5150A357-110A-F447-D5AE-7D8A5F93CAE7}" name="detail">
+            <FILE id="zjA2Nm" name="class.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/detail/class.h"/>
+            <FILE id="vMpaGP" name="common.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/detail/common.h"/>
+            <FILE id="sjPWak" name="cpp_conduit.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/detail/cpp_conduit.h"/>
+            <FILE id="pKqbpW" name="descr.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/detail/descr.h"/>
+            <FILE id="l64oUb" name="dynamic_raw_ptr_cast_if_possible.h" compile="0"
+                  resource="0" file="Source/pybind11-include/pybind11/detail/dynamic_raw_ptr_cast_if_possible.h"/>
+            <FILE id="hlouXi" name="exception_translation.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/detail/exception_translation.h"/>
+            <FILE id="gvH0VU" name="function_record_pyobject.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/detail/function_record_pyobject.h"/>
+            <FILE id="whlDo4" name="init.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/detail/init.h"/>
+            <FILE id="Hb7aKa" name="internals.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/detail/internals.h"/>
+            <FILE id="f4Rnap" name="native_enum_data.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/detail/native_enum_data.h"/>
+            <FILE id="PEFSdn" name="pybind11_namespace_macros.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/detail/pybind11_namespace_macros.h"/>
+            <FILE id="crpUxh" name="struct_smart_holder.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/detail/struct_smart_holder.h"/>
+            <FILE id="NJA61s" name="type_caster_base.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/detail/type_caster_base.h"/>
+            <FILE id="XeqfuE" name="typeid.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/detail/typeid.h"/>
+            <FILE id="npKZ5i" name="using_smart_holder.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/detail/using_smart_holder.h"/>
+            <FILE id="rrOqYO" name="value_and_holder.h" compile="0" resource="0"
+                  file="Source/pybind11-include/pybind11/detail/value_and_holder.h"/>
+          </GROUP>
+          <GROUP id="{61EB8809-E61F-D4FA-B31E-AA2ECED531DC}" name="eigen">
+            <FILE id="wlAyjH" name="common.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/eigen/common.h"/>
+            <FILE id="f85bRa" name="matrix.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/eigen/matrix.h"/>
+            <FILE id="q17HMG" name="tensor.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/eigen/tensor.h"/>
+          </GROUP>
+          <GROUP id="{A3861852-BCCE-B140-D9DD-7F863E12BC42}" name="stl">
+            <FILE id="reQNo2" name="filesystem.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/stl/filesystem.h"/>
+          </GROUP>
+          <FILE id="XyDVdj" name="attr.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/attr.h"/>
+          <FILE id="HPERH4" name="buffer_info.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/buffer_info.h"/>
+          <FILE id="GC35mJ" name="cast.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/cast.h"/>
+          <FILE id="KTmrxx" name="chrono.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/chrono.h"/>
+          <FILE id="RF8wJa" name="common.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/common.h"/>
+          <FILE id="ifQ7kq" name="complex.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/complex.h"/>
+          <FILE id="LinQTQ" name="critical_section.h" compile="0" resource="0"
+                file="Source/pybind11-include/pybind11/critical_section.h"/>
+          <FILE id="jlgDO2" name="eigen.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/eigen.h"/>
+          <FILE id="y3rMEO" name="embed.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/embed.h"/>
+          <FILE id="Qp8nCt" name="eval.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/eval.h"/>
+          <FILE id="lve9Hz" name="functional.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/functional.h"/>
+          <FILE id="LKgWvc" name="gil.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/gil.h"/>
+          <FILE id="Gixp2M" name="gil_safe_call_once.h" compile="0" resource="0"
+                file="Source/pybind11-include/pybind11/gil_safe_call_once.h"/>
+          <FILE id="S6mx0m" name="gil_simple.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/gil_simple.h"/>
+          <FILE id="nkwKZw" name="iostream.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/iostream.h"/>
+          <FILE id="cff0T6" name="native_enum.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/native_enum.h"/>
+          <FILE id="qcJBK5" name="numpy.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/numpy.h"/>
+          <FILE id="JHmMGF" name="operators.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/operators.h"/>
+          <FILE id="B5pMLV" name="options.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/options.h"/>
+          <FILE id="S6su7n" name="pybind11.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/pybind11.h"/>
+          <FILE id="iGScMT" name="pytypes.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/pytypes.h"/>
+          <FILE id="VwePGb" name="stl.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/stl.h"/>
+          <FILE id="p6qS0o" name="stl_bind.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/stl_bind.h"/>
+          <FILE id="dI6oKk" name="subinterpreter.h" compile="0" resource="0"
+                file="Source/pybind11-include/pybind11/subinterpreter.h"/>
+          <FILE id="XHufP6" name="trampoline_self_life_support.h" compile="0"
+                resource="0" file="Source/pybind11-include/pybind11/trampoline_self_life_support.h"/>
+          <FILE id="wwtsfW" name="type_caster_pyobject_ptr.h" compile="0" resource="0"
+                file="Source/pybind11-include/pybind11/type_caster_pyobject_ptr.h"/>
+          <FILE id="fsUqgq" name="typing.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/typing.h"/>
+          <FILE id="aRx8bX" name="warnings.h" compile="0" resource="0" file="Source/pybind11-include/pybind11/warnings.h"/>
+        </GROUP>
+      </GROUP>
+      <GROUP id="{52ADA685-9B6E-82F7-0286-52ED3A938DBD}" name="wavetables">
+        <FILE id="twdLTk" name="pulse.wav" compile="0" resource="0" file="Source/wavetables/pulse.wav"/>
+        <FILE id="lUA73k" name="saw.wav" compile="0" resource="0" file="Source/wavetables/saw.wav"/>
+        <FILE id="l7Mf5P" name="sen.wav" compile="0" resource="0" file="Source/wavetables/sen.wav"/>
+        <FILE id="VZTuag" name="senHarmonic.wav" compile="0" resource="0" file="Source/wavetables/senHarmonic.wav"/>
+        <FILE id="MJYF4Q" name="square.wav" compile="0" resource="0" file="Source/wavetables/square.wav"/>
+        <FILE id="HGkh9r" name="triangle.wav" compile="0" resource="0" file="Source/wavetables/triangle.wav"/>
+        <FILE id="YZB7rX" name="whitenoise.wav" compile="0" resource="0" file="Source/wavetables/whitenoise.wav"/>
+      </GROUP>
+      <GROUP id="{86254CD1-C63D-626D-4CD0-D1FD874281B6}" name="pictures">
+        <FILE id="TIx4QM" name="boceto.png" compile="0" resource="1" file="Source/pictures/boceto.png"/>
+        <FILE id="MeuhUz" name="button.png" compile="0" resource="1" file="Source/pictures/button.png"/>
+        <FILE id="QgabBu" name="buttonreverse.png" compile="0" resource="1"
+              file="Source/pictures/buttonreverse.png"/>
+        <FILE id="sYnMU3" name="knobmastergain.png" compile="0" resource="1"
+              file="Source/pictures/knobmastergain.png"/>
+        <FILE id="VwdUwG" name="knobenvelope.png" compile="0" resource="1"
+              file="Source/pictures/knobenvelope.png"/>
+        <FILE id="rhLZKE" name="knobfm.png" compile="0" resource="1" file="Source/pictures/knobfm.png"
+              xcodeResource="0"/>
+        <FILE id="R9MN7H" name="knobreverb.png" compile="0" resource="1" file="Source/pictures/knobreverb.png"/>
+        <FILE id="awBKPO" name="knoblfo.png" compile="0" resource="1" file="Source/pictures/knoblfo.png"/>
+        <FILE id="O3UrM7" name="knobdelay.png" compile="0" resource="1" file="Source/pictures/knobdelay.png"/>
+        <FILE id="DZrD9a" name="knobfilter.png" compile="0" resource="1" file="Source/pictures/knobfilter.png"/>
+        <FILE id="sibZzi" name="knobmaster.png" compile="0" resource="1" file="Source/pictures/knobmaster.png"/>
+        <FILE id="PNlt5n" name="knoboct.png" compile="0" resource="1" file="Source/pictures/knoboct.png"/>
+        <FILE id="GI7rsj" name="knobosc.png" compile="0" resource="1" file="Source/pictures/knobosc.png"/>
+      </GROUP>
+      <FILE id="tc37VL" name="neurachord_api.py" compile="0" resource="1"
+            file="Source/neurachord_api.py"/>
+      <FILE id="IAz5TX" name="SynthTabComponent.cpp" compile="1" resource="0"
+            file="Source/SynthTabComponent.cpp"/>
+      <FILE id="U4z256" name="SynthTabComponent.h" compile="0" resource="0"
+            file="Source/SynthTabComponent.h"/>
+      <FILE id="WTHLk6" name="ChordMelodyTabComponent.cpp" compile="1" resource="0"
+            file="Source/ChordMelodyTabComponent.cpp"/>
+      <FILE id="gjcq7n" name="ChordMelodyTabComponent.h" compile="0" resource="0"
+            file="Source/ChordMelodyTabComponent.h"/>
+      <FILE id="rDDKhK" name="WaveformDisplay.h" compile="0" resource="0"
+            file="Source/WaveformDisplay.h"/>
+      <FILE id="u2NCcC" name="CustomKnob.cpp" compile="1" resource="0" file="Source/CustomKnob.cpp"/>
+      <FILE id="afJk5G" name="CustomKnob.h" compile="0" resource="0" file="Source/CustomKnob.h"/>
+      <FILE id="D9u6on" name="PluginEditor.cpp" compile="1" resource="0"
+            file="Source/PluginEditor.cpp"/>
+      <FILE id="h4qST1" name="PluginProcessor.cpp" compile="1" resource="0"
+            file="Source/PluginProcessor.cpp"/>
+      <FILE id="fUnARl" name="PluginProcessor.h" compile="0" resource="0"
+            file="Source/PluginProcessor.h"/>
+      <FILE id="Xmhs1V" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="EQdgat" name="LayoutConstants.h" compile="0" resource="0"
+            file="Source/LayoutConstants.h"/>
+      <FILE id="NA1g6j" name="MasterSectionComponent.cpp" compile="1" resource="0"
+            file="Source/MasterSectionComponent.cpp"/>
+      <FILE id="JyZ9Jh" name="UnisonComponent.cpp" compile="1" resource="0"
+            file="Source/UnisonComponent.cpp"/>
+      <FILE id="nHoTp4" name="EnvelopeComponent.cpp" compile="1" resource="0"
+            file="Source/EnvelopeComponent.cpp"/>
+      <FILE id="gD4sEC" name="ModulationComponent.cpp" compile="1" resource="0"
+            file="Source/ModulationComponent.cpp"/>
+      <FILE id="jebXTZ" name="FilterComponent.cpp" compile="1" resource="0"
+            file="Source/FilterComponent.cpp"/>
+      <FILE id="lI3zsg" name="OscillatorComponent.cpp" compile="1" resource="0"
+            file="Source/OscillatorComponent.cpp"/>
+      <FILE id="sU3fod" name="DelayComponent.cpp" compile="1" resource="0"
+            file="Source/DelayComponent.cpp"/>
+      <FILE id="fZ1nN0" name="ReverbComponent.cpp" compile="1" resource="0"
+            file="Source/ReverbComponent.cpp"/>
+      <FILE id="fHCXdP" name="DelayComponent.h" compile="0" resource="0"
+            file="Source/DelayComponent.h"/>
+      <FILE id="C8FwiK" name="EnvelopeComponent.h" compile="0" resource="0"
+            file="Source/EnvelopeComponent.h"/>
+      <FILE id="tg654E" name="EnvelopeDisplay.h" compile="0" resource="0"
+            file="Source/EnvelopeDisplay.h"/>
+      <FILE id="ACt7xL" name="FilterComponent.h" compile="0" resource="0"
+            file="Source/FilterComponent.h"/>
+      <FILE id="xS7gCv" name="MasterSectionComponent.h" compile="0" resource="0"
+            file="Source/MasterSectionComponent.h"/>
+      <FILE id="r0GohY" name="ModulationComponent.h" compile="0" resource="0"
+            file="Source/ModulationComponent.h"/>
+      <FILE id="C2noMM" name="OscillatorComponent.h" compile="0" resource="0"
+            file="Source/OscillatorComponent.h"/>
+      <FILE id="rvYE1I" name="ReverbComponent.h" compile="0" resource="0"
+            file="Source/ReverbComponent.h"/>
+      <FILE id="F8U2DJ" name="TextValueSlider.cpp" compile="1" resource="0"
+            file="Source/TextValueSlider.cpp"/>
+      <FILE id="vvORHx" name="TextValueSlider.h" compile="0" resource="0"
+            file="Source/TextValueSlider.h"/>
+      <FILE id="BHSitX" name="UnisonComponent.h" compile="0" resource="0"
+            file="Source/UnisonComponent.h"/>
+      <FILE id="TIKjQl" name="OscillatorSection.h" compile="0" resource="0"
+            file="Source/OscillatorSection.h"/>
+    </GROUP>
+  </MAINGROUP>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_plugin_client" showAllCode="1" useLocalCopy="0"
+            useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
+  <EXPORTFORMATS>
+    <VS2022 targetFolder="Builds/VisualStudio2022">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="NeuraSynth" headerPath="C:\Users\Progra.CHORI1414\Desktop\Proyectos\JUCE\NeuraSynth\Source\pybind11-include&#10;&#10;C:\Users\Progra.CHORI1414\AppData\Local\Programs\Python\Python38\include"
+                       libraryPath="C:\Users\Progra.CHORI1414\AppData\Local\Programs\Python\Python38\libs&#10;&#10;C:\Users\Progra.CHORI1414\AppData\Local\Programs\Python\Python38\Lib"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="NeuraSynth" headerPath="C:\Users\Progra.CHORI1414\Desktop\Proyectos\JUCE\NeuraSynth\Source\pybind11-include&#10;&#10;C:\Users\Progra.CHORI1414\AppData\Local\Programs\Python\Python38\include"
+                       libraryPath="C:\Users\Progra.CHORI1414\AppData\Local\Programs\Python\Python38\libs&#10;&#10;C:\Users\Progra.CHORI1414\AppData\Local\Programs\Python\Python38\Lib"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../APPS/juce-8.0.6-windows/JUCE/modules"/>
+      </MODULEPATHS>
+    </VS2022>
+  </EXPORTFORMATS>
+</JUCERPROJECT>
