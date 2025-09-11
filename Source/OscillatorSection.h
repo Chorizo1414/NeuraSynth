@@ -35,7 +35,7 @@ public:
         }
         else
         {
-            DBG("No se encontró la carpeta wavetables o está vacía: " << folderPath);
+            DBG("No se encontro la carpeta wavetables o esta vacia: " << folderPath);
         }
     }
 

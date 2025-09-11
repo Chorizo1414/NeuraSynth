@@ -17,7 +17,8 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& p)
     promptEditor.setReturnKeyStartsNewLine(false);
     // Número de acordes
     addAndMakeVisible(numChordsLabel);
-    numChordsLabel.setText("N° Acordes:", juce::dontSendNotification);
+    // Evitar caracteres no ASCII para prevenir aserciones de JUCE
+    numChordsLabel.setText("Num Acordes:", juce::dontSendNotification);
     numChordsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
 
     addAndMakeVisible(numChordsBox);
@@ -61,8 +62,9 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& p)
     playMelodyButton.onClick = [this] { playMelody(); };
 
     // Área de resultados
-    addAndMakeVisible(pianoRollPlaceholder);
-    pianoRollPlaceholder.setOpaque(true);
+        
+    // El marcador de posicion no pinta nada, asi que no debe ser opaco
+    pianoRollPlaceholder.setOpaque(false);
 
     addAndMakeVisible(resultsLabel);
     resultsLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -130,8 +132,8 @@ void ChordMelodyTabComponent::createChords()
 
 void ChordMelodyTabComponent::generateMelody()
 {
-    // Stub: implementación futura
-    resultsLabel.setText(resultsLabel.getText() + "\n[Melodía pendiente]", juce::dontSendNotification);
+    // Stub: implementacion futura
+    resultsLabel.setText(resultsLabel.getText() + "\n[Melodia pendiente]", juce::dontSendNotification);
 }
 
 void ChordMelodyTabComponent::playAll() {}

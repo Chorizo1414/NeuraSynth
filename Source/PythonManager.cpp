@@ -18,7 +18,7 @@ PythonManager::PythonManager()
         // ++ PASO 3: INTENTAMOS IMPORTAR TU API ++
         neuraChordApi = py::module::import("neurachord_api");
         
-        DBG("PythonManager: ¡Intérprete y neurachord_api importados con ÉXITO!");
+        DBG("PythonManager: Interprete y neurachord_api importados con EXITO!");
     }
     catch (py::error_already_set& e)
     {
@@ -42,7 +42,7 @@ juce::StringArray PythonManager::generateChordProgression(const juce::String& pr
     // Asegurarnos de que el módulo de la API esté cargado
     if (!neuraChordApi)
     {
-        DBG("ERROR: Módulo neurachord_api no cargado.");
+        DBG("ERROR: Modulo neurachord_api no cargado.");
         return generatedChords;
     }
 
@@ -88,7 +88,7 @@ py::dict PythonManager::generateMusicData(const juce::String& prompt)
 
     if (!neuraChordApi)
     {
-        DBG("ERROR: Módulo neurachord_api no cargado.");
+        DBG("ERROR: Modulo neurachord_api no cargado.");
         return result;
     }
 

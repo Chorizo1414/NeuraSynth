@@ -619,11 +619,11 @@ void NeuraSynthAudioProcessor::run()
                 std::string raiz = result["raiz"].cast<std::string>();
                 std::string modo = result["modo"].cast<std::string>();
                 
-                DBG("Python devolvió: Estilo=" << estilo << ", Tonalidad=" << raiz << " " << modo);
+                DBG("Python devolvio: Estilo=" << estilo << ", Tonalidad=" << raiz << " " << modo);
         }
             else
             { 
-                DBG("La generación desde Python falló o no devolvió resultados.");
+                DBG("La generacion desde Python fallo o no devolvio resultados."); 
             }
 
 }
