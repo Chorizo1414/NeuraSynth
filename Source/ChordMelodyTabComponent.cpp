@@ -45,19 +45,32 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             juce::String prompt = promptEditor.getText();
             if (prompt.isEmpty()) return;
 
-            // Llamamos a la función que devuelve el diccionario completo
+            // Llamamos a la función de Python
             lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(prompt);
 
-            if (!lastGeneratedChordsData.empty() && !lastGeneratedChordsData.contains("error"))
+            // --- LÓGICA DE VERIFICACIÓN MEJORADA ---
+            if (lastGeneratedChordsData.empty())
             {
-                // Enviamos los datos al piano roll para que se dibuje
-                pianoRollComponent.setMusicData(lastGeneratedChordsData);
-                generateMelodyButton.setEnabled(true); // Activamos el botón de melodía
-                DBG("Acordes generados y visualizados!");
+                DBG("Error: Python devolvio un diccionario vacio.");
+                return;
             }
-            else {
-                DBG("Error al generar acordes desde Python.");
+
+            // Verificamos si la clave "error" existe y si su contenido no está vacío
+            if (lastGeneratedChordsData.contains("error"))
+            {
+                std::string errorMessage = lastGeneratedChordsData["error"].cast<std::string>();
+                if (!errorMessage.empty())
+                {
+                    // Si hay un mensaje de error, lo mostramos en la consola de JUCE
+                    DBG("!!! Error desde Python: " + juce::String(errorMessage));
+                    return; // Detenemos la ejecución
+                }
             }
+
+            // Si llegamos aquí, todo salió bien
+            DBG("Acordes generados desde Python con exito!");
+            pianoRollComponent.setMusicData(lastGeneratedChordsData);
+            generateMelodyButton.setEnabled(true);
         };
 
     generateMelodyButton.onClick = [this]

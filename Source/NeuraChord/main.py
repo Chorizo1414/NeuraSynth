@@ -56,21 +56,6 @@ COLOR_DIALOGO_FG = "#E0E0E0"
 COLOR_DIALOGO_LISTA_BG = "#303030"
 COLOR_DIALOGO_ERROR_FG = "#FF6B6B"
 
-# --- Mapeo de BPM por Género ---
-# (min_bpm, max_bpm, default_bpm_sugerido)
-MAPEO_GENERO_BPM = {
-    "jazz": (80, 120, 100),
-    "lofi": (70, 90, 80),
-    "r&b": (60, 110, 90), # Amplio, 90 como punto medio
-    "vals": (84, 180, 120),
-    "pop": (100, 130, 115),
-    "techno": (125, 140, 130),
-    "reggaeton": (85, 100, 95),
-    # Añade más géneros y sus BPMs aquí si es necesario
-    "normal": (80, 120, 100) # Un default si el género es "normal"
-}
-
-
 # --- Variables Globales ---
 bpm_actual = 100 # Valor inicial, se actualizará
 ultima_raiz = None

@@ -8,6 +8,20 @@ from music21 import key, roman, pitch, harmony, chord as m21_chord
 import importlib.util
 from collections import defaultdict # Para _current_learned_prog_indices
 
+# --- Mapeo de BPM por Género ---
+# (min_bpm, max_bpm, default_bpm_sugerido)
+MAPEO_GENERO_BPM = {
+    "jazz": (80, 120, 100),
+    "lofi": (70, 90, 80),
+    "r&b": (60, 110, 90), # Amplio, 90 como punto medio
+    "vals": (84, 180, 120),
+    "pop": (100, 130, 115),
+    "techno": (125, 140, 130),
+    "reggaeton": (85, 100, 95),
+    # Añade más géneros y sus BPMs aquí si es necesario
+    "normal": (80, 120, 100) # Un default si el género es "normal"
+}
+
 # Importar INFO_GENERO directamente desde base_estilos
 # Asegúrate que base_estilos.py esté en el mismo directorio o en PYTHONPATH
 try:
