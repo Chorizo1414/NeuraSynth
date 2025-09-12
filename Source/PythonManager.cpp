@@ -60,3 +60,28 @@ py::dict PythonManager::generateMelodyData(const py::list& chords, const py::lis
     }
     return result;
 }
+
+juce::StringArray PythonManager::getAvailableGenres()
+{
+    juce::StringArray genres;
+    if (!neuraChordApi)
+    {
+        DBG("ERROR: Modulo neurachord_api no cargado, no se pueden obtener generos.");
+        return genres;
+    }
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        py::list pyGenres = neuraChordApi.attr("get_available_genres")();
+        for (auto item : pyGenres)
+        {
+            genres.add(item.cast<std::string>());
+        }
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("!!! Error de Python en getAvailableGenres: " << e.what());
+    }
+    return genres;
+}

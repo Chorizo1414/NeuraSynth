@@ -109,3 +109,24 @@ def generar_melodia(acordes, ritmo, raiz, modo, bpm):
         error_message = f"Error en generar_melodia: {str(e)}\n{traceback.format_exc()}"
         print(error_message)
         return {"error": error_message}
+
+def get_available_genres():
+    """
+    Devuelve una lista con los nombres de todos los géneros entrenados
+    que se encuentran en los archivos de estilo.
+    """
+    try:
+        # INFO_GENERO se importa desde generador_acordes y ya contiene todo
+        from generador_acordes import INFO_GENERO
+        if not INFO_GENERO:
+            return []
+        
+        # Filtramos para quedarnos solo con las claves que son diccionarios de géneros
+        genres = [
+            genre for genre in INFO_GENERO.keys()
+            if isinstance(INFO_GENERO[genre], dict) and "patrones_ritmicos" in INFO_GENERO[genre]
+        ]
+        return sorted(genres)
+    except Exception as e:
+        print(f"!!! Python API Error al obtener géneros: {e}")
+        return []

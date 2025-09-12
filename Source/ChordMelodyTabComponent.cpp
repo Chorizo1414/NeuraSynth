@@ -42,37 +42,43 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     // === LÓGICA DE LOS BOTONES ===
     generateChordsButton.onClick = [this]
         {
-            juce::String prompt = promptEditor.getText();
-            if (prompt.isEmpty()) return;
+            juce::String userPrompt = promptEditor.getText();
+            if (userPrompt.isEmpty()) return;
 
-            // Llamamos a la función de Python
-            lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(prompt);
+            juce::String selectedGenre = genreComboBox.getText();
+            juce::String finalPrompt = userPrompt;
 
-            // --- LÓGICA DE VERIFICACIÓN MEJORADA ---
+            // Si el usuario seleccionó un género específico (y no la opción por defecto)
+            // y el género no está ya mencionado en su prompt, lo añadimos al principio.
+            if (genreComboBox.getSelectedId() != 1 && !userPrompt.containsIgnoreCase(selectedGenre))
+            {
+                finalPrompt = selectedGenre + " " + userPrompt;
+            }
+
+            DBG("Prompt final enviado a Python: " + finalPrompt);
+
+            // El resto de la lógica es la que ya funcionaba
+            lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt);
+
             if (lastGeneratedChordsData.empty())
             {
                 DBG("Error: Python devolvio un diccionario vacio.");
                 return;
             }
 
-            // Verificamos si la clave "error" existe y si su contenido no está vacío
             if (lastGeneratedChordsData.contains("error"))
             {
                 std::string errorMessage = lastGeneratedChordsData["error"].cast<std::string>();
                 if (!errorMessage.empty())
                 {
-                    // Si hay un mensaje de error, lo mostramos en la consola de JUCE
                     DBG("!!! Error desde Python: " + juce::String(errorMessage));
-                    return; // Detenemos la ejecución
+                    return;
                 }
             }
 
-            // Si llegamos aquí, todo salió bien
             DBG("Acordes generados desde Python con exito!");
             pianoRollComponent.setMusicData(lastGeneratedChordsData);
             generateMelodyButton.setEnabled(true);
-
-            // Forzamos un redibujado de este componente y todos sus hijos (incluyendo el piano roll)
             repaint();
         };
 

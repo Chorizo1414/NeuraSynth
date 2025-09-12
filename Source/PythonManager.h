@@ -17,6 +17,7 @@ public:
     // Nueva función para generar la melodía
     py::dict generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode);
 
+    juce::StringArray getAvailableGenres();
 private:
     py::module neuraChordApi;
 };
