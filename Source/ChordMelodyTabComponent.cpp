@@ -71,6 +71,9 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             DBG("Acordes generados desde Python con exito!");
             pianoRollComponent.setMusicData(lastGeneratedChordsData);
             generateMelodyButton.setEnabled(true);
+
+            // Forzamos un redibujado de este componente y todos sus hijos (incluyendo el piano roll)
+            repaint();
         };
 
     generateMelodyButton.onClick = [this]

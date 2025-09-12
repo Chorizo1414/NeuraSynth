@@ -39,38 +39,36 @@ int noteNameToMidi(const std::string& noteName)
 }
 
 
-PianoRollComponent::PianoRollComponent()
-{
-    // Constructor
-}
-
+PianoRollComponent::PianoRollComponent() {}
 PianoRollComponent::~PianoRollComponent() {}
 
 void PianoRollComponent::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff3c3c3c)); // Un fondo oscuro
+    g.fillAll(juce::Colour(0xff3c3c3c));
 
     const int keyWidth = 25;
-    const float noteHeight = 12.0f;
-    const int lowestNote = 21; // A0
+    const int lowestNote = 21;  // A0
     const int highestNote = 108; // C8
+    const int numNotes = highestNote - lowestNote;
+
+    // --- LÓGICA DE DIBUJO CORREGIDA ---
+    // Calculamos la altura de cada "fila" de nota basándonos en la altura actual del componente
+    const float noteHeight = (float)getHeight() / (float)numNotes;
 
     // Dibuja el fondo del piano roll
-    g.setColour(juce::Colours::black.withAlpha(0.5f));
     for (int note = lowestNote; note <= highestNote; ++note)
     {
-        // Alterna colores para las filas, como un piano roll real
         if (note % 12 == 1 || note % 12 == 3 || note % 12 == 6 || note % 12 == 8 || note % 12 == 10)
             g.setColour(juce::Colours::black.withAlpha(0.3f));
         else
             g.setColour(juce::Colours::transparentBlack);
 
+        // La 'y' ahora es relativa a la altura total
         float y = (highestNote - note) * noteHeight;
         g.fillRect((float)keyWidth, y, (float)(getWidth() - keyWidth), noteHeight);
     }
 
-
-    if (notes.isEmpty()) // Usa el método correcto de JUCE: isEmpty()
+    if (notes.isEmpty())
     {
         g.setColour(juce::Colours::lightgrey);
         g.drawText("Piano Roll - Esperando datos...", getLocalBounds(), juce::Justification::centred);
@@ -83,7 +81,8 @@ void PianoRollComponent::paint(juce::Graphics& g)
     {
         if (note.midiNote < lowestNote || note.midiNote > highestNote) continue;
 
-        float x = keyWidth + (note.startTime * pixelsPerBeat);
+        float x = (float)keyWidth + (note.startTime * pixelsPerBeat);
+        // La 'y' y la 'altura' del rectángulo de la nota también usan la nueva altura escalada
         float y = (highestNote - note.midiNote) * noteHeight;
         float width = note.duration * pixelsPerBeat;
 
@@ -94,28 +93,23 @@ void PianoRollComponent::paint(juce::Graphics& g)
     }
 }
 
-void PianoRollComponent::resized()
-{
-    // No se necesita nada aquí por ahora
-}
+void PianoRollComponent::resized() {}
 
 
 void PianoRollComponent::setMusicData(const py::dict& data)
 {
-    notes.clear(); // Usa el método correcto de JUCE: clear()
+    // --- INICIO DE DEPURACIÓN ---
+    DBG("PianoRollComponent::setMusicData fue llamado.");
+    notes.clear();
     float time = 0.0f;
 
     try
     {
-        // --- PROCESAR ACORDES ---
         if (data.contains("acordes") && data.contains("ritmo"))
         {
             py::list pyChords = data["acordes"];
             py::list pyRhythm = data["ritmo"];
-
-            if (pyChords.size() != pyRhythm.size()) {
-                DBG("!!! ADVERTENCIA: La lista de acordes y de ritmo tienen diferente tamano.");
-            }
+            DBG("Procesando " + juce::String(pyChords.size()) + " acordes...");
 
             for (size_t i = 0; i < pyChords.size(); ++i)
             {
@@ -129,9 +123,10 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                     {
                         std::string noteName = note.cast<std::string>();
                         int midiNote = noteNameToMidi(noteName);
+                        // Mensaje de depuración para cada nota
+                        DBG("  -> Acorde: " + juce::String(noteName) + " | MIDI: " + juce::String(midiNote) + " | Tiempo: " + juce::String(time) + " | Dur: " + juce::String(duration));
                         if (midiNote != -1)
                         {
-                            // Usa el método correcto de JUCE: add()
                             notes.add({ midiNote, time, duration, true });
                         }
                     }
@@ -139,37 +134,14 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                 time += duration;
             }
         }
-
-        // --- PROCESAR MELODÍA ---
-        if (data.contains("melodia"))
-        {
-            py::list pyMelody = data["melodia"];
-            float melodyTime = 0.0f;
-
-            for (auto item : pyMelody)
-            {
-                py::tuple noteTuple = item.cast<py::tuple>();
-                std::string noteName = noteTuple[0].cast<std::string>();
-                std::string durStr = noteTuple[1].cast<std::string>();
-                float duration = std::stof(durStr);
-
-                if (noteName != "0")
-                {
-                    int midiNote = noteNameToMidi(noteName);
-                    if (midiNote != -1)
-                    {
-                        // Usa el método correcto de JUCE: add()
-                        notes.add({ midiNote, melodyTime, duration, false });
-                    }
-                }
-                melodyTime += duration;
-            }
-        }
     }
     catch (const py::cast_error& e)
     {
         DBG("!!! pybind11::cast_error en setMusicData: " << e.what());
     }
+
+    // Mensaje final con el total de notas procesadas
+    DBG("Procesamiento finalizado. Total de notas en el array: " + juce::String(notes.size()));
 
     repaint();
 }
