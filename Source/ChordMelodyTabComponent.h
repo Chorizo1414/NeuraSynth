@@ -30,7 +30,8 @@ private:
 
     juce::TextButton playButton;
     juce::TextButton stopButton;
-    juce::TextButton exportButton;
+    juce::TextButton exportChordsButton;
+    juce::TextButton exportMelodyButton;
 
     // Usamos nuestro componente de Piano Roll personalizado
     PianoRollComponent pianoRollComponent;

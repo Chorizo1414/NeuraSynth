@@ -98,13 +98,13 @@ void PianoRollComponent::resized() {}
 
 void PianoRollComponent::setMusicData(const py::dict& data)
 {
-    // --- INICIO DE DEPURACIÓN ---
     DBG("PianoRollComponent::setMusicData fue llamado.");
     notes.clear();
     float time = 0.0f;
 
     try
     {
+        // --- PROCESAR ACORDES ---
         if (data.contains("acordes") && data.contains("ritmo"))
         {
             py::list pyChords = data["acordes"];
@@ -123,8 +123,8 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                     {
                         std::string noteName = note.cast<std::string>();
                         int midiNote = noteNameToMidi(noteName);
-                        // Mensaje de depuración para cada nota
-                        DBG("  -> Acorde: " + juce::String(noteName) + " | MIDI: " + juce::String(midiNote) + " | Tiempo: " + juce::String(time) + " | Dur: " + juce::String(duration));
+                        // Descomenta la siguiente línea si necesitas depurar cada nota de acorde
+                        // DBG("  -> Acorde: " + juce::String(noteName) + " | MIDI: " + juce::String(midiNote));
                         if (midiNote != -1)
                         {
                             notes.add({ midiNote, time, duration, true });
@@ -134,14 +134,41 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                 time += duration;
             }
         }
+
+        // --- PROCESAR MELODÍA (CON NUEVA DEPURACIÓN) ---
+        if (data.contains("melodia"))
+        {
+            py::list pyMelody = data["melodia"];
+            float melodyTime = 0.0f;
+            DBG("Procesando " + juce::String(pyMelody.size()) + " eventos de melodia...");
+
+            for (auto item : pyMelody)
+            {
+                py::tuple noteTuple = item.cast<py::tuple>();
+                std::string noteName = noteTuple[0].cast<std::string>();
+                std::string durStr = noteTuple[1].cast<std::string>();
+                float duration = std::stof(durStr);
+
+                // Mensaje de depuración para cada nota de la melodía
+                DBG("  -> Melodia: " + juce::String(noteName) + " | MIDI: " + juce::String(noteNameToMidi(noteName)) + " | Tiempo: " + juce::String(melodyTime) + " | Dur: " + juce::String(duration));
+
+                if (noteName != "0")
+                {
+                    int midiNote = noteNameToMidi(noteName);
+                    if (midiNote != -1)
+                    {
+                        notes.add({ midiNote, melodyTime, duration, false });
+                    }
+                }
+                melodyTime += duration;
+            }
+        }
     }
     catch (const py::cast_error& e)
     {
         DBG("!!! pybind11::cast_error en setMusicData: " << e.what());
     }
 
-    // Mensaje final con el total de notas procesadas
     DBG("Procesamiento finalizado. Total de notas en el array: " + juce::String(notes.size()));
-
     repaint();
 }

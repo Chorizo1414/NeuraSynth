@@ -18,6 +18,9 @@ public:
     py::dict generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode);
 
     juce::StringArray getAvailableGenres();
+
+    juce::String exportChords(const py::dict& musicData);
+    juce::String exportMelody(const py::dict& musicData);
 private:
     py::module neuraChordApi;
 };

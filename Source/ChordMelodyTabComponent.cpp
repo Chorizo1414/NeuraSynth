@@ -33,8 +33,12 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     playButton.setButtonText("Reproducir");
     addAndMakeVisible(stopButton);
     stopButton.setButtonText("Pausar");
-    addAndMakeVisible(exportButton);
-    exportButton.setButtonText("Exportar MIDI");
+    addAndMakeVisible(exportChordsButton);
+    exportChordsButton.setButtonText("Exportar Acordes");
+
+    addAndMakeVisible(exportMelodyButton);
+    exportMelodyButton.setButtonText("Exportar Melodia");
+    exportMelodyButton.setEnabled(false);
 
     // === PIANO ROLL ===
     addAndMakeVisible(pianoRollComponent);
@@ -84,30 +88,59 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     generateMelodyButton.onClick = [this]
         {
-            if (lastGeneratedChordsData.empty()) return;
+            // 1. Verificar que ya tenemos datos de acordes para usar como base
+            if (lastGeneratedChordsData.empty() || !lastGeneratedChordsData.contains("acordes"))
+            {
+                DBG("Error: No hay acordes generados para crear una melodia.");
+                return;
+            }
 
-            // Extraemos los datos necesarios del diccionario de acordes
+            DBG("Enviando datos a Python para generar melodia...");
+
+            // 2. Extraer los datos necesarios del diccionario de acordes
             py::list chords = lastGeneratedChordsData["acordes"];
             py::list rhythm = lastGeneratedChordsData["ritmo"];
-            juce::String root = lastGeneratedChordsData["raiz"].cast<std::string>();
-            juce::String mode = lastGeneratedChordsData["modo"].cast<std::string>();
+            // Hacemos un cast a std::string para evitar problemas de conversión
+            std::string root = lastGeneratedChordsData["raiz"].cast<std::string>();
+            std::string mode = lastGeneratedChordsData["modo"].cast<std::string>();
 
-            // Llamamos a la función de Python para generar la melodía
+            int bpm = 120;
+            // 3. Llamar a la función de Python para generar la melodía
             auto melodyData = audioProcessor.pythonManager->generateMelodyData(chords, rhythm, root, mode);
 
-            if (!melodyData.empty() && !melodyData.contains("error"))
+            // 4. Verificar el resultado y combinarlo con los acordes
+            if (melodyData.empty() || (melodyData.contains("error") && !melodyData["error"].cast<std::string>().empty()))
             {
-                // Combinamos los datos de acordes y melodía y los enviamos al piano roll
-                py::dict combinedData;
-                combinedData["acordes"] = lastGeneratedChordsData["acordes"];
-                combinedData["melodia"] = melodyData["melodia"];
+                std::string errorMessage = melodyData.contains("error") ? melodyData["error"].cast<std::string>() : "Diccionario vacio";
+                DBG("!!! Error al generar la melodia desde Python: " + juce::String(errorMessage));
+                return;
+            }
 
-                pianoRollComponent.setMusicData(combinedData);
-                DBG("Melodia generada y visualizada!");
-            }
-            else {
-                DBG("Error al generar la melodia desde Python.");
-            }
+            DBG("Melodia generada con exito!");
+
+            // 5. Crear un nuevo diccionario que contenga tanto los acordes como la nueva melodía
+            py::dict combinedData = lastGeneratedChordsData; // Copiamos los datos de los acordes
+            combinedData["melodia"] = melodyData["melodia"]; // Añadimos los datos de la melodía
+
+            lastGeneratedChordsData["melodia"] = melodyData["melodia"];
+            // 6. Enviar los datos combinados al piano roll para que se redibuje todo
+            pianoRollComponent.setMusicData(combinedData);
+            exportMelodyButton.setEnabled(true);
+            repaint();
+        };
+
+    exportChordsButton.onClick = [this]
+        {
+            juce::String result = audioProcessor.pythonManager->exportChords(lastGeneratedChordsData);
+            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Acordes", result);
+            DBG(result);
+        };
+
+    exportMelodyButton.onClick = [this]
+        {
+            juce::String result = audioProcessor.pythonManager->exportMelody(lastGeneratedChordsData);
+            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Melodia", result);
+            DBG(result);
         };
 }
 
@@ -143,6 +176,7 @@ void ChordMelodyTabComponent::resized()
     bounds.removeFromTop(10);
     auto bottomButtonsArea = bounds.removeFromBottom(40);
     playButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 3).reduced(5, 0));
-    stopButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 2).reduced(5, 0));
-    exportButton.setBounds(bottomButtonsArea.reduced(5, 0));
+    stopButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 3).reduced(5, 0)); // 1/3 del espacio restante
+    exportChordsButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 2).reduced(5, 0)); // 1/2 del espacio restante
+    exportMelodyButton.setBounds(bottomButtonsArea.reduced(5, 0));
 }

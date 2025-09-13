@@ -7,47 +7,46 @@
               pluginAAXCategory="2048" pluginVSTCategory="kPlugCategSynth">
   <MAINGROUP id="KHQMYL" name="NeuraSynth">
     <GROUP id="{2755D2D3-BF9B-5AFD-F617-938218E8F244}" name="Source">
-      <FILE id="cne9CY" name="PythonManager.cpp" compile="1" resource="0"
-            file="Source/PythonManager.cpp"/>
-      <FILE id="eUVoeq" name="PythonManager.h" compile="0" resource="0" file="Source/PythonManager.h"/>
-      <GROUP id="{616A6C66-81D7-6822-8F80-AA2B300182E4}" name="NeuraChord">
-        <GROUP id="{85C35654-38F2-BAF9-4C04-C37520166CD2}" name="estilos">
-          <FILE id="U6dvqE" name="base_jazz.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_jazz.py"/>
-          <FILE id="atG8x8" name="base_lofi.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_lofi.py"/>
-          <FILE id="u3PXgj" name="base_pop.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_pop.py"/>
-          <FILE id="f5BEEw" name="base_r&amp;b.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_r&amp;b.py"/>
-          <FILE id="bN4BuA" name="base_reggaeton.py" compile="0" resource="1"
+      <GROUP id="{CC1E485B-D358-B97D-9608-468A50779C3A}" name="NeuraChord">
+        <GROUP id="{3DDAC9F8-BDC9-39E5-7E63-A17D895D86E3}" name="estilos">
+          <FILE id="Z6DIej" name="base_jazz.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_jazz.py"/>
+          <FILE id="p34Z2E" name="base_lofi.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_lofi.py"/>
+          <FILE id="IipdQd" name="base_pop.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_pop.py"/>
+          <FILE id="v02Vgr" name="base_r&amp;b.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_r&amp;b.py"/>
+          <FILE id="ojnGj8" name="base_reggaeton.py" compile="0" resource="1"
                 file="Source/NeuraChord/estilos/base_reggaeton.py"/>
-          <FILE id="JOmgVY" name="base_techno.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_techno.py"/>
-          <FILE id="L4Aw4T" name="base_vals.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_vals.py"/>
+          <FILE id="rwQjsa" name="base_techno.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_techno.py"/>
+          <FILE id="Cdy4wF" name="base_vals.py" compile="0" resource="1" file="Source/NeuraChord/estilos/base_vals.py"/>
         </GROUP>
-        <GROUP id="{18F98FE3-1F80-E254-ADFA-35DA4682487A}" name="MIDI_EXPORTADO">
-          <FILE id="kfsQZj" name="acordes.mid" compile="0" resource="1" file="Source/NeuraChord/MIDI_EXPORTADO/acordes.mid"/>
+        <GROUP id="{45D0A04C-FF03-DEA7-D1DD-C3C51064A696}" name="MIDI_EXPORTADO">
+          <FILE id="EJA6RR" name="acordes.mid" compile="0" resource="1" file="Source/NeuraChord/MIDI_EXPORTADO/acordes.mid"/>
         </GROUP>
-        <GROUP id="{2D3561D2-C542-3293-D55C-AB7C266F3FD5}" name="sources">
-          <FILE id="flB4e6" name="corazon.png" compile="0" resource="1" file="Source/NeuraChord/sources/corazon.png"/>
-          <FILE id="IMKSH1" name="nota.png" compile="0" resource="1" file="Source/NeuraChord/sources/nota.png"/>
-          <FILE id="CwA5a8" name="pausa.png" compile="0" resource="1" file="Source/NeuraChord/sources/pausa.png"/>
-          <FILE id="krK7ag" name="piano.ico" compile="0" resource="1" file="Source/NeuraChord/sources/piano.ico"/>
-          <FILE id="HpyBLc" name="piano.png" compile="0" resource="1" file="Source/NeuraChord/sources/piano.png"/>
-          <FILE id="F1mIK5" name="pulgar_abajo.png" compile="0" resource="1"
+        <GROUP id="{A6E4B87A-1353-AA2F-A2F7-36A090F7F905}" name="sources">
+          <FILE id="NvhmeV" name="corazon.png" compile="0" resource="1" file="Source/NeuraChord/sources/corazon.png"/>
+          <FILE id="WaQjmX" name="nota.png" compile="0" resource="1" file="Source/NeuraChord/sources/nota.png"/>
+          <FILE id="BJsw51" name="pausa.png" compile="0" resource="1" file="Source/NeuraChord/sources/pausa.png"/>
+          <FILE id="gDRJGH" name="piano.ico" compile="0" resource="1" file="Source/NeuraChord/sources/piano.ico"/>
+          <FILE id="wK59WH" name="piano.png" compile="0" resource="1" file="Source/NeuraChord/sources/piano.png"/>
+          <FILE id="mrgf0j" name="pulgar_abajo.png" compile="0" resource="1"
                 file="Source/NeuraChord/sources/pulgar_abajo.png"/>
-          <FILE id="a4KT3b" name="reproducir.png" compile="0" resource="1" file="Source/NeuraChord/sources/reproducir.png"/>
+          <FILE id="GmCVSe" name="reproducir.png" compile="0" resource="1" file="Source/NeuraChord/sources/reproducir.png"/>
         </GROUP>
-        <FILE id="dysLbQ" name="base_estilos.py" compile="0" resource="1" file="Source/NeuraChord/base_estilos.py"/>
-        <FILE id="WGQjYt" name="build_exe.py" compile="0" resource="1" file="Source/NeuraChord/build_exe.py"/>
-        <FILE id="jEfo06" name="generador_acordes.py" compile="0" resource="1"
+        <FILE id="v6nCQH" name="base_estilos.py" compile="0" resource="1" file="Source/NeuraChord/base_estilos.py"/>
+        <FILE id="bazXcH" name="build_exe.py" compile="0" resource="1" file="Source/NeuraChord/build_exe.py"/>
+        <FILE id="mmGNGc" name="generador_acordes.py" compile="0" resource="1"
               file="Source/NeuraChord/generador_acordes.py"/>
-        <FILE id="UqX053" name="generador_melodia.py" compile="0" resource="1"
+        <FILE id="oDgyuO" name="generador_melodia.py" compile="0" resource="1"
               file="Source/NeuraChord/generador_melodia.py"/>
-        <FILE id="QplAJU" name="generos.py" compile="0" resource="1" file="Source/NeuraChord/generos.py"/>
-        <FILE id="QO4Ten" name="main.py" compile="0" resource="1" file="Source/NeuraChord/main.py"/>
-        <FILE id="oT1sKs" name="NeuraChord.spec" compile="0" resource="1" file="Source/NeuraChord/NeuraChord.spec"/>
-        <FILE id="VkcpeD" name="piano_roll_visualizer.py" compile="0" resource="1"
+        <FILE id="cpgc5S" name="generos.py" compile="0" resource="1" file="Source/NeuraChord/generos.py"/>
+        <FILE id="EAEE1k" name="main.py" compile="0" resource="1" file="Source/NeuraChord/main.py"/>
+        <FILE id="mHq5S5" name="NeuraChord.spec" compile="0" resource="1" file="Source/NeuraChord/NeuraChord.spec"/>
+        <FILE id="VJVoO4" name="neurachord_api.py" compile="0" resource="1"
+              file="Source/NeuraChord/neurachord_api.py"/>
+        <FILE id="yh6stx" name="piano_roll_visualizer.py" compile="0" resource="1"
               file="Source/NeuraChord/piano_roll_visualizer.py"/>
-        <FILE id="QUhlY6" name="procesador_prompt.py" compile="0" resource="1"
+        <FILE id="Fdm38D" name="procesador_prompt.py" compile="0" resource="1"
               file="Source/NeuraChord/procesador_prompt.py"/>
-        <FILE id="liozAg" name="procesador_sentimientos.py" compile="0" resource="1"
+        <FILE id="GZVD4H" name="procesador_sentimientos.py" compile="0" resource="1"
               file="Source/NeuraChord/procesador_sentimientos.py"/>
       </GROUP>
       <GROUP id="{AFE3B519-BF1E-4F60-F016-A6D0CE88FB27}" name="pybind11-include">
@@ -159,69 +158,76 @@
         <FILE id="PNlt5n" name="knoboct.png" compile="0" resource="1" file="Source/pictures/knoboct.png"/>
         <FILE id="GI7rsj" name="knobosc.png" compile="0" resource="1" file="Source/pictures/knobosc.png"/>
       </GROUP>
-      <FILE id="tc37VL" name="neurachord_api.py" compile="0" resource="1"
-            file="Source/neurachord_api.py"/>
-      <FILE id="IAz5TX" name="SynthTabComponent.cpp" compile="1" resource="0"
-            file="Source/SynthTabComponent.cpp"/>
-      <FILE id="U4z256" name="SynthTabComponent.h" compile="0" resource="0"
-            file="Source/SynthTabComponent.h"/>
-      <FILE id="WTHLk6" name="ChordMelodyTabComponent.cpp" compile="1" resource="0"
-            file="Source/ChordMelodyTabComponent.cpp"/>
-      <FILE id="gjcq7n" name="ChordMelodyTabComponent.h" compile="0" resource="0"
-            file="Source/ChordMelodyTabComponent.h"/>
-      <FILE id="rDDKhK" name="WaveformDisplay.h" compile="0" resource="0"
-            file="Source/WaveformDisplay.h"/>
-      <FILE id="u2NCcC" name="CustomKnob.cpp" compile="1" resource="0" file="Source/CustomKnob.cpp"/>
-      <FILE id="afJk5G" name="CustomKnob.h" compile="0" resource="0" file="Source/CustomKnob.h"/>
-      <FILE id="D9u6on" name="PluginEditor.cpp" compile="1" resource="0"
-            file="Source/PluginEditor.cpp"/>
-      <FILE id="h4qST1" name="PluginProcessor.cpp" compile="1" resource="0"
-            file="Source/PluginProcessor.cpp"/>
-      <FILE id="fUnARl" name="PluginProcessor.h" compile="0" resource="0"
-            file="Source/PluginProcessor.h"/>
-      <FILE id="Xmhs1V" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
-      <FILE id="EQdgat" name="LayoutConstants.h" compile="0" resource="0"
-            file="Source/LayoutConstants.h"/>
-      <FILE id="NA1g6j" name="MasterSectionComponent.cpp" compile="1" resource="0"
-            file="Source/MasterSectionComponent.cpp"/>
-      <FILE id="JyZ9Jh" name="UnisonComponent.cpp" compile="1" resource="0"
-            file="Source/UnisonComponent.cpp"/>
-      <FILE id="nHoTp4" name="EnvelopeComponent.cpp" compile="1" resource="0"
-            file="Source/EnvelopeComponent.cpp"/>
-      <FILE id="gD4sEC" name="ModulationComponent.cpp" compile="1" resource="0"
-            file="Source/ModulationComponent.cpp"/>
-      <FILE id="jebXTZ" name="FilterComponent.cpp" compile="1" resource="0"
-            file="Source/FilterComponent.cpp"/>
-      <FILE id="lI3zsg" name="OscillatorComponent.cpp" compile="1" resource="0"
-            file="Source/OscillatorComponent.cpp"/>
-      <FILE id="sU3fod" name="DelayComponent.cpp" compile="1" resource="0"
-            file="Source/DelayComponent.cpp"/>
-      <FILE id="fZ1nN0" name="ReverbComponent.cpp" compile="1" resource="0"
-            file="Source/ReverbComponent.cpp"/>
-      <FILE id="fHCXdP" name="DelayComponent.h" compile="0" resource="0"
-            file="Source/DelayComponent.h"/>
-      <FILE id="C8FwiK" name="EnvelopeComponent.h" compile="0" resource="0"
-            file="Source/EnvelopeComponent.h"/>
-      <FILE id="tg654E" name="EnvelopeDisplay.h" compile="0" resource="0"
-            file="Source/EnvelopeDisplay.h"/>
-      <FILE id="ACt7xL" name="FilterComponent.h" compile="0" resource="0"
-            file="Source/FilterComponent.h"/>
-      <FILE id="xS7gCv" name="MasterSectionComponent.h" compile="0" resource="0"
-            file="Source/MasterSectionComponent.h"/>
-      <FILE id="r0GohY" name="ModulationComponent.h" compile="0" resource="0"
-            file="Source/ModulationComponent.h"/>
-      <FILE id="C2noMM" name="OscillatorComponent.h" compile="0" resource="0"
-            file="Source/OscillatorComponent.h"/>
-      <FILE id="rvYE1I" name="ReverbComponent.h" compile="0" resource="0"
-            file="Source/ReverbComponent.h"/>
-      <FILE id="F8U2DJ" name="TextValueSlider.cpp" compile="1" resource="0"
-            file="Source/TextValueSlider.cpp"/>
-      <FILE id="vvORHx" name="TextValueSlider.h" compile="0" resource="0"
-            file="Source/TextValueSlider.h"/>
-      <FILE id="BHSitX" name="UnisonComponent.h" compile="0" resource="0"
+      <FILE id="xki97K" name="UnisonComponent.h" compile="0" resource="0"
             file="Source/UnisonComponent.h"/>
-      <FILE id="TIKjQl" name="OscillatorSection.h" compile="0" resource="0"
+      <FILE id="ssOE0V" name="WaveformDisplay.h" compile="0" resource="0"
+            file="Source/WaveformDisplay.h"/>
+      <FILE id="EfAago" name="ChordMelodyTabComponent.cpp" compile="1" resource="0"
+            file="Source/ChordMelodyTabComponent.cpp"/>
+      <FILE id="bwpNFQ" name="ChordMelodyTabComponent.h" compile="0" resource="0"
+            file="Source/ChordMelodyTabComponent.h"/>
+      <FILE id="l6G3eb" name="CustomKnob.cpp" compile="1" resource="0" file="Source/CustomKnob.cpp"/>
+      <FILE id="V3i9Ad" name="CustomKnob.h" compile="0" resource="0" file="Source/CustomKnob.h"/>
+      <FILE id="wnqZGY" name="DelayComponent.cpp" compile="1" resource="0"
+            file="Source/DelayComponent.cpp"/>
+      <FILE id="n1krGE" name="DelayComponent.h" compile="0" resource="0"
+            file="Source/DelayComponent.h"/>
+      <FILE id="ZGX9cG" name="EnvelopeComponent.cpp" compile="1" resource="0"
+            file="Source/EnvelopeComponent.cpp"/>
+      <FILE id="Ed5Dsx" name="EnvelopeComponent.h" compile="0" resource="0"
+            file="Source/EnvelopeComponent.h"/>
+      <FILE id="Kpqm9W" name="EnvelopeDisplay.h" compile="0" resource="0"
+            file="Source/EnvelopeDisplay.h"/>
+      <FILE id="EBcc3C" name="FilterComponent.cpp" compile="1" resource="0"
+            file="Source/FilterComponent.cpp"/>
+      <FILE id="up3AWw" name="FilterComponent.h" compile="0" resource="0"
+            file="Source/FilterComponent.h"/>
+      <FILE id="hf1JWY" name="LayoutConstants.h" compile="0" resource="0"
+            file="Source/LayoutConstants.h"/>
+      <FILE id="wu41fp" name="MasterSectionComponent.cpp" compile="1" resource="0"
+            file="Source/MasterSectionComponent.cpp"/>
+      <FILE id="rs4Dc4" name="MasterSectionComponent.h" compile="0" resource="0"
+            file="Source/MasterSectionComponent.h"/>
+      <FILE id="nD8pCp" name="ModulationComponent.cpp" compile="1" resource="0"
+            file="Source/ModulationComponent.cpp"/>
+      <FILE id="iasVkn" name="ModulationComponent.h" compile="0" resource="0"
+            file="Source/ModulationComponent.h"/>
+      <FILE id="DQ89cL" name="neurachord_api.py" compile="0" resource="1"
+            file="Source/neurachord_api.py"/>
+      <FILE id="D6V0UW" name="OscillatorComponent.cpp" compile="1" resource="0"
+            file="Source/OscillatorComponent.cpp"/>
+      <FILE id="hNJQpd" name="OscillatorComponent.h" compile="0" resource="0"
+            file="Source/OscillatorComponent.h"/>
+      <FILE id="MvCyxN" name="OscillatorSection.h" compile="0" resource="0"
             file="Source/OscillatorSection.h"/>
+      <FILE id="svzgxI" name="PianoRollComponent.cpp" compile="1" resource="0"
+            file="Source/PianoRollComponent.cpp"/>
+      <FILE id="AWCTLl" name="PianoRollComponent.h" compile="0" resource="0"
+            file="Source/PianoRollComponent.h"/>
+      <FILE id="s7EF4t" name="PluginEditor.cpp" compile="1" resource="0"
+            file="Source/PluginEditor.cpp"/>
+      <FILE id="dOPEVt" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="LDHPXJ" name="PluginProcessor.cpp" compile="1" resource="0"
+            file="Source/PluginProcessor.cpp"/>
+      <FILE id="Wk1SYE" name="PluginProcessor.h" compile="0" resource="0"
+            file="Source/PluginProcessor.h"/>
+      <FILE id="d7TCD8" name="PythonManager.cpp" compile="1" resource="0"
+            file="Source/PythonManager.cpp"/>
+      <FILE id="bYN2Eh" name="PythonManager.h" compile="0" resource="0" file="Source/PythonManager.h"/>
+      <FILE id="Py02uR" name="ReverbComponent.cpp" compile="1" resource="0"
+            file="Source/ReverbComponent.cpp"/>
+      <FILE id="vSmZ5z" name="ReverbComponent.h" compile="0" resource="0"
+            file="Source/ReverbComponent.h"/>
+      <FILE id="HY4KK0" name="SynthTabComponent.cpp" compile="1" resource="0"
+            file="Source/SynthTabComponent.cpp"/>
+      <FILE id="gBsD2e" name="SynthTabComponent.h" compile="0" resource="0"
+            file="Source/SynthTabComponent.h"/>
+      <FILE id="PXPMSW" name="TextValueSlider.cpp" compile="1" resource="0"
+            file="Source/TextValueSlider.cpp"/>
+      <FILE id="tQVw6o" name="TextValueSlider.h" compile="0" resource="0"
+            file="Source/TextValueSlider.h"/>
+      <FILE id="Z7iGfD" name="UnisonComponent.cpp" compile="1" resource="0"
+            file="Source/UnisonComponent.cpp"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>

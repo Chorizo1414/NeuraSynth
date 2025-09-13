@@ -85,3 +85,49 @@ juce::StringArray PythonManager::getAvailableGenres()
     }
     return genres;
 }
+
+juce::String PythonManager::exportChords(const py::dict& musicData)
+{
+    if (!neuraChordApi || !musicData.contains("acordes"))
+        return "Error: No hay datos de acordes para exportar.";
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        int bpm = 120; // Puedes hacerlo un parámetro más adelante
+        py::dict result = neuraChordApi.attr("exportar_acordes_midi")(
+            musicData["acordes"], musicData["ritmo"], bpm);
+
+        if (result.contains("error") && !result["error"].cast<std::string>().empty())
+            return "Error en Python: " + juce::String(result["error"].cast<std::string>());
+
+        return "Acordes exportados a: " + juce::String(result["ruta"].cast<std::string>());
+    }
+    catch (const py::error_already_set& e)
+    {
+        return juce::String("Error de Python al exportar acordes: ") + e.what();
+    }
+}
+
+juce::String PythonManager::exportMelody(const py::dict& musicData)
+{
+    if (!neuraChordApi || !musicData.contains("melodia"))
+        return "Error: No hay datos de melodia para exportar.";
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        int bpm = 120; // Puedes hacerlo un parámetro más adelante
+        py::dict result = neuraChordApi.attr("exportar_melodia_midi")(
+            musicData["melodia"], bpm);
+
+        if (result.contains("error") && !result["error"].cast<std::string>().empty())
+            return "Error en Python: " + juce::String(result["error"].cast<std::string>());
+
+        return "Melodia exportada a: " + juce::String(result["ruta"].cast<std::string>());
+    }
+    catch (const py::error_already_set& e)
+    {
+        return juce::String("Error de Python al exportar melodia: ") + e.what();
+    }
+}

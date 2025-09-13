@@ -1,5 +1,11 @@
 # neurachord_api.py (VERSIÓN FUNCIONAL)
 import traceback
+import os
+from music21 import stream, note, chord, instrument, tempo, midi
+
+# Definimos una ruta de exportación fija para el plugin
+RUTA_BASE_PLUGIN = os.path.dirname(os.path.abspath(__file__))
+CARPETA_MIDI_EXPORTADO_PLUGIN = os.path.join(RUTA_BASE_PLUGIN, "MIDI_EXPORTADO_PLUGIN")
 
 # Importamos las funciones clave de tus otros módulos
 from generos import detectar_estilo
@@ -130,3 +136,66 @@ def get_available_genres():
     except Exception as e:
         print(f"!!! Python API Error al obtener géneros: {e}")
         return []
+
+def _exportar_a_midi(stream_obj, nombre_archivo_base):
+    """Función auxiliar para guardar un stream de music21 como archivo MIDI."""
+    try:
+        os.makedirs(CARPETA_MIDI_EXPORTADO_PLUGIN, exist_ok=True)
+        
+        # Creamos un nombre de archivo único para no sobrescribir
+        i = 1
+        nombre_final = f"{nombre_archivo_base}.mid"
+        ruta_completa = os.path.join(CARPETA_MIDI_EXPORTADO_PLUGIN, nombre_final)
+        while os.path.exists(ruta_completa):
+            nombre_final = f"{nombre_archivo_base}_{i}.mid"
+            ruta_completa = os.path.join(CARPETA_MIDI_EXPORTADO_PLUGIN, nombre_final)
+            i += 1
+            
+        mf = midi.translate.streamToMidiFile(stream_obj)
+        mf.open(ruta_completa, "wb")
+        mf.write()
+        mf.close()
+        print(f">>> Python API: Archivo exportado con éxito a {ruta_completa}")
+        return {"ruta": ruta_completa, "error": ""}
+    except Exception as e:
+        error_msg = f"Error al exportar MIDI: {e}\n{traceback.format_exc()}"
+        print(f"!!! Python API Error: {error_msg}")
+        return {"error": error_msg}
+
+
+def exportar_acordes_midi(acordes, ritmo, bpm):
+    s = stream.Stream()
+    s.insert(0, tempo.MetronomeMark(number=bpm))
+    s.append(instrument.Piano()) # Instrumento por defecto para acordes
+    
+    offset_actual = 0.0
+    for i, ac_data in enumerate(acordes):
+        duracion = float(ritmo[i])
+        if isinstance(ac_data, list):
+            acorde_obj = chord.Chord(ac_data, quarterLength=duracion)
+            s.insert(offset_actual, acorde_obj)
+        # Ignoramos los silencios ("0") en la exportación
+        offset_actual += duracion
+        
+    return _exportar_a_midi(s, "acordes_exportados")
+
+
+def exportar_melodia_midi(melodia, bpm):
+    s = stream.Stream()
+    s.insert(0, tempo.MetronomeMark(number=bpm))
+    s.append(instrument.Violin()) # Instrumento por defecto para melodía
+    
+    offset_actual = 0.0
+    for nota_data in melodia:
+        nombre_nota = nota_data[0]
+        duracion = float(nota_data[1])
+        
+        if nombre_nota == "0":
+            elemento = note.Rest(quarterLength=duracion)
+        else:
+            elemento = note.Note(nombre_nota, quarterLength=duracion)
+        
+        s.insert(offset_actual, elemento)
+        offset_actual += duracion
+
+    return _exportar_a_midi(s, "melodia_exportada")
