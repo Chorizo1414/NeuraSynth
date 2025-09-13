@@ -6,7 +6,7 @@
 
 class NeuraSynthAudioProcessor;
 
-class ChordMelodyTabComponent : public juce::Component
+class ChordMelodyTabComponent : public juce::Component, public juce::Timer
 {
 public:
     ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor);
@@ -15,8 +15,11 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
+    void timerCallback() override;
+
 private:
     void transpose(int semitones);
+
     NeuraSynthAudioProcessor& audioProcessor;
 
     // --- Componentes UI ---
@@ -39,6 +42,22 @@ private:
     juce::TextButton stopButton;
     juce::TextButton exportChordsButton;
     juce::TextButton exportMelodyButton;
+
+    bool isPlaying = false;
+    double startTime = 0.0;
+    int nextEventIndex = 0;
+
+    // Estructura para un evento MIDI temporizado
+    struct TimedMidiEvent
+    {
+        double timeInBeats;
+        juce::MidiMessage message;
+
+        // Para poder ordenar los eventos por tiempo
+        bool operator<(const TimedMidiEvent& other) const { return timeInBeats < other.timeInBeats; }
+    };
+
+    juce::Array<TimedMidiEvent> playbackEvents;
 
     // Usamos nuestro componente de Piano Roll personalizado
     PianoRollComponent pianoRollComponent;

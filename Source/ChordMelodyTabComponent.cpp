@@ -24,12 +24,12 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     }
     genreComboBox.setSelectedId(1);
 
+    // === SLIDER DE BPM ===
     addAndMakeVisible(bpmSlider);
     bpmSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
     bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
     bpmSlider.setRange(40.0, 220.0, 1.0);
-    bpmSlider.setValue(120.0); // Valor inicial por defecto
-
+    bpmSlider.setValue(120.0);
     addAndMakeVisible(bpmLabel);
     bpmLabel.setText("BPM", juce::dontSendNotification);
     bpmLabel.attachToComponent(&bpmSlider, true);
@@ -135,6 +135,45 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             repaint();
         };
 
+    playButton.onClick = [this]
+        {
+            if (isPlaying || lastGeneratedChordsData.empty()) return;
+
+            isPlaying = true;
+            nextEventIndex = 0;
+            playbackEvents.clear();
+
+            // 1. Recopilar todas las notas (acordes y melodía)
+            auto notesToPlay = pianoRollComponent.getNotes(); // Necesitaremos añadir esta función pública
+            int currentBpm = (int)bpmSlider.getValue();
+
+            // 2. Convertir nuestras notas en eventos MIDI temporizados
+            for (const auto& note : notesToPlay)
+            {
+                // Evento de Nota Encendida (Note On)
+                playbackEvents.add({ note.startTime, juce::MidiMessage::noteOn(1, note.midiNote, (juce::uint8)100), });
+                // Evento de Nota Apagada (Note Off)
+                playbackEvents.add({ note.startTime + note.duration, juce::MidiMessage::noteOff(1, note.midiNote), });
+            }
+
+            // 3. Ordenar todos los eventos por su tiempo de inicio
+            std::sort(playbackEvents.begin(), playbackEvents.end());
+
+            // 4. Iniciar el temporizador
+            startTime = juce::Time::getMillisecondCounterHiRes() / 1000.0; // Tiempo de inicio en segundos
+            startTimerHz(100); // Llamar a timerCallback 100 veces por segundo
+        };
+
+    stopButton.onClick = [this]
+        {
+            if (!isPlaying) return;
+
+            stopTimer();
+            isPlaying = false;
+            // Envía un mensaje "All Notes Off" para silenciar cualquier nota que se haya quedado sonando
+            audioProcessor.addMidiMessageToQueue(juce::MidiMessage::allNotesOff(1));
+        };
+
     transposeUpButton.onClick = [this] { transpose(1); };
     transposeDownButton.onClick = [this] { transpose(-1); };
 
@@ -155,7 +194,10 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
         };
 }
 
-ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
+ChordMelodyTabComponent::~ChordMelodyTabComponent()
+{
+    stopTimer(); // Buena práctica para detener el timer al cerrar
+}
 
 void ChordMelodyTabComponent::paint(juce::Graphics& g)
 {
@@ -198,6 +240,33 @@ void ChordMelodyTabComponent::resized()
     stopButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 3).reduced(5, 0));
     exportChordsButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 2).reduced(5, 0));
     exportMelodyButton.setBounds(bottomButtonsArea.reduced(5, 0));
+}
+
+void ChordMelodyTabComponent::timerCallback()
+{
+    if (!isPlaying)
+    {
+        stopTimer();
+        return;
+    }
+
+    double currentTimeSeconds = (juce::Time::getMillisecondCounterHiRes() / 1000.0) - startTime;
+    double currentBeat = currentTimeSeconds * (bpmSlider.getValue() / 60.0);
+
+    // Revisa los eventos MIDI que deben dispararse
+    while (nextEventIndex < playbackEvents.size() && playbackEvents[nextEventIndex].timeInBeats <= currentBeat)
+    {
+        // Envía el mensaje MIDI al procesador de audio
+        audioProcessor.addMidiMessageToQueue(playbackEvents[nextEventIndex].message);
+        nextEventIndex++;
+    }
+
+    // Si ya no hay más eventos, detener la reproducción
+    if (nextEventIndex >= playbackEvents.size())
+    {
+        stopTimer();
+        isPlaying = false;
+    }
 }
 
 void ChordMelodyTabComponent::transpose(int semitones)

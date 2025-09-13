@@ -3,6 +3,12 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+void NeuraSynthAudioProcessor::addMidiMessageToQueue(const juce::MidiMessage& msg)
+{
+    // Añade el mensaje a nuestra cola de MIDI
+    midiMessageQueue.addEvent(msg, 0);
+}
+
 // Inicializamos la frecuencia estática a 0
 double SynthVoice::lastNoteFrequency = 0.0;
 
@@ -222,26 +228,22 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
 
 NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-    : AudioProcessor(BusesProperties()
-                    #if ! JucePlugin_IsMidiEffect
-                    #if ! JucePlugin_IsSynth
-                    .withInput("Input", juce::AudioChannelSet::stereo(), true)
-                    #endif
-                    .withOutput("Output", juce::AudioChannelSet::stereo(), true)
-                    #endif
-                      ),
-    apvts(*this, nullptr, "Parameters", createParameterLayout()),
-    Thread("Python Generation Thread")
+     : AudioProcessor (BusesProperties()
+                     #if ! JucePlugin_IsMidiEffect
+                      #if ! JucePlugin_IsSynth
+                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
+                      #endif
+                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                     #endif
+                       ), apvts(*this, nullptr, "Parameters", createParameterLayout())
 #endif
 {
-    // --- Inicialización del Sintetizador ---
-    for (int i = 0; i < 16; i++) // 16 voces de polifonía
-    {
-        synth.addVoice(new SynthVoice());
-    }
-    synth.addSound(new SynthSound());
-
+    // --- CORRECCIÓN AQUÍ ---
     pythonManager = std::make_unique<PythonManager>();
+
+    for (int i = 0; i < 16; ++i)
+        synth.addVoice(new SynthVoice());
+    synth.addSound(new SynthSound());
 }
 
 NeuraSynthAudioProcessor::~NeuraSynthAudioProcessor() {}
@@ -306,8 +308,17 @@ void NeuraSynthAudioProcessor::releaseResources()
 
 void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    buffer.clear();
-    keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
+    juce::ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels = getTotalNumInputChannels();
+    auto totalNumOutputChannels = getTotalNumOutputChannels();
+
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear(i, 0, buffer.getNumSamples());
+
+    // --- AÑADE ESTA LÍNEA para mover los mensajes de nuestra cola a la de JUCE ---
+    midiMessages.addEvents(midiMessageQueue, 0, -1, 0);
+    midiMessageQueue.clear();
+
     synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 
     // --- CADENA DE EFECTOS MASTER ---

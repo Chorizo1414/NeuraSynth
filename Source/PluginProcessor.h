@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <memory>
@@ -174,9 +175,9 @@ public:
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     juce::AudioProcessorEditor* createEditor() override;
-    bool hasEditor() const override;
+    bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override;
+    const juce::String getName() const override { return JucePlugin_Name; }
     bool acceptsMidi() const override;
     bool producesMidi() const override;
     bool isMidiEffect() const override;
@@ -297,7 +298,12 @@ public:
 
     std::unique_ptr<PythonManager> pythonManager;
 
+    void addMidiMessageToQueue(const juce::MidiMessage& msg);
+    juce::AudioProcessorValueTreeState apvts;
+    std::unique_ptr<PythonManager> pythonManager;
+
 private:
+    juce::MidiMessageQueue midiMessageQueue;
     void updateAllVoices(); // Nueva función para actualizar parámetros
 
     juce::String promptParaGenerar;

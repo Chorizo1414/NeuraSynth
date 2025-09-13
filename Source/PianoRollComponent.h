@@ -15,9 +15,6 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
 
-    void setMusicData(const py::dict& data);
-
-private:
     // Estructura para almacenar la información de cada nota de forma clara
     struct Note
     {
@@ -27,8 +24,15 @@ private:
         bool isChordNote;
     };
 
+    void setMusicData(const py::dict& data);
+    // --- AÑADE ESTA FUNCIÓN ---
+    const juce::Array<Note>& getNotes() const { return notes; }
+
+
+
+private:
+    
     // Usamos un juce::Array para almacenar nuestras notas.
-    // ESTE ERA EL PUNTO DEL ERROR ANTERIOR
     juce::Array<Note> notes;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PianoRollComponent)
