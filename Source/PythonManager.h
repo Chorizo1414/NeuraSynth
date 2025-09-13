@@ -15,12 +15,13 @@ public:
     py::dict generateMusicData(const juce::String& prompt);
 
     // Nueva función para generar la melodía
-    py::dict generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode);
+    py::dict generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode, int bpm);
 
     juce::StringArray getAvailableGenres();
 
     juce::String exportChords(const py::dict& musicData);
     juce::String exportMelody(const py::dict& musicData);
+    py::dict transposeMusic(const py::dict& musicData, int semitones);
 private:
     py::module neuraChordApi;
 };

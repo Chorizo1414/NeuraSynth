@@ -16,6 +16,7 @@ public:
     void resized() override;
 
 private:
+    void transpose(int semitones);
     NeuraSynthAudioProcessor& audioProcessor;
 
     // --- Componentes UI ---
@@ -27,6 +28,9 @@ private:
 
     juce::TextButton generateChordsButton;
     juce::TextButton generateMelodyButton; // Botón nuevo
+
+    juce::TextButton transposeUpButton;
+    juce::TextButton transposeDownButton;
 
     juce::TextButton playButton;
     juce::TextButton stopButton;

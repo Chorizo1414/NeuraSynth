@@ -6,36 +6,46 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 {
     // === EDITOR DE PROMPT ===
     addAndMakeVisible(promptLabel);
-    promptLabel.setText("Escribe tu prompt aqui (ej: 'pop en C mayor', 'lofi triste en Am')", juce::dontSendNotification);
-
+    promptLabel.setText("Escribe tu prompt aqui (ej: 'C minor', 'triste en Am')", juce::dontSendNotification);
     addAndMakeVisible(promptEditor);
     promptEditor.setMultiLine(true);
 
     // === MENÚ DE GÉNERO ===
     addAndMakeVisible(genreLabel);
-    genreLabel.setText("Genero (Opcional, si no se especifica en el prompt)", juce::dontSendNotification);
-
+    genreLabel.setText("Genero", juce::dontSendNotification);
     addAndMakeVisible(genreComboBox);
-    // Llenamos con los géneros de tu archivo generos.py
-    genreComboBox.addItemList({ "Pop", "Rock", "Jazz", "Lofi", "Reggaeton", "Techno", "R&B", "Vals" }, 1);
-    genreComboBox.setSelectedId(0); // Ninguno por defecto
+    genreComboBox.addItem("Detectar desde prompt", 1);
+    juce::StringArray availableGenres = audioProcessor.pythonManager->getAvailableGenres();
+    for (int i = 0; i < availableGenres.size(); ++i)
+    {
+        juce::String genre = availableGenres[i];
+        juce::String capitalizedGenre = genre.substring(0, 1).toUpperCase() + genre.substring(1);
+        genreComboBox.addItem(capitalizedGenre, i + 2);
+    }
+    genreComboBox.setSelectedId(1);
 
-    // === BOTONES DE GENERACIÓN ===
+    // === BOTONES DE GENERACIÓN Y TRANSPOSICIÓN ===
     addAndMakeVisible(generateChordsButton);
     generateChordsButton.setButtonText("1. Generar Acordes");
-
     addAndMakeVisible(generateMelodyButton);
     generateMelodyButton.setButtonText("2. Generar Melodia");
-    generateMelodyButton.setEnabled(false); // Deshabilitado hasta que haya acordes
+    generateMelodyButton.setEnabled(false);
 
-    // === BOTONES DE CONTROL ===
+    addAndMakeVisible(transposeUpButton);
+    transposeUpButton.setButtonText("+1 Semitono");
+    transposeUpButton.setEnabled(false);
+
+    addAndMakeVisible(transposeDownButton);
+    transposeDownButton.setButtonText("-1 Semitono");
+    transposeDownButton.setEnabled(false);
+
+    // === BOTONES DE CONTROL Y EXPORTACIÓN ===
     addAndMakeVisible(playButton);
     playButton.setButtonText("Reproducir");
     addAndMakeVisible(stopButton);
     stopButton.setButtonText("Pausar");
     addAndMakeVisible(exportChordsButton);
     exportChordsButton.setButtonText("Exportar Acordes");
-
     addAndMakeVisible(exportMelodyButton);
     exportMelodyButton.setButtonText("Exportar Melodia");
     exportMelodyButton.setEnabled(false);
@@ -52,43 +62,32 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             juce::String selectedGenre = genreComboBox.getText();
             juce::String finalPrompt = userPrompt;
 
-            // Si el usuario seleccionó un género específico (y no la opción por defecto)
-            // y el género no está ya mencionado en su prompt, lo añadimos al principio.
             if (genreComboBox.getSelectedId() != 1 && !userPrompt.containsIgnoreCase(selectedGenre))
             {
                 finalPrompt = selectedGenre + " " + userPrompt;
             }
 
             DBG("Prompt final enviado a Python: " + finalPrompt);
-
-            // El resto de la lógica es la que ya funcionaba
             lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt);
 
-            if (lastGeneratedChordsData.empty())
+            if (lastGeneratedChordsData.empty() || (lastGeneratedChordsData.contains("error") && !lastGeneratedChordsData["error"].cast<std::string>().empty()))
             {
-                DBG("Error: Python devolvio un diccionario vacio.");
+                std::string errorMessage = lastGeneratedChordsData.contains("error") ? lastGeneratedChordsData["error"].cast<std::string>() : "Diccionario vacio";
+                DBG("!!! Error desde Python: " + juce::String(errorMessage));
                 return;
-            }
-
-            if (lastGeneratedChordsData.contains("error"))
-            {
-                std::string errorMessage = lastGeneratedChordsData["error"].cast<std::string>();
-                if (!errorMessage.empty())
-                {
-                    DBG("!!! Error desde Python: " + juce::String(errorMessage));
-                    return;
-                }
             }
 
             DBG("Acordes generados desde Python con exito!");
             pianoRollComponent.setMusicData(lastGeneratedChordsData);
             generateMelodyButton.setEnabled(true);
+            exportMelodyButton.setEnabled(false);
+            transposeUpButton.setEnabled(true);
+            transposeDownButton.setEnabled(true);
             repaint();
         };
 
     generateMelodyButton.onClick = [this]
         {
-            // 1. Verificar que ya tenemos datos de acordes para usar como base
             if (lastGeneratedChordsData.empty() || !lastGeneratedChordsData.contains("acordes"))
             {
                 DBG("Error: No hay acordes generados para crear una melodia.");
@@ -97,18 +96,13 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
             DBG("Enviando datos a Python para generar melodia...");
 
-            // 2. Extraer los datos necesarios del diccionario de acordes
             py::list chords = lastGeneratedChordsData["acordes"];
             py::list rhythm = lastGeneratedChordsData["ritmo"];
-            // Hacemos un cast a std::string para evitar problemas de conversión
             std::string root = lastGeneratedChordsData["raiz"].cast<std::string>();
             std::string mode = lastGeneratedChordsData["modo"].cast<std::string>();
-
             int bpm = 120;
-            // 3. Llamar a la función de Python para generar la melodía
-            auto melodyData = audioProcessor.pythonManager->generateMelodyData(chords, rhythm, root, mode);
+            auto melodyData = audioProcessor.pythonManager->generateMelodyData(chords, rhythm, root, mode, bpm);
 
-            // 4. Verificar el resultado y combinarlo con los acordes
             if (melodyData.empty() || (melodyData.contains("error") && !melodyData["error"].cast<std::string>().empty()))
             {
                 std::string errorMessage = melodyData.contains("error") ? melodyData["error"].cast<std::string>() : "Diccionario vacio";
@@ -118,16 +112,14 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
             DBG("Melodia generada con exito!");
 
-            // 5. Crear un nuevo diccionario que contenga tanto los acordes como la nueva melodía
-            py::dict combinedData = lastGeneratedChordsData; // Copiamos los datos de los acordes
-            combinedData["melodia"] = melodyData["melodia"]; // Añadimos los datos de la melodía
-
             lastGeneratedChordsData["melodia"] = melodyData["melodia"];
-            // 6. Enviar los datos combinados al piano roll para que se redibuje todo
-            pianoRollComponent.setMusicData(combinedData);
+            pianoRollComponent.setMusicData(lastGeneratedChordsData);
             exportMelodyButton.setEnabled(true);
             repaint();
         };
+
+    transposeUpButton.onClick = [this] { transpose(1); };
+    transposeDownButton.onClick = [this] { transpose(-1); };
 
     exportChordsButton.onClick = [this]
         {
@@ -167,16 +159,43 @@ void ChordMelodyTabComponent::resized()
 
     bounds.removeFromTop(10);
     auto generationButtonsArea = bounds.removeFromTop(40);
-    generateChordsButton.setBounds(generationButtonsArea.removeFromLeft(generationButtonsArea.getWidth() / 2).reduced(5, 0));
-    generateMelodyButton.setBounds(generationButtonsArea.reduced(5, 0));
+    auto leftButtons = generationButtonsArea.removeFromLeft(generationButtonsArea.getWidth() * 0.7);
+    generateChordsButton.setBounds(leftButtons.removeFromLeft(leftButtons.getWidth() / 2).reduced(5, 0));
+    generateMelodyButton.setBounds(leftButtons.reduced(5, 0));
+
+    auto transposeArea = generationButtonsArea;
+    transposeDownButton.setBounds(transposeArea.removeFromLeft(transposeArea.getWidth() / 2).reduced(5, 0));
+    transposeUpButton.setBounds(transposeArea.reduced(5, 0));
 
     bounds.removeFromTop(10);
     pianoRollComponent.setBounds(bounds.removeFromTop(bounds.getHeight() - 60));
 
     bounds.removeFromTop(10);
     auto bottomButtonsArea = bounds.removeFromBottom(40);
-    playButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 3).reduced(5, 0));
-    stopButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 3).reduced(5, 0)); // 1/3 del espacio restante
-    exportChordsButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 2).reduced(5, 0)); // 1/2 del espacio restante
+    playButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 4).reduced(5, 0));
+    stopButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 3).reduced(5, 0));
+    exportChordsButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 2).reduced(5, 0));
     exportMelodyButton.setBounds(bottomButtonsArea.reduced(5, 0));
+}
+
+void ChordMelodyTabComponent::transpose(int semitones)
+{
+    if (lastGeneratedChordsData.empty()) return;
+
+    DBG("Transponiendo por " + juce::String(semitones) + " semitonos...");
+    auto transposedData = audioProcessor.pythonManager->transposeMusic(lastGeneratedChordsData, semitones);
+
+    // Revisa si Python devolvió un error
+    if (transposedData.contains("error") && !transposedData["error"].cast<std::string>().empty())
+    {
+        auto errorMessage = transposedData["error"].cast<std::string>();
+        DBG("!!! Error al transponer desde Python: " + juce::String(errorMessage));
+        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Error de Transposicion", errorMessage);
+        return;
+    }
+
+    // Actualiza los datos y la interfaz
+    lastGeneratedChordsData = transposedData;
+    pianoRollComponent.setMusicData(lastGeneratedChordsData);
+    repaint();
 }

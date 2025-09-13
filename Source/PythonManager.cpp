@@ -41,7 +41,7 @@ py::dict PythonManager::generateMusicData(const juce::String& prompt)
 }
 
 // Implementación de la función para melodía
-py::dict PythonManager::generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode)
+py::dict PythonManager::generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode, int bpm)
 {
     py::dict result;
     if (!neuraChordApi) {
@@ -51,8 +51,7 @@ py::dict PythonManager::generateMelodyData(const py::list& chords, const py::lis
 
     try {
         py::gil_scoped_acquire acquire;
-        // BPM fijo por ahora, luego lo podemos hacer un parámetro de la UI
-        int bpm = 120;
+        // --- MODIFICADO: Ahora usamos el BPM que recibimos como argumento ---
         result = neuraChordApi.attr("generar_melodia")(chords, rhythm, root.toStdString(), mode.toStdString(), bpm);
     }
     catch (const py::error_already_set& e) {
@@ -130,4 +129,26 @@ juce::String PythonManager::exportMelody(const py::dict& musicData)
     {
         return juce::String("Error de Python al exportar melodia: ") + e.what();
     }
+}
+
+py::dict PythonManager::transposeMusic(const py::dict& musicData, int semitones)
+{
+    py::dict result;
+    if (!neuraChordApi)
+    {
+        result["error"] = "Modulo neurachord_api no cargado.";
+        return result;
+    }
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        result = neuraChordApi.attr("transponer_musica")(musicData, semitones);
+    }
+    catch (const py::error_already_set& e)
+    {
+        py::dict errorDict;
+        errorDict["error"] = juce::String("Error de Python en transposeMusic: ") + e.what();
+        return errorDict;
+    }
+    return result;
 }

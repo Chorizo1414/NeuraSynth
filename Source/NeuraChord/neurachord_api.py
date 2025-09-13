@@ -2,6 +2,7 @@
 import traceback
 import os
 from music21 import stream, note, chord, instrument, tempo, midi
+from generador_acordes import transponer_progresion
 
 # Definimos una ruta de exportación fija para el plugin
 RUTA_BASE_PLUGIN = os.path.dirname(os.path.abspath(__file__))
@@ -138,24 +139,20 @@ def get_available_genres():
         return []
 
 def _exportar_a_midi(stream_obj, nombre_archivo_base):
-    """Función auxiliar para guardar un stream de music21 como archivo MIDI."""
+    """Función auxiliar que ahora SOBREESCRIBE el archivo MIDI."""
     try:
         os.makedirs(CARPETA_MIDI_EXPORTADO_PLUGIN, exist_ok=True)
         
-        # Creamos un nombre de archivo único para no sobrescribir
-        i = 1
+        # Ya no creamos nombres únicos. Siempre usamos el mismo.
         nombre_final = f"{nombre_archivo_base}.mid"
         ruta_completa = os.path.join(CARPETA_MIDI_EXPORTADO_PLUGIN, nombre_final)
-        while os.path.exists(ruta_completa):
-            nombre_final = f"{nombre_archivo_base}_{i}.mid"
-            ruta_completa = os.path.join(CARPETA_MIDI_EXPORTADO_PLUGIN, nombre_final)
-            i += 1
             
         mf = midi.translate.streamToMidiFile(stream_obj)
+        # El modo "wb" (write binary) automáticamente sobrescribe el archivo si ya existe.
         mf.open(ruta_completa, "wb")
         mf.write()
         mf.close()
-        print(f">>> Python API: Archivo exportado con éxito a {ruta_completa}")
+        print(f">>> Python API: Archivo MIDI sobreescrito en {ruta_completa}")
         return {"ruta": ruta_completa, "error": ""}
     except Exception as e:
         error_msg = f"Error al exportar MIDI: {e}\n{traceback.format_exc()}"
@@ -166,7 +163,7 @@ def _exportar_a_midi(stream_obj, nombre_archivo_base):
 def exportar_acordes_midi(acordes, ritmo, bpm):
     s = stream.Stream()
     s.insert(0, tempo.MetronomeMark(number=bpm))
-    s.append(instrument.Piano()) # Instrumento por defecto para acordes
+    s.append(instrument.Piano())
     
     offset_actual = 0.0
     for i, ac_data in enumerate(acordes):
@@ -174,16 +171,16 @@ def exportar_acordes_midi(acordes, ritmo, bpm):
         if isinstance(ac_data, list):
             acorde_obj = chord.Chord(ac_data, quarterLength=duracion)
             s.insert(offset_actual, acorde_obj)
-        # Ignoramos los silencios ("0") en la exportación
         offset_actual += duracion
         
-    return _exportar_a_midi(s, "acordes_exportados")
+    # Usamos un nombre de archivo base simple: "acordes"
+    return _exportar_a_midi(s, "acordes")
 
 
 def exportar_melodia_midi(melodia, bpm):
     s = stream.Stream()
     s.insert(0, tempo.MetronomeMark(number=bpm))
-    s.append(instrument.Violin()) # Instrumento por defecto para melodía
+    s.append(instrument.Violin())
     
     offset_actual = 0.0
     for nota_data in melodia:
@@ -198,4 +195,29 @@ def exportar_melodia_midi(melodia, bpm):
         s.insert(offset_actual, elemento)
         offset_actual += duracion
 
-    return _exportar_a_midi(s, "melodia_exportada")
+    return _exportar_a_midi(s, "melodia")
+
+def transponer_musica(datos_musica, semitonos):
+    """
+    Toma un diccionario de datos musicales y lo transpone por un número de semitonos.
+    """
+    try:
+        acordes = datos_musica.get("acordes", [])
+        melodia = datos_musica.get("melodia", []) # Maneja el caso de que aún no haya melodía
+
+        # Llamamos a la función de transposición que ya existe en tu código
+        acordes_transpuestos, melodia_transpuesta = transponer_progresion(acordes, semitonos, melodia)
+
+        # Creamos un nuevo diccionario con los datos actualizados
+        nuevos_datos = datos_musica.copy()
+        nuevos_datos["acordes"] = acordes_transpuestos
+        nuevos_datos["melodia"] = melodia_transpuesta
+        nuevos_datos["error"] = ""
+        
+        print(f">>> Python API: Música transpuesta por {semitonos} semitonos.")
+        return nuevos_datos
+
+    except Exception as e:
+        error_msg = f"Error al transponer: {e}\\n{traceback.format_exc()}"
+        print(f"!!! Python API Error: {error_msg}")
+        return {"error": error_msg}
