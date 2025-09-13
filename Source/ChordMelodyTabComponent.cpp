@@ -24,6 +24,16 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     }
     genreComboBox.setSelectedId(1);
 
+    addAndMakeVisible(bpmSlider);
+    bpmSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
+    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+    bpmSlider.setRange(40.0, 220.0, 1.0);
+    bpmSlider.setValue(120.0); // Valor inicial por defecto
+
+    addAndMakeVisible(bpmLabel);
+    bpmLabel.setText("BPM", juce::dontSendNotification);
+    bpmLabel.attachToComponent(&bpmSlider, true);
+
     // === BOTONES DE GENERACIÓN Y TRANSPOSICIÓN ===
     addAndMakeVisible(generateChordsButton);
     generateChordsButton.setButtonText("1. Generar Acordes");
@@ -78,6 +88,13 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             }
 
             DBG("Acordes generados desde Python con exito!");
+
+            if (lastGeneratedChordsData.contains("bpm"))
+            {
+                int suggestedBpm = lastGeneratedChordsData["bpm"].cast<int>();
+                bpmSlider.setValue(suggestedBpm, juce::sendNotification);
+            }
+
             pianoRollComponent.setMusicData(lastGeneratedChordsData);
             generateMelodyButton.setEnabled(true);
             exportMelodyButton.setEnabled(false);
@@ -100,7 +117,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             py::list rhythm = lastGeneratedChordsData["ritmo"];
             std::string root = lastGeneratedChordsData["raiz"].cast<std::string>();
             std::string mode = lastGeneratedChordsData["modo"].cast<std::string>();
-            int bpm = 120;
+            int bpm = (int)bpmSlider.getValue();
             auto melodyData = audioProcessor.pythonManager->generateMelodyData(chords, rhythm, root, mode, bpm);
 
             if (melodyData.empty() || (melodyData.contains("error") && !melodyData["error"].cast<std::string>().empty()))
@@ -123,14 +140,16 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     exportChordsButton.onClick = [this]
         {
-            juce::String result = audioProcessor.pythonManager->exportChords(lastGeneratedChordsData);
+            int currentBpm = (int)bpmSlider.getValue();
+            juce::String result = audioProcessor.pythonManager->exportChords(lastGeneratedChordsData, currentBpm);
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Acordes", result);
             DBG(result);
         };
 
     exportMelodyButton.onClick = [this]
         {
-            juce::String result = audioProcessor.pythonManager->exportMelody(lastGeneratedChordsData);
+            int currentBpm = (int)bpmSlider.getValue();
+            juce::String result = audioProcessor.pythonManager->exportMelody(lastGeneratedChordsData, currentBpm);
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Melodia", result);
             DBG(result);
         };
@@ -156,6 +175,9 @@ void ChordMelodyTabComponent::resized()
     auto controlsArea = topArea;
     genreLabel.setBounds(controlsArea.removeFromTop(40));
     genreComboBox.setBounds(controlsArea.removeFromTop(30));
+
+    controlsArea.removeFromTop(10); // Un pequeño espacio
+    bpmSlider.setBounds(controlsArea.removeFromTop(30));
 
     bounds.removeFromTop(10);
     auto generationButtonsArea = bounds.removeFromTop(40);

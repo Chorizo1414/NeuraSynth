@@ -85,7 +85,7 @@ juce::StringArray PythonManager::getAvailableGenres()
     return genres;
 }
 
-juce::String PythonManager::exportChords(const py::dict& musicData)
+juce::String PythonManager::exportChords(const py::dict& musicData, int bpm)
 {
     if (!neuraChordApi || !musicData.contains("acordes"))
         return "Error: No hay datos de acordes para exportar.";
@@ -93,7 +93,7 @@ juce::String PythonManager::exportChords(const py::dict& musicData)
     try
     {
         py::gil_scoped_acquire acquire;
-        int bpm = 120; // Puedes hacerlo un parámetro más adelante
+        // Ahora usamos el BPM que viene como argumento
         py::dict result = neuraChordApi.attr("exportar_acordes_midi")(
             musicData["acordes"], musicData["ritmo"], bpm);
 
@@ -108,7 +108,7 @@ juce::String PythonManager::exportChords(const py::dict& musicData)
     }
 }
 
-juce::String PythonManager::exportMelody(const py::dict& musicData)
+juce::String PythonManager::exportMelody(const py::dict& musicData, int bpm)
 {
     if (!neuraChordApi || !musicData.contains("melodia"))
         return "Error: No hay datos de melodia para exportar.";
@@ -116,7 +116,7 @@ juce::String PythonManager::exportMelody(const py::dict& musicData)
     try
     {
         py::gil_scoped_acquire acquire;
-        int bpm = 120; // Puedes hacerlo un parámetro más adelante
+        // Ahora usamos el BPM que viene como argumento
         py::dict result = neuraChordApi.attr("exportar_melodia_midi")(
             musicData["melodia"], bpm);
 

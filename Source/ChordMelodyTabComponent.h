@@ -32,6 +32,9 @@ private:
     juce::TextButton transposeUpButton;
     juce::TextButton transposeDownButton;
 
+    juce::Slider bpmSlider;
+    juce::Label bpmLabel;
+
     juce::TextButton playButton;
     juce::TextButton stopButton;
     juce::TextButton exportChordsButton;

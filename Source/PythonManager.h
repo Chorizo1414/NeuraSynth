@@ -19,8 +19,8 @@ public:
 
     juce::StringArray getAvailableGenres();
 
-    juce::String exportChords(const py::dict& musicData);
-    juce::String exportMelody(const py::dict& musicData);
+    juce::String exportChords(const py::dict& musicData, int bpm);
+    juce::String exportMelody(const py::dict& musicData, int bpm);
     py::dict transposeMusic(const py::dict& musicData, int semitones);
 private:
     py::module neuraChordApi;

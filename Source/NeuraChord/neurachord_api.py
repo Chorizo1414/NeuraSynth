@@ -22,24 +22,20 @@ from procesador_sentimientos import detectar_sentimiento_en_prompt, inferir_para
 def generar_progresion(prompt: str, num_acordes: int = -1):
     """
     Función principal para generar acordes desde JUCE.
-    Toma un prompt y devuelve un diccionario con la progresión y metadatos.
+    Ahora también devuelve el BPM sugerido para el género.
     """
     try:
         print(f">>> Python API: Recibido prompt: '{prompt}'")
 
-        # 1. Detección inicial (similar a como lo hace main.py)
+        # ... (Toda la lógica de detección y de inferencia de parámetros se queda igual) ...
         estilo_explicito = detectar_estilo(prompt)
         raiz_explicita, modo_explicito = extraer_tonalidad(prompt, estilo_detectado_param=estilo_explicito)
         sentimiento_detectado = detectar_sentimiento_en_prompt(prompt)
-
-        # 2. Inferencia de parámetros
-        # Obtenemos los géneros entrenados para pasarlos a la función de inferencia
         generos_entrenados_reales = {
             g for g in INFO_GENERO.keys()
             if g != "patrones_ritmicos" and isinstance(INFO_GENERO.get(g), dict) and
             any(INFO_GENERO[g].get(k) for k in INFO_GENERO[g] if k != "patrones_ritmicos")
         }
-        
         estilo_final, raiz_final, modo_final = inferir_parametros_desde_sentimiento(
             sentimiento_detectado,
             estilo_explicito,
@@ -48,7 +44,6 @@ def generar_progresion(prompt: str, num_acordes: int = -1):
             generos_entrenados_reales
         )
 
-        # 3. Verificación y Fallback
         if not estilo_final or estilo_final == "normal" or not INFO_GENERO.get(estilo_final):
              error_msg = f"Genero no encontrado o sin datos suficientes: '{estilo_explicito or prompt.split()[0]}'"
              print(f"!!! Python API Error: {error_msg}")
@@ -59,10 +54,8 @@ def generar_progresion(prompt: str, num_acordes: int = -1):
 
         print(f">>> Python API: Parámetros inferidos -> Estilo: {estilo_final}, Tonalidad: {raiz_final} {modo_final}")
 
-        # Si el usuario no especificó un número de acordes, lo dejamos en None (sin límite)
         cantidad_acordes_seleccionada = num_acordes if num_acordes > 0 else None
 
-        # 4. Generación de acordes
         acordes_generados, ritmo_obtenido = generar_progresion_acordes_smart(
             raiz_final,
             modo_final,
@@ -73,13 +66,19 @@ def generar_progresion(prompt: str, num_acordes: int = -1):
         if not acordes_generados:
             return {"error": "No se pudieron generar acordes con los parámetros dados."}
 
-        # 5. Devolver el resultado en el formato esperado por JUCE
+        # --- NUEVA LÓGICA DE BPM ---
+        # Buscamos el BPM sugerido del diccionario MAPEO_GENERO_BPM
+        # El [2] corresponde al valor "default_bpm_sugerido" en la tupla
+        bpm_sugerido = MAPEO_GENERO_BPM.get(estilo_final, MAPEO_GENERO_BPM["normal"])[2]
+        
+        # Devolvemos el resultado incluyendo el BPM
         return {
             "acordes": acordes_generados,
             "ritmo": ritmo_obtenido,
             "raiz": raiz_final,
             "modo": modo_final,
             "estilo": estilo_final,
+            "bpm": bpm_sugerido,  # <--- BPM AÑADIDO
             "error": ""
         }
 
@@ -87,7 +86,6 @@ def generar_progresion(prompt: str, num_acordes: int = -1):
         error_message = f"Error en generar_progresion: {str(e)}\n{traceback.format_exc()}"
         print(error_message)
         return {"error": error_message}
-
 
 def generar_melodia(acordes, ritmo, raiz, modo, bpm):
     """
