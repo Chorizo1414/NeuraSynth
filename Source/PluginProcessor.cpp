@@ -6,7 +6,7 @@
 void NeuraSynthAudioProcessor::addMidiMessageToQueue(const juce::MidiMessage& msg)
 {
     // Añade el mensaje a nuestra cola de MIDI
-    midiMessageQueue.addEvent(msg, 0);
+    midiCollector.addMessageToQueue(msg);
 }
 
 // Inicializamos la frecuencia estática a 0
@@ -294,6 +294,8 @@ void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     lfo.prepare(spec);
     lfo.setFrequency(0.5f); // Frecuencia lenta para el "wow"
 
+    midiCollector.reset(sampleRate);
+
     synth.setCurrentPlaybackSampleRate(sampleRate);
     for (int i = 0; i < synth.getNumVoices(); ++i)
         if (auto* voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
@@ -317,8 +319,7 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         buffer.clear(i, 0, buffer.getNumSamples());
 
     // --- AÑADE ESTA LÍNEA para mover los mensajes de nuestra cola a la de JUCE ---
-    midiMessages.addEvents(midiMessageQueue, 0, -1, 0);
-    midiMessageQueue.clear();
+    midiCollector.removeNextBlockOfMessages(midiMessages, buffer.getNumSamples());
 
     synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 

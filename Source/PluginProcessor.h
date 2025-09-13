@@ -301,7 +301,7 @@ public:
     std::unique_ptr<PythonManager> pythonManager;
 
 private:
-    juce::MidiMessageQueue midiMessageQueue;
+    juce::MidiMessageCollector midiCollector;
     void updateAllVoices(); // Nueva función para actualizar parámetros
 
     juce::String promptParaGenerar;
