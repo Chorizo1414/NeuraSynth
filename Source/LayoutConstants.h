@@ -17,7 +17,7 @@ namespace LayoutConstants
     const juce::Point<int> KNOB_LARGE = { 95, 96 };
     const juce::Point<int> KNOB_MEDIUM = { 72, 72 };
     const juce::Point<int> KNOB_SMALL = { 60, 63 };
-    const juce::Point<int> BUTTON = { 52, 20 };
+    const juce::Point<int> BUTTON = { 79, 26 };
 
     // --- Posiciones de las Secciones Principales ---
     const juce::Rectangle<int> MASTER_SECTION   = { 32, 164, 558, 240 };

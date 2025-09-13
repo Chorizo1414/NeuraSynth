@@ -235,7 +235,8 @@ NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       ), apvts(*this, nullptr, "Parameters", createParameterLayout())
+                       ), Thread("PythonMusicGenerationThread"),
+                          apvts(*this, nullptr, "PARAMETERS", createParameterLayout())
 #endif
 {
     // --- CORRECCIÓN AQUÍ ---
@@ -589,8 +590,6 @@ void NeuraSynthAudioProcessor::setDelayWow(float depth) { delayWowDepth = depth;
 
 // --- Resto de funciones estándar de JUCE ---
 juce::AudioProcessorEditor* NeuraSynthAudioProcessor::createEditor() { return new NeuraSynthAudioProcessorEditor(*this); }
-bool NeuraSynthAudioProcessor::hasEditor() const { return true; }
-const juce::String NeuraSynthAudioProcessor::getName() const { return JucePlugin_Name; }
 bool NeuraSynthAudioProcessor::acceptsMidi() const { return true; }
 bool NeuraSynthAudioProcessor::producesMidi() const { return false; }
 bool NeuraSynthAudioProcessor::isMidiEffect() const { return false; }

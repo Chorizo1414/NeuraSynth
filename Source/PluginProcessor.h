@@ -3,6 +3,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <memory>
@@ -290,13 +291,10 @@ public:
     bool   getKeyTrack()       const { return keyTrack; }
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-    juce::AudioProcessorValueTreeState apvts;
     juce::MidiKeyboardState keyboardState;
 
     void startGeneration(const juce::String& prompt);
     void run() override; 
-
-    std::unique_ptr<PythonManager> pythonManager;
 
     void addMidiMessageToQueue(const juce::MidiMessage& msg);
     juce::AudioProcessorValueTreeState apvts;
