@@ -46,22 +46,30 @@ public:
 
     void startNote(int midiNoteNumber, float /*velocity*/, juce::SynthesiserSound*, int) override
     {
+        currentMidiNote = midiNoteNumber;
         // Ya no asignamos 'frequency' directamente, ahora es nuestro objetivo
         targetFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
         
         // Si el glide está desactivado o es la primera nota, empezamos en el tono final
         if (*pGlideSeconds <= 0.0f || lastNoteFrequency == 0.0)
         {
-        currentFrequency = targetFrequency;
+            currentFrequency = targetFrequency;
         }
         else // Si hay que deslizar, empezamos desde el tono de la última nota
         {
-        currentFrequency = lastNoteFrequency;
+            currentFrequency = lastNoteFrequency;
         }
 
+        // Reiniciamos las fases de modulación para mantener estabilidad al disparar notas nuevas
+        lfoPhase = 0.0f;
+        fmModulatorPhase = 0.0f;
+
         env.noteOn();
-        for (auto& v : unisonVoices) { v.readPosOsc1 = v.readPosOsc2 = v.readPosOsc3 = 0.0; }
-        svfL = {}; svfR = {}; // reset filtro
+        for (auto& v : unisonVoices)
+            v.readPosOsc1 = v.readPosOsc2 = v.readPosOsc3 = 0.0;
+
+        svfL = {};
+        svfR = {};
     }
 
     void stopNote(float, bool allowTailOff) override

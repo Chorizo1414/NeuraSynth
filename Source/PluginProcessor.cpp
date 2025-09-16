@@ -339,6 +339,13 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
+    // Recoge la información MIDI del teclado virtual y de cualquier entrada externa
+    keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
+
+    juce::MidiBuffer collectedMidi;
+    midiCollector.removeNextBlockOfMessages(collectedMidi, buffer.getNumSamples());
+    midiMessages.addEvents(collectedMidi, 0, buffer.getNumSamples(), 0);
+
     if (isPlaying)
     {
         const juce::ScopedLock lock(sequenceLock);

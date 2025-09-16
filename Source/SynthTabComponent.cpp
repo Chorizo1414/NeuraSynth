@@ -2,6 +2,59 @@
 #include "BinaryData.h"
 #include "LayoutConstants.h"
 
+namespace
+{
+    juce::File findDefaultWavetableDirectory()
+    {
+        const juce::StringArray relativeCandidates
+        {
+            "wavetables",
+            "Source/wavetables",
+            "Resources/wavetables",
+            "Contents/Resources/wavetables"
+        };
+
+        juce::Array<juce::File> searchRoots;
+
+        auto addSearchRoot = [&searchRoots](const juce::File& file)
+            {
+                if (!file.exists())
+                    return;
+
+                auto directory = file.isDirectory() ? file : file.getParentDirectory();
+                if (directory.exists() && !searchRoots.contains(directory))
+                    searchRoots.add(directory);
+            };
+
+        addSearchRoot(juce::File::getSpecialLocation(juce::File::currentApplicationFile));
+        addSearchRoot(juce::File::getSpecialLocation(juce::File::invokedExecutableFile));
+        addSearchRoot(juce::File::getSpecialLocation(juce::File::currentExecutableFile));
+        addSearchRoot(juce::File::getCurrentWorkingDirectory());
+
+        for (auto root : searchRoots)
+        {
+            auto current = root;
+            for (int depth = 0; depth < 5 && current.exists(); ++depth)
+            {
+                for (const auto& relative : relativeCandidates)
+                {
+                    auto candidate = current.getChildFile(relative);
+                    if (candidate.isDirectory())
+                        return candidate;
+                }
+
+                auto parent = current.getParentDirectory();
+                if (parent == current || !parent.exists())
+                    break;
+
+                current = parent;
+            }
+        }
+
+        return {};
+    }
+}
+
 // El constructor ahora recibe la referencia al procesador
 SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     : audioProcessor(p),
@@ -122,10 +175,18 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
         };
 
     // Carga de wavetables en cada seccin
-    juce::String waveFolderPath = "C:/Users/Progra.CHORI1414/Desktop/Proyectos/JUCE/NeuraSynth/Source/wavetables";
-    osc1.oscSection.loadWavetablesFromFolder(waveFolderPath);
-    osc2.oscSection.loadWavetablesFromFolder(waveFolderPath);
-    osc3.oscSection.loadWavetablesFromFolder(waveFolderPath);
+    auto waveFolder = findDefaultWavetableDirectory();
+    if (waveFolder.exists())
+    {
+        auto waveFolderPath = waveFolder.getFullPathName();
+        osc1.oscSection.loadWavetablesFromFolder(waveFolderPath);
+        osc2.oscSection.loadWavetablesFromFolder(waveFolderPath);
+        osc3.oscSection.loadWavetablesFromFolder(waveFolderPath);
+    }
+    else
+    {
+        DBG("No se encontró la carpeta de wavetables en las rutas esperadas.");
+    }
 
     // --- SECCIN UNISON ---
     addAndMakeVisible(unisonComp1);
