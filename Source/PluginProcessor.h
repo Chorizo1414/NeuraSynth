@@ -47,6 +47,7 @@ public:
     void startNote(int midiNoteNumber, float /*velocity*/, juce::SynthesiserSound*, int) override
     {
         currentMidiNote = midiNoteNumber;
+
         // Ya no asignamos 'frequency' directamente, ahora es nuestro objetivo
         targetFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
         
@@ -69,7 +70,7 @@ public:
             v.readPosOsc1 = v.readPosOsc2 = v.readPosOsc3 = 0.0;
 
         svfL = {};
-        svfR = {};
+        svfR = {}; // reset filtro
     }
 
     void stopNote(float, bool allowTailOff) override

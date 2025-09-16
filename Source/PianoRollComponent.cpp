@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
+#include <utility>
 
 // --- Función de ayuda para convertir nombres de nota ("C4", "G#3") a números MIDI ---
 int noteNameToMidi(const std::string& noteName)
@@ -100,6 +102,7 @@ void PianoRollComponent::setMusicData(const py::dict& data)
 {
     DBG("PianoRollComponent::setMusicData fue llamado.");
     notes.clear();
+    musicData.clear();
     float time = 0.0f;
 
     try
@@ -115,6 +118,7 @@ void PianoRollComponent::setMusicData(const py::dict& data)
             {
                 auto item = pyChords[i];
                 float duration = pyRhythm[i].cast<float>();
+                std::vector<int> chordMidiValues;
 
                 if (py::isinstance<py::list>(item))
                 {
@@ -128,9 +132,22 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                         if (midiNote != -1)
                         {
                             notes.add({ midiNote, time, duration, true });
+                            chordMidiValues.push_back(midiNote);
                         }
                     }
                 }
+
+                if (!chordMidiValues.empty())
+                {
+                    NoteInfo chordInfo;
+                    chordInfo.isMelody = false;
+                    chordInfo.startTime = static_cast<double>(time);
+                    chordInfo.duration = static_cast<double>(duration);
+                    chordInfo.midiValue = chordMidiValues.front();
+                    chordInfo.chordMidiValues = std::move(chordMidiValues);
+                    musicData.push_back(std::move(chordInfo));
+                }
+
                 time += duration;
             }
         }
@@ -158,6 +175,12 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                     if (midiNote != -1)
                     {
                         notes.add({ midiNote, melodyTime, duration, false });
+                        NoteInfo melodyInfo;
+                        melodyInfo.isMelody = true;
+                        melodyInfo.startTime = static_cast<double>(melodyTime);
+                        melodyInfo.duration = static_cast<double>(duration);
+                        melodyInfo.midiValue = midiNote;
+                        musicData.push_back(std::move(melodyInfo));
                     }
                 }
                 melodyTime += duration;
@@ -169,6 +192,14 @@ void PianoRollComponent::setMusicData(const py::dict& data)
         DBG("!!! pybind11::cast_error en setMusicData: " << e.what());
     }
 
-    DBG("Procesamiento finalizado. Total de notas en el array: " + juce::String(notes.size()));
+    std::sort(musicData.begin(), musicData.end(), [](const NoteInfo& a, const NoteInfo& b)
+        {
+            if (a.startTime == b.startTime)
+                return a.isMelody && !b.isMelody; // Opcional: priorizar melodía cuando empatan
+            return a.startTime < b.startTime;
+        });
+
+    DBG("Procesamiento finalizado. Total de notas en el array: " + juce::String(notes.size()) +
+        ", eventos para reproducir: " + juce::String((int)musicData.size()));
     repaint();
 }
