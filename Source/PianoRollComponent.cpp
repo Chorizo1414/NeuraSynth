@@ -127,8 +127,6 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                     {
                         std::string noteName = note.cast<std::string>();
                         int midiNote = noteNameToMidi(noteName);
-                        // Descomenta la siguiente línea si necesitas depurar cada nota de acorde
-                        // DBG("  -> Acorde: " + juce::String(noteName) + " | MIDI: " + juce::String(midiNote));
                         if (midiNote != -1)
                         {
                             notes.add({ midiNote, time, duration, true });

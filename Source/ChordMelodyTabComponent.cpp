@@ -24,6 +24,17 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     }
     genreComboBox.setSelectedId(1);
 
+    addAndMakeVisible(chordCountComboBox);
+    chordCountComboBox.addItem(juce::String::fromUTF8("Sin l\xC3\xADmite"), 1);
+    chordCountComboBox.addItem("4", 2);
+    chordCountComboBox.addItem("6", 3);
+    chordCountComboBox.addItem("8", 4);
+    chordCountComboBox.setSelectedId(1);
+    addAndMakeVisible(chordCountLabel);
+    chordCountLabel.setText(juce::String::fromUTF8("N\xC2\xB0 Acordes:"), juce::dontSendNotification);
+    chordCountLabel.attachToComponent(&chordCountComboBox, true);
+
+
     // === SLIDER DE BPM ===
     addAndMakeVisible(bpmSlider);
     bpmSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
@@ -76,7 +87,17 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             }
 
             DBG("Prompt final enviado a Python: " + finalPrompt);
-            lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt);
+
+            int chordLimit = -1;
+            switch (chordCountComboBox.getSelectedId())
+            {
+            case 2: chordLimit = 4; break;
+            case 3: chordLimit = 6; break;
+            case 4: chordLimit = 8; break;
+            default: break;
+            }
+
+            lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt, chordLimit);
 
             if (lastGeneratedChordsData.empty() || (lastGeneratedChordsData.contains("error") && !lastGeneratedChordsData["error"].cast<std::string>().empty()))
             {
@@ -199,6 +220,9 @@ void ChordMelodyTabComponent::resized()
     genreComboBox.setBounds(controlsArea.removeFromTop(30));
 
     controlsArea.removeFromTop(10); // Un pequeño espacio
+    chordCountComboBox.setBounds(controlsArea.removeFromTop(30));
+
+    controlsArea.removeFromTop(10);
     bpmSlider.setBounds(controlsArea.removeFromTop(30));
 
     bounds.removeFromTop(10);

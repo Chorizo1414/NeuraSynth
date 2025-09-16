@@ -12,7 +12,7 @@ public:
     ~PythonManager();
 
     // Ahora devuelve un diccionario py::dict con toda la info (acordes, ritmo, etc.)
-    py::dict generateMusicData(const juce::String& prompt);
+    py::dict generateMusicData(const juce::String& prompt, int numChords = -1);
 
     // Nueva función para generar la melodía
     py::dict generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode, int bpm);

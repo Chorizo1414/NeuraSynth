@@ -28,6 +28,9 @@ private:
     juce::ComboBox genreComboBox;
     juce::Label genreLabel;
 
+    juce::ComboBox chordCountComboBox;
+    juce::Label chordCountLabel;
+
     juce::TextButton generateChordsButton;
     juce::TextButton generateMelodyButton; // Botón nuevo
 

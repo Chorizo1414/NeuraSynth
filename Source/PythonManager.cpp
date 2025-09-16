@@ -21,7 +21,7 @@ PythonManager::~PythonManager()
 }
 
 // Implementación de la nueva función
-py::dict PythonManager::generateMusicData(const juce::String& prompt)
+py::dict PythonManager::generateMusicData(const juce::String& prompt, int numChords)
 {
     py::dict result;
     if (!neuraChordApi) {
@@ -32,7 +32,7 @@ py::dict PythonManager::generateMusicData(const juce::String& prompt)
     try {
         // La gil_scoped_acquire es crucial para la seguridad de hilos con Python
         py::gil_scoped_acquire acquire;
-        result = neuraChordApi.attr("generar_progresion")(prompt.toStdString());
+        result = neuraChordApi.attr("generar_progresion")(prompt.toStdString(), numChords);
     }
     catch (const py::error_already_set& e) {
         DBG("Error de Python en generateMusicData: " << e.what());
