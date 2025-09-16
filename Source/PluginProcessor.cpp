@@ -9,6 +9,27 @@ void NeuraSynthAudioProcessor::addMidiMessageToQueue(const juce::MidiMessage& ms
     midiCollector.addMessageToQueue(msg);
 }
 
+bool NeuraSynthAudioProcessor::isPlayingSequence() const
+{
+    return isPlaying;
+}
+
+void NeuraSynthAudioProcessor::startPlaybackWithSequence(const juce::MidiBuffer& midiSequence)
+{
+    const juce::ScopedLock lock(sequenceLock); // Bloquea para evitar problemas de hilos
+    playbackSequence.clear();
+    playbackSequence.addEvents(midiSequence, 0, -1, 0); // Copia la secuencia entera
+
+    playbackSamplePosition = 0; // Reinicia la posición
+    isPlaying = true;
+}
+
+void NeuraSynthAudioProcessor::stopPlayback()
+{
+    isPlaying = false;
+    synth.allNotesOff(0, true); // Una forma más simple de apagar todas las notas
+}
+
 // Inicializamos la frecuencia estática a 0
 double SynthVoice::lastNoteFrequency = 0.0;
 
@@ -318,8 +339,40 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // --- AÑADE ESTA LÍNEA para mover los mensajes de nuestra cola a la de JUCE ---
-    midiCollector.removeNextBlockOfMessages(midiMessages, buffer.getNumSamples());
+    if (isPlaying)
+    {
+        const juce::ScopedLock lock(sequenceLock);
+        int numSamples = buffer.getNumSamples();
+        auto blockEndSample = playbackSamplePosition + numSamples;
+
+        // Itera sobre nuestra secuencia y añade los eventos que correspondan a este bloque
+        for (const auto metadata : playbackSequence)
+        {
+            if (metadata.samplePosition >= blockEndSample)
+                break; // El resto de eventos son para bloques futuros
+
+            if (metadata.samplePosition >= playbackSamplePosition)
+            {
+                // Este evento pertenece a este bloque.
+                auto message = metadata.getMessage();
+                // Se ajusta su tiempo para que sea relativo al inicio del bloque actual.
+                message.setTimeStamp(metadata.samplePosition - playbackSamplePosition);
+                midiMessages.addEvent(message, message.getTimeStamp());
+            }
+        }
+
+        playbackSamplePosition += numSamples;
+
+        // Si hemos pasado el último evento, detenemos la reproducción
+        if (playbackSequence.isEmpty() || playbackSamplePosition > playbackSequence.getLastEventTime())
+        {
+            // Usamos un MessageManager para notificar a la UI desde el hilo de audio de forma segura
+            juce::MessageManager::callAsync([this] {
+                stopPlayback();
+                // Aquí podrías notificar al editor para que cambie el texto del botón si quieres
+                });
+        }
+    }
 
     synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 
@@ -654,3 +707,4 @@ juce::AudioProcessorValueTreeState::ParameterLayout NeuraSynthAudioProcessor::cr
 
     return { params.begin(), params.end() };
 }
+

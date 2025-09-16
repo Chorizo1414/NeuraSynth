@@ -52,8 +52,6 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     // === BOTONES DE CONTROL Y EXPORTACIÓN ===
     addAndMakeVisible(playButton);
     playButton.setButtonText("Reproducir");
-    addAndMakeVisible(stopButton);
-    stopButton.setButtonText("Pausar");
     addAndMakeVisible(exportChordsButton);
     exportChordsButton.setButtonText("Exportar Acordes");
     addAndMakeVisible(exportMelodyButton);
@@ -137,41 +135,26 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     playButton.onClick = [this]
         {
-            if (isPlaying || lastGeneratedChordsData.empty()) return;
-
-            isPlaying = true;
-            nextEventIndex = 0;
-            playbackEvents.clear();
-
-            // 1. Recopilar todas las notas (acordes y melodía)
-            auto notesToPlay = pianoRollComponent.getNotes(); // Necesitaremos añadir esta función pública
-            int currentBpm = (int)bpmSlider.getValue();
-
-            // 2. Convertir nuestras notas en eventos MIDI temporizados
-            for (const auto& note : notesToPlay)
+            if (audioProcessor.isPlayingSequence())
             {
-                // Evento de Nota Encendida (Note On)
-                playbackEvents.add({ note.startTime, juce::MidiMessage::noteOn(1, note.midiNote, (juce::uint8)100), });
-                // Evento de Nota Apagada (Note Off)
-                playbackEvents.add({ note.startTime + note.duration, juce::MidiMessage::noteOff(1, note.midiNote), });
+                audioProcessor.stopPlayback();
+                playButton.setButtonText("Reproducir");
             }
-
-            // 3. Ordenar todos los eventos por su tiempo de inicio
-            std::sort(playbackEvents.begin(), playbackEvents.end());
-
-            // 4. Iniciar el temporizador
-            startTime = juce::Time::getMillisecondCounterHiRes() / 1000.0; // Tiempo de inicio en segundos
-            startTimerHz(100); // Llamar a timerCallback 100 veces por segundo
+            else
+            {
+                // Verificamos que haya notas usando nuestro nuevo getter
+                if (!pianoRollComponent.getMusicData().empty())
+                {
+                    prepareAndPlaySequence();
+                    playButton.setButtonText("Detener");
+                }
+            }
         };
 
     stopButton.onClick = [this]
         {
-            if (!isPlaying) return;
-
-            stopTimer();
-            isPlaying = false;
-            // Envía un mensaje "All Notes Off" para silenciar cualquier nota que se haya quedado sonando
-            audioProcessor.addMidiMessageToQueue(juce::MidiMessage::allNotesOff(1));
+            audioProcessor.stopPlayback();
+            playButton.setButtonText("Reproducir");
         };
 
     transposeUpButton.onClick = [this] { transpose(1); };
@@ -194,14 +177,11 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
         };
 }
 
-ChordMelodyTabComponent::~ChordMelodyTabComponent()
-{
-    stopTimer(); // Buena práctica para detener el timer al cerrar
-}
+ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
 
 void ChordMelodyTabComponent::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff282c34));
+    g.fillAll(juce::Colours::grey);
 }
 
 void ChordMelodyTabComponent::resized()
@@ -242,33 +222,6 @@ void ChordMelodyTabComponent::resized()
     exportMelodyButton.setBounds(bottomButtonsArea.reduced(5, 0));
 }
 
-void ChordMelodyTabComponent::timerCallback()
-{
-    if (!isPlaying)
-    {
-        stopTimer();
-        return;
-    }
-
-    double currentTimeSeconds = (juce::Time::getMillisecondCounterHiRes() / 1000.0) - startTime;
-    double currentBeat = currentTimeSeconds * (bpmSlider.getValue() / 60.0);
-
-    // Revisa los eventos MIDI que deben dispararse
-    while (nextEventIndex < playbackEvents.size() && playbackEvents[nextEventIndex].timeInBeats <= currentBeat)
-    {
-        // Envía el mensaje MIDI al procesador de audio
-        audioProcessor.addMidiMessageToQueue(playbackEvents[nextEventIndex].message);
-        nextEventIndex++;
-    }
-
-    // Si ya no hay más eventos, detener la reproducción
-    if (nextEventIndex >= playbackEvents.size())
-    {
-        stopTimer();
-        isPlaying = false;
-    }
-}
-
 void ChordMelodyTabComponent::transpose(int semitones)
 {
     if (lastGeneratedChordsData.empty()) return;
@@ -289,4 +242,61 @@ void ChordMelodyTabComponent::transpose(int semitones)
     lastGeneratedChordsData = transposedData;
     pianoRollComponent.setMusicData(lastGeneratedChordsData);
     repaint();
+}
+
+void ChordMelodyTabComponent::prepareAndPlaySequence()
+{
+    double sampleRate = audioProcessor.getSampleRate();
+    if (sampleRate <= 0) return;
+
+    double bpm = bpmSlider.getValue();
+    double secondsPerBeat = 60.0 / bpm;
+
+    struct MidiEventInfo
+    {
+        int samplePosition;
+        juce::MidiMessage message;
+    };
+    std::vector<MidiEventInfo> eventList;
+
+    // Usamos el getter para acceder a las notas de forma segura
+    for (const auto& noteInfo : pianoRollComponent.getMusicData())
+    {
+        double startTimeSecs = noteInfo.startTime * secondsPerBeat;
+        double endTimeSecs = startTimeSecs + (noteInfo.duration * secondsPerBeat);
+        int startSample = static_cast<int>(startTimeSecs * sampleRate);
+        int endSample = static_cast<int>(endTimeSecs * sampleRate);
+
+        auto createEventsForNote = [&](int midiNote)
+            {
+                if (midiNote > 0 && endSample > startSample) {
+                    eventList.push_back({ startSample, juce::MidiMessage::noteOn(1, midiNote, (juce::uint8)100) });
+                    eventList.push_back({ endSample,   juce::MidiMessage::noteOff(1, midiNote) });
+                }
+            };
+
+        if (noteInfo.isMelody)
+        {
+            createEventsForNote(noteInfo.midiValue);
+        }
+        else
+        {
+            for (int chordNoteMidi : noteInfo.chordMidiValues)
+            {
+                createEventsForNote(chordNoteMidi);
+            }
+        }
+    }
+
+    std::sort(eventList.begin(), eventList.end(), [](const MidiEventInfo& a, const MidiEventInfo& b) {
+        return a.samplePosition < b.samplePosition;
+        });
+
+    juce::MidiBuffer midiSequence;
+    for (const auto& event : eventList)
+    {
+        midiSequence.addEvent(event.message, event.samplePosition);
+    }
+
+    audioProcessor.startPlaybackWithSequence(midiSequence);
 }

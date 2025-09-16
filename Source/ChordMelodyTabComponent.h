@@ -6,7 +6,7 @@
 
 class NeuraSynthAudioProcessor;
 
-class ChordMelodyTabComponent : public juce::Component, public juce::Timer
+class ChordMelodyTabComponent : public juce::Component
 {
 public:
     ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor);
@@ -15,10 +15,9 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
-    void timerCallback() override;
-
 private:
     void transpose(int semitones);
+    void prepareAndPlaySequence();
 
     NeuraSynthAudioProcessor& audioProcessor;
 
@@ -43,6 +42,11 @@ private:
     juce::TextButton exportChordsButton;
     juce::TextButton exportMelodyButton;
 
+    PianoRollComponent pianoRollComponent;
+
+    py::dict generatedChords;
+    py::dict generatedMelody;
+
     bool isPlaying = false;
     double startTime = 0.0;
     int nextEventIndex = 0;
@@ -58,9 +62,6 @@ private:
     };
 
     juce::Array<TimedMidiEvent> playbackEvents;
-
-    // Usamos nuestro componente de Piano Roll personalizado
-    PianoRollComponent pianoRollComponent;
 
     // Almacenamos el resultado de la generación de acordes
     py::dict lastGeneratedChordsData;

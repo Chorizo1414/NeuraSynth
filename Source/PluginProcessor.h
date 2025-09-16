@@ -171,6 +171,9 @@ public:
     NeuraSynthAudioProcessor();
     ~NeuraSynthAudioProcessor() override;
 
+    void startPlaybackWithSequence(const juce::MidiBuffer& midiSequence);
+    void stopPlayback();
+    bool isPlayingSequence() const;
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -306,6 +309,10 @@ private:
 
     juce::String promptParaGenerar;
     juce::Synthesiser synth;
+    juce::MidiBuffer playbackSequence;
+    std::atomic<int64_t> playbackSamplePosition{ 0 };
+    std::atomic<bool> isPlaying{ false };
+    juce::CriticalSection sequenceLock;
     juce::ADSR::Parameters adsrParams;
     double pitchShift1 = 0.0, pitchShift2 = 0.0, pitchShift3 = 0.0;
     int osc1Octave = 0, osc2Octave = 0, osc3Octave = 0;
