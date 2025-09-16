@@ -61,8 +61,14 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     transposeDownButton.setEnabled(false);
 
     // === BOTONES DE CONTROL Y EXPORTACIÓN ===
-    addAndMakeVisible(playButton);
-    playButton.setButtonText("Reproducir");
+    addAndMakeVisible(playAllButton);
+    playAllButton.setButtonText("Reproducir Todo");
+    addAndMakeVisible(playChordsButton);
+    playChordsButton.setButtonText("Reproducir Acordes");
+    addAndMakeVisible(playMelodyButton);
+    playMelodyButton.setButtonText("Reproducir Melodia");
+    addAndMakeVisible(stopButton);
+    stopButton.setButtonText("Detener");
     addAndMakeVisible(exportChordsButton);
     exportChordsButton.setButtonText("Exportar Acordes");
     addAndMakeVisible(exportMelodyButton);
@@ -154,28 +160,38 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             repaint();
         };
 
-    playButton.onClick = [this]
+    auto configurePlaybackButton = [this](juce::TextButton& targetButton, bool includeChords, bool includeMelody)
         {
-            if (audioProcessor.isPlayingSequence())
-            {
-                audioProcessor.stopPlayback();
-                playButton.setButtonText("Reproducir");
-            }
-            else
-            {
-                // Verificamos que haya notas usando nuestro nuevo getter
-                if (!pianoRollComponent.getMusicData().empty())
+            auto* buttonPtr = &targetButton;
+            targetButton.onClick = [this, includeChords, includeMelody, buttonPtr]()
                 {
-                    prepareAndPlaySequence();
-                    playButton.setButtonText("Detener");
-                }
-            }
+                        const bool isSameButton = (activePlaybackButton == buttonPtr);
+
+                        if (audioProcessor.isPlayingSequence())
+                        {
+                            audioProcessor.stopPlayback();
+                            resetPlaybackButtonStates();
+
+                            if (isSameButton)
+                                return;
+                        }
+
+                        if (prepareAndPlaySequence(includeChords, includeMelody))
+                        {
+                            activePlaybackButton = buttonPtr;
+                            buttonPtr->setButtonText("Detener");
+                        }
+                    };
         };
+
+    configurePlaybackButton(playAllButton, true, true);
+    configurePlaybackButton(playChordsButton, true, false);
+    configurePlaybackButton(playMelodyButton, false, true);
 
     stopButton.onClick = [this]
         {
             audioProcessor.stopPlayback();
-            playButton.setButtonText("Reproducir");
+            resetPlaybackButtonStates();
         };
 
     transposeUpButton.onClick = [this] { transpose(1); };
@@ -236,14 +252,26 @@ void ChordMelodyTabComponent::resized()
     transposeUpButton.setBounds(transposeArea.reduced(5, 0));
 
     bounds.removeFromTop(10);
-    pianoRollComponent.setBounds(bounds.removeFromTop(bounds.getHeight() - 60));
 
-    bounds.removeFromTop(10);
-    auto bottomButtonsArea = bounds.removeFromBottom(40);
-    playButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 4).reduced(5, 0));
-    stopButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 3).reduced(5, 0));
-    exportChordsButton.setBounds(bottomButtonsArea.removeFromLeft(bottomButtonsArea.getWidth() / 2).reduced(5, 0));
-    exportMelodyButton.setBounds(bottomButtonsArea.reduced(5, 0));
+    const int playbackRowHeight = 40;
+    const int exportRowHeight = 40;
+    const int bottomSpacing = 10;
+    const int bottomAreaHeight = playbackRowHeight + exportRowHeight + bottomSpacing;
+
+    pianoRollComponent.setBounds(bounds.removeFromTop(bounds.getHeight() - bottomAreaHeight));
+
+    bounds.removeFromTop(bottomSpacing);
+    auto playbackRow = bounds.removeFromTop(playbackRowHeight);
+    auto exportRow = bounds;
+
+    auto playbackButtonWidth = playbackRow.getWidth() / 4;
+    playAllButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 0));
+    playChordsButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 0));
+    playMelodyButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 0));
+    stopButton.setBounds(playbackRow.reduced(5, 0));
+
+    exportChordsButton.setBounds(exportRow.removeFromLeft(exportRow.getWidth() / 2).reduced(5, 0));
+    exportMelodyButton.setBounds(exportRow.reduced(5, 0));
 }
 
 void ChordMelodyTabComponent::transpose(int semitones)
@@ -268,13 +296,47 @@ void ChordMelodyTabComponent::transpose(int semitones)
     repaint();
 }
 
-void ChordMelodyTabComponent::prepareAndPlaySequence()
+bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool includeMelody)
 {
+    if (!includeChords && !includeMelody)
+        return false;
+
+    const auto& musicData = pianoRollComponent.getMusicData();
+    if (musicData.empty())
+    {
+        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Reproduccion", "No hay datos para reproducir.");
+        return false;
+    }
+
     double sampleRate = audioProcessor.getSampleRate();
-    if (sampleRate <= 0) return;
+    if (sampleRate <= 0)
+        return false;
 
     double bpm = bpmSlider.getValue();
     double secondsPerBeat = 60.0 / bpm;
+
+    bool hasChordData = false;
+    bool hasMelodyData = false;
+
+    for (const auto& noteInfo : musicData)
+    {
+        if (noteInfo.isMelody)
+            hasMelodyData = true;
+        else
+            hasChordData = true;
+    }
+
+    if (includeChords && !hasChordData)
+    {
+        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Reproduccion", "No hay acordes generados para reproducir.");
+        return false;
+    }
+
+    if (includeMelody && !hasMelodyData)
+    {
+        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Reproduccion", "No hay melodia generada para reproducir.");
+        return false;
+    }
 
     struct MidiEventInfo
     {
@@ -284,8 +346,11 @@ void ChordMelodyTabComponent::prepareAndPlaySequence()
     std::vector<MidiEventInfo> eventList;
 
     // Usamos el getter para acceder a las notas de forma segura
-    for (const auto& noteInfo : pianoRollComponent.getMusicData())
+    for (const auto& noteInfo : musicData)
     {
+        if ((noteInfo.isMelody && !includeMelody) || (!noteInfo.isMelody && !includeChords))
+            continue;
+
         double startTimeSecs = noteInfo.startTime * secondsPerBeat;
         double endTimeSecs = startTimeSecs + (noteInfo.duration * secondsPerBeat);
         int startSample = static_cast<int>(startTimeSecs * sampleRate);
@@ -293,9 +358,10 @@ void ChordMelodyTabComponent::prepareAndPlaySequence()
 
         auto createEventsForNote = [&](int midiNote)
             {
-                if (midiNote > 0 && endSample > startSample) {
+                if (midiNote > 0 && endSample > startSample)
+                {
                     eventList.push_back({ startSample, juce::MidiMessage::noteOn(1, midiNote, (juce::uint8)100) });
-                    eventList.push_back({ endSample,   juce::MidiMessage::noteOff(1, midiNote) });
+                    eventList.push_back({ endSample, juce::MidiMessage::noteOff(1, midiNote) });
                 }
             };
 
@@ -312,15 +378,27 @@ void ChordMelodyTabComponent::prepareAndPlaySequence()
         }
     }
 
-    std::sort(eventList.begin(), eventList.end(), [](const MidiEventInfo& a, const MidiEventInfo& b) {
-        return a.samplePosition < b.samplePosition;
+    if (eventList.empty())
+        return false;
+
+    std::sort(eventList.begin(), eventList.end(), [](const MidiEventInfo& a, const MidiEventInfo& b)
+        {
+            return a.samplePosition < b.samplePosition;
         });
 
     juce::MidiBuffer midiSequence;
     for (const auto& event : eventList)
-    {
+
         midiSequence.addEvent(event.message, event.samplePosition);
-    }
 
     audioProcessor.startPlaybackWithSequence(midiSequence);
+    return true;
+}
+
+void ChordMelodyTabComponent::resetPlaybackButtonStates()
+{
+    activePlaybackButton = nullptr;
+    playAllButton.setButtonText("Reproducir Todo");
+    playChordsButton.setButtonText("Reproducir Acordes");
+    playMelodyButton.setButtonText("Reproducir Melodia");
 }

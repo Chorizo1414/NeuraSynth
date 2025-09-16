@@ -17,7 +17,9 @@ public:
 
 private:
     void transpose(int semitones);
-    void prepareAndPlaySequence();
+    bool prepareAndPlaySequence(bool includeChords, bool includeMelody);
+    void resetPlaybackButtonStates();
+
 
     NeuraSynthAudioProcessor& audioProcessor;
 
@@ -40,10 +42,14 @@ private:
     juce::Slider bpmSlider;
     juce::Label bpmLabel;
 
-    juce::TextButton playButton;
+    juce::TextButton playAllButton;
+    juce::TextButton playChordsButton;
+    juce::TextButton playMelodyButton;
     juce::TextButton stopButton;
     juce::TextButton exportChordsButton;
     juce::TextButton exportMelodyButton;
+
+    juce::TextButton* activePlaybackButton = nullptr;
 
     PianoRollComponent pianoRollComponent;
 
@@ -66,7 +72,7 @@ private:
 
     juce::Array<TimedMidiEvent> playbackEvents;
 
-    // Almacenamos el resultado de la generación de acordes
+    // Almacenamos el resultado de la generacion de acordes
     py::dict lastGeneratedChordsData;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChordMelodyTabComponent)
