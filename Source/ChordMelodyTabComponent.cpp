@@ -36,58 +36,16 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     chordCountLabel.attachToComponent(&chordCountComboBox, true);
 
     // === CONTROL DE BPM ===
-    const auto bpmFieldBackground = juce::Colour::fromRGB(32, 34, 38);
-    const auto bpmButtonBackground = juce::Colour::fromRGB(58, 60, 64);
-    const auto bpmOutlineColour = juce::Colours::white.withAlpha(0.35f);
-
-    bpmSlider.setRange(40.0, 220.0, 1.0);
-    bpmSlider.setNumDecimalPlacesToDisplay(0);
-
-    bpmSlider.onValueChange = [this]() { updateBpmDisplayFromSlider(); };
-
-    addAndMakeVisible(bpmValueLabel);
-    bpmValueLabel.setJustificationType(juce::Justification::centred);
-    bpmValueLabel.setEditable(true, true, false);
-    bpmValueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    bpmValueLabel.setColour(juce::Label::backgroundColourId, bpmFieldBackground);
-    bpmValueLabel.setColour(juce::Label::outlineColourId, bpmOutlineColour);
-    bpmValueLabel.onTextChange = [this]() { commitBpmEditorText(); };
-    bpmValueLabel.setTooltip("Editar BPM (40-220)");
-    bpmValueLabel.onEditorShow = [this]()
-        {
-            if (auto* editor = bpmValueLabel.getCurrentTextEditor())
-            {
-                editor->setInputRestrictions(3, "0123456789");
-                editor->selectAll();
-            }
-        };
-
-    addAndMakeVisible(bpmIncreaseButton);
-    bpmIncreaseButton.setButtonText(juce::CharPointer_UTF8("▲")); // up arrow
-    bpmIncreaseButton.setRepeatSpeed(200, 50);
-    bpmIncreaseButton.onClick = [this]() { adjustBpmValue(1); };
-    bpmIncreaseButton.setColour(juce::TextButton::buttonColourId, bpmButtonBackground);
-    bpmIncreaseButton.setColour(juce::TextButton::buttonOnColourId, bpmButtonBackground.brighter(0.2f));
-    bpmIncreaseButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-    bpmIncreaseButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    bpmIncreaseButton.setTooltip("Aumentar BPM");
-
-    addAndMakeVisible(bpmDecreaseButton);
-    bpmDecreaseButton.setButtonText(juce::CharPointer_UTF8("▼")); // down arrow
-    bpmDecreaseButton.setRepeatSpeed(200, 50);
-    bpmDecreaseButton.onClick = [this]() { adjustBpmValue(-1); };
-    bpmDecreaseButton.setColour(juce::TextButton::buttonColourId, bpmButtonBackground);
-    bpmDecreaseButton.setColour(juce::TextButton::buttonOnColourId, bpmButtonBackground.brighter(0.2f));
-    bpmDecreaseButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-    bpmDecreaseButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    bpmDecreaseButton.setTooltip("Reducir BPM");
-
     addAndMakeVisible(bpmLabel);
     bpmLabel.setText("BPM:", juce::dontSendNotification);
-    bpmLabel.attachToComponent(&bpmValueLabel, true);
+
+    addAndMakeVisible(bpmSlider);
+    bpmSlider.setSliderStyle(juce::Slider::IncDecButtons);
+    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 50, 20);
+    bpmSlider.setRange(40.0, 220.0, 1.0);
+    bpmLabel.attachToComponent(&bpmSlider, true);
 
     setBpmValue(120.0, juce::dontSendNotification);
-    updateBpmDisplayFromSlider();
 
     // === BOTONES DE GENERACIÓN Y TRANSPOSICIÓN ===
     addAndMakeVisible(generateChordsButton);
@@ -269,29 +227,27 @@ void ChordMelodyTabComponent::resized()
 {
     auto bounds = getLocalBounds().reduced(20);
 
-    auto topArea = bounds.removeFromTop(100);
+    // --- ÁREA SUPERIOR (PROMPT Y CONTROLES DERECHOS) ---
+    auto topArea = bounds.removeFromTop(150); // Aumentamos la altura a 150px para que todo quepa
+
+    // Área del Prompt a la izquierda
     auto promptArea = topArea.removeFromLeft(topArea.getWidth() * 0.7);
     promptLabel.setBounds(promptArea.removeFromTop(20));
     promptEditor.setBounds(promptArea);
 
-    topArea.removeFromLeft(20);
+    // Área de controles a la derecha
+    topArea.removeFromLeft(20); // Espacio entre prompt y controles
     auto controlsArea = topArea;
-    genreLabel.setBounds(controlsArea.removeFromTop(40));
+
+    // Layout de los controles, uno debajo del otro
     genreComboBox.setBounds(controlsArea.removeFromTop(30));
-
-    controlsArea.removeFromTop(10);
+    controlsArea.removeFromTop(10); // Espacio
     chordCountComboBox.setBounds(controlsArea.removeFromTop(30));
+    controlsArea.removeFromTop(10); // Espacio
+    bpmSlider.setBounds(controlsArea.removeFromTop(30));
 
-    controlsArea.removeFromTop(10);
-    auto bpmRow = controlsArea.removeFromTop(40);
-    auto bpmValueArea = bpmRow.removeFromLeft(80);
-    bpmValueLabel.setBounds(bpmValueArea.reduced(0, 6));
-    bpmRow.removeFromLeft(6);
-    auto bpmButtonsArea = bpmRow.removeFromLeft(24);
-    auto bpmUpArea = bpmButtonsArea.removeFromTop(bpmButtonsArea.getHeight() / 2);
-    bpmIncreaseButton.setBounds(bpmUpArea.reduced(0, 1));
-    bpmDecreaseButton.setBounds(bpmButtonsArea.reduced(0, 1));
 
+    // --- BOTONES DE GENERACIÓN (DEBAJO DEL ÁREA SUPERIOR) ---
     bounds.removeFromTop(10);
     auto generationButtonsArea = bounds.removeFromTop(40);
     auto leftButtons = generationButtonsArea.removeFromLeft(generationButtonsArea.getWidth() * 0.7);
@@ -304,6 +260,7 @@ void ChordMelodyTabComponent::resized()
 
     bounds.removeFromTop(10);
 
+    // --- ÁREA INFERIOR (PIANO ROLL Y BOTONES DE REPRODUCCIÓN) ---
     const int playbackRowHeight = 40;
     const int exportRowHeight = 40;
     const int bottomSpacing = 10;
@@ -453,54 +410,7 @@ void ChordMelodyTabComponent::resetPlaybackButtonStates()
 void ChordMelodyTabComponent::setBpmValue(double newValue, juce::NotificationType notification)
 {
     auto limitedValue = juce::jlimit(bpmSlider.getMinimum(), bpmSlider.getMaximum(), newValue);
-    auto previousValue = bpmSlider.getValue();
 
+    // Simplemente establece el valor. El slider se actualizará solo.
     bpmSlider.setValue(limitedValue, notification);
-
-    if (notification == juce::dontSendNotification || previousValue == limitedValue)
-        updateBpmDisplayFromSlider();
-}
-
-void ChordMelodyTabComponent::updateBpmDisplayFromSlider()
-{
-    const int bpmAsInt = juce::roundToInt(bpmSlider.getValue());
-    const juce::String bpmText(bpmAsInt);
-
-    if (bpmValueLabel.getText() != bpmText)
-        bpmValueLabel.setText(bpmText, juce::dontSendNotification);
-}
-
-void ChordMelodyTabComponent::commitBpmEditorText()
-{
-    auto text = bpmValueLabel.getText().trim();
-
-    if (text.isEmpty())
-    {
-        updateBpmDisplayFromSlider();
-        return;
-    }
-
-    auto digitsOnly = text.retainCharacters("0123456789");
-    if (digitsOnly.isEmpty())
-    {
-        updateBpmDisplayFromSlider();
-        return;
-    }
-
-    auto enteredValue = digitsOnly.getIntValue();
-    setBpmValue(static_cast<double>(enteredValue));
-    updateBpmDisplayFromSlider();
-}
-
-void ChordMelodyTabComponent::adjustBpmValue(int delta)
-{
-    auto modifiers = juce::ModifierKeys::getCurrentModifiers();
-    int step = delta;
-
-    if (modifiers.isShiftDown())
-        step *= 5;
-    else if (modifiers.isCommandDown() || modifiers.isCtrlDown())
-        step *= 10;
-
-    setBpmValue(bpmSlider.getValue() + static_cast<double>(step));
 }
