@@ -1,3 +1,4 @@
+// CÓDIGO LIMPIO PARA ChordMelodyTabComponent.cpp
 #include "ChordMelodyTabComponent.h"
 #include "PluginProcessor.h"
 
@@ -10,7 +11,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     addAndMakeVisible(promptEditor);
     promptEditor.setMultiLine(true);
 
-    // === MENÚ DE GÉNERO ===
+    // === MENU DE GENERO ===
     addAndMakeVisible(genreLabel);
     genreLabel.setText("Genero", juce::dontSendNotification);
     addAndMakeVisible(genreComboBox);
@@ -25,25 +26,68 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     genreComboBox.setSelectedId(1);
 
     addAndMakeVisible(chordCountComboBox);
-    chordCountComboBox.addItem(juce::String::fromUTF8("Sin l\xC3\xADmite"), 1);
+    chordCountComboBox.addItem(juce::String::fromUTF8("Sin límite"), 1);
     chordCountComboBox.addItem("4", 2);
     chordCountComboBox.addItem("6", 3);
     chordCountComboBox.addItem("8", 4);
     chordCountComboBox.setSelectedId(1);
     addAndMakeVisible(chordCountLabel);
-    chordCountLabel.setText(juce::String::fromUTF8("N\xC2\xB0 Acordes:"), juce::dontSendNotification);
+    chordCountLabel.setText(juce::String::fromUTF8("N° Acordes:"), juce::dontSendNotification);
     chordCountLabel.attachToComponent(&chordCountComboBox, true);
 
+    // === CONTROL DE BPM ===
+    const auto bpmFieldBackground = juce::Colour::fromRGB(32, 34, 38);
+    const auto bpmButtonBackground = juce::Colour::fromRGB(58, 60, 64);
+    const auto bpmOutlineColour = juce::Colours::white.withAlpha(0.35f);
 
-    // === SLIDER DE BPM ===
-    addAndMakeVisible(bpmSlider);
-    bpmSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
-    bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
     bpmSlider.setRange(40.0, 220.0, 1.0);
-    bpmSlider.setValue(120.0);
+    bpmSlider.setNumDecimalPlacesToDisplay(0);
+
+    bpmSlider.onValueChange = [this]() { updateBpmDisplayFromSlider(); };
+
+    addAndMakeVisible(bpmValueLabel);
+    bpmValueLabel.setJustificationType(juce::Justification::centred);
+    bpmValueLabel.setEditable(true, true, false);
+    bpmValueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    bpmValueLabel.setColour(juce::Label::backgroundColourId, bpmFieldBackground);
+    bpmValueLabel.setColour(juce::Label::outlineColourId, bpmOutlineColour);
+    bpmValueLabel.onTextChange = [this]() { commitBpmEditorText(); };
+    bpmValueLabel.setTooltip("Editar BPM (40-220)");
+    bpmValueLabel.onEditorShow = [this]()
+        {
+            if (auto* editor = bpmValueLabel.getCurrentTextEditor())
+            {
+                editor->setInputRestrictions(3, "0123456789");
+                editor->selectAll();
+            }
+        };
+
+    addAndMakeVisible(bpmIncreaseButton);
+    bpmIncreaseButton.setButtonText(juce::CharPointer_UTF8("▲")); // up arrow
+    bpmIncreaseButton.setRepeatSpeed(200, 50);
+    bpmIncreaseButton.onClick = [this]() { adjustBpmValue(1); };
+    bpmIncreaseButton.setColour(juce::TextButton::buttonColourId, bpmButtonBackground);
+    bpmIncreaseButton.setColour(juce::TextButton::buttonOnColourId, bpmButtonBackground.brighter(0.2f));
+    bpmIncreaseButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    bpmIncreaseButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    bpmIncreaseButton.setTooltip("Aumentar BPM");
+
+    addAndMakeVisible(bpmDecreaseButton);
+    bpmDecreaseButton.setButtonText(juce::CharPointer_UTF8("▼")); // down arrow
+    bpmDecreaseButton.setRepeatSpeed(200, 50);
+    bpmDecreaseButton.onClick = [this]() { adjustBpmValue(-1); };
+    bpmDecreaseButton.setColour(juce::TextButton::buttonColourId, bpmButtonBackground);
+    bpmDecreaseButton.setColour(juce::TextButton::buttonOnColourId, bpmButtonBackground.brighter(0.2f));
+    bpmDecreaseButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    bpmDecreaseButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    bpmDecreaseButton.setTooltip("Reducir BPM");
+
     addAndMakeVisible(bpmLabel);
-    bpmLabel.setText("BPM", juce::dontSendNotification);
-    bpmLabel.attachToComponent(&bpmSlider, true);
+    bpmLabel.setText("BPM:", juce::dontSendNotification);
+    bpmLabel.attachToComponent(&bpmValueLabel, true);
+
+    setBpmValue(120.0, juce::dontSendNotification);
+    updateBpmDisplayFromSlider();
 
     // === BOTONES DE GENERACIÓN Y TRANSPOSICIÓN ===
     addAndMakeVisible(generateChordsButton);
@@ -78,7 +122,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     // === PIANO ROLL ===
     addAndMakeVisible(pianoRollComponent);
 
-    // === LÓGICA DE LOS BOTONES ===
+    // === LOGICA DE LOS BOTONES ===
     generateChordsButton.onClick = [this]
         {
             juce::String userPrompt = promptEditor.getText();
@@ -117,7 +161,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             if (lastGeneratedChordsData.contains("bpm"))
             {
                 int suggestedBpm = lastGeneratedChordsData["bpm"].cast<int>();
-                bpmSlider.setValue(suggestedBpm, juce::sendNotification);
+                setBpmValue(suggestedBpm);
             }
 
             pianoRollComponent.setMusicData(lastGeneratedChordsData);
@@ -165,23 +209,23 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             auto* buttonPtr = &targetButton;
             targetButton.onClick = [this, includeChords, includeMelody, buttonPtr]()
                 {
-                        const bool isSameButton = (activePlaybackButton == buttonPtr);
+                    const bool isSameButton = (activePlaybackButton == buttonPtr);
 
-                        if (audioProcessor.isPlayingSequence())
-                        {
-                            audioProcessor.stopPlayback();
-                            resetPlaybackButtonStates();
+                    if (audioProcessor.isPlayingSequence())
+                    {
+                        audioProcessor.stopPlayback();
+                        resetPlaybackButtonStates();
 
-                            if (isSameButton)
-                                return;
-                        }
+                        if (isSameButton)
+                            return;
+                    }
 
-                        if (prepareAndPlaySequence(includeChords, includeMelody))
-                        {
-                            activePlaybackButton = buttonPtr;
-                            buttonPtr->setButtonText("Detener");
-                        }
-                    };
+                    if (prepareAndPlaySequence(includeChords, includeMelody))
+                    {
+                        activePlaybackButton = buttonPtr;
+                        buttonPtr->setButtonText("Detener");
+                    }
+                };
         };
 
     configurePlaybackButton(playAllButton, true, true);
@@ -235,11 +279,18 @@ void ChordMelodyTabComponent::resized()
     genreLabel.setBounds(controlsArea.removeFromTop(40));
     genreComboBox.setBounds(controlsArea.removeFromTop(30));
 
-    controlsArea.removeFromTop(10); // Un pequeño espacio
+    controlsArea.removeFromTop(10);
     chordCountComboBox.setBounds(controlsArea.removeFromTop(30));
 
     controlsArea.removeFromTop(10);
-    bpmSlider.setBounds(controlsArea.removeFromTop(30));
+    auto bpmRow = controlsArea.removeFromTop(40);
+    auto bpmValueArea = bpmRow.removeFromLeft(80);
+    bpmValueLabel.setBounds(bpmValueArea.reduced(0, 6));
+    bpmRow.removeFromLeft(6);
+    auto bpmButtonsArea = bpmRow.removeFromLeft(24);
+    auto bpmUpArea = bpmButtonsArea.removeFromTop(bpmButtonsArea.getHeight() / 2);
+    bpmIncreaseButton.setBounds(bpmUpArea.reduced(0, 1));
+    bpmDecreaseButton.setBounds(bpmButtonsArea.reduced(0, 1));
 
     bounds.removeFromTop(10);
     auto generationButtonsArea = bounds.removeFromTop(40);
@@ -281,7 +332,6 @@ void ChordMelodyTabComponent::transpose(int semitones)
     DBG("Transponiendo por " + juce::String(semitones) + " semitonos...");
     auto transposedData = audioProcessor.pythonManager->transposeMusic(lastGeneratedChordsData, semitones);
 
-    // Revisa si Python devolvió un error
     if (transposedData.contains("error") && !transposedData["error"].cast<std::string>().empty())
     {
         auto errorMessage = transposedData["error"].cast<std::string>();
@@ -290,7 +340,6 @@ void ChordMelodyTabComponent::transpose(int semitones)
         return;
     }
 
-    // Actualiza los datos y la interfaz
     lastGeneratedChordsData = transposedData;
     pianoRollComponent.setMusicData(lastGeneratedChordsData);
     repaint();
@@ -345,7 +394,6 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
     };
     std::vector<MidiEventInfo> eventList;
 
-    // Usamos el getter para acceder a las notas de forma segura
     for (const auto& noteInfo : musicData)
     {
         if ((noteInfo.isMelody && !includeMelody) || (!noteInfo.isMelody && !includeChords))
@@ -388,7 +436,6 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
 
     juce::MidiBuffer midiSequence;
     for (const auto& event : eventList)
-
         midiSequence.addEvent(event.message, event.samplePosition);
 
     audioProcessor.startPlaybackWithSequence(midiSequence);
@@ -401,4 +448,59 @@ void ChordMelodyTabComponent::resetPlaybackButtonStates()
     playAllButton.setButtonText("Reproducir Todo");
     playChordsButton.setButtonText("Reproducir Acordes");
     playMelodyButton.setButtonText("Reproducir Melodia");
+}
+
+void ChordMelodyTabComponent::setBpmValue(double newValue, juce::NotificationType notification)
+{
+    auto limitedValue = juce::jlimit(bpmSlider.getMinimum(), bpmSlider.getMaximum(), newValue);
+    auto previousValue = bpmSlider.getValue();
+
+    bpmSlider.setValue(limitedValue, notification);
+
+    if (notification == juce::dontSendNotification || previousValue == limitedValue)
+        updateBpmDisplayFromSlider();
+}
+
+void ChordMelodyTabComponent::updateBpmDisplayFromSlider()
+{
+    const int bpmAsInt = juce::roundToInt(bpmSlider.getValue());
+    const juce::String bpmText(bpmAsInt);
+
+    if (bpmValueLabel.getText() != bpmText)
+        bpmValueLabel.setText(bpmText, juce::dontSendNotification);
+}
+
+void ChordMelodyTabComponent::commitBpmEditorText()
+{
+    auto text = bpmValueLabel.getText().trim();
+
+    if (text.isEmpty())
+    {
+        updateBpmDisplayFromSlider();
+        return;
+    }
+
+    auto digitsOnly = text.retainCharacters("0123456789");
+    if (digitsOnly.isEmpty())
+    {
+        updateBpmDisplayFromSlider();
+        return;
+    }
+
+    auto enteredValue = digitsOnly.getIntValue();
+    setBpmValue(static_cast<double>(enteredValue));
+    updateBpmDisplayFromSlider();
+}
+
+void ChordMelodyTabComponent::adjustBpmValue(int delta)
+{
+    auto modifiers = juce::ModifierKeys::getCurrentModifiers();
+    int step = delta;
+
+    if (modifiers.isShiftDown())
+        step *= 5;
+    else if (modifiers.isCommandDown() || modifiers.isCtrlDown())
+        step *= 10;
+
+    setBpmValue(bpmSlider.getValue() + static_cast<double>(step));
 }

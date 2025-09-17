@@ -19,6 +19,10 @@ private:
     void transpose(int semitones);
     bool prepareAndPlaySequence(bool includeChords, bool includeMelody);
     void resetPlaybackButtonStates();
+    void adjustBpmValue(int delta);
+    void commitBpmEditorText();
+    void updateBpmDisplayFromSlider();
+    void setBpmValue(double newValue, juce::NotificationType notification = juce::sendNotification);
 
 
     NeuraSynthAudioProcessor& audioProcessor;
@@ -41,6 +45,9 @@ private:
 
     juce::Slider bpmSlider;
     juce::Label bpmLabel;
+    juce::Label bpmValueLabel;
+    juce::TextButton bpmIncreaseButton;
+    juce::TextButton bpmDecreaseButton;
 
     juce::TextButton playAllButton;
     juce::TextButton playChordsButton;
