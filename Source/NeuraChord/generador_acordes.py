@@ -849,13 +849,22 @@ def puntuar_acordes_positivamente():
     """Llama a la función de refuerzo con los datos de la última progresión generada."""
     if _ultima_progresion_generada and _ultimo_genero and _ultima_tonalidad_str:
         print(f"Reforzando POSITIVAMENTE para género: {_ultimo_genero}, tonalidad: {_ultima_tonalidad_str}")
-        # --- CORRECCIÓN AQUÍ ---
-        # Pasamos la progresión como el primer argumento, sin nombrarlo.
+        progresion_tuplas = [
+            tuplificar_acorde_feedback(acorde)
+            for acorde in _ultima_progresion_generada
+            if acorde not in (None, "")
+        ]
+
+        if not progresion_tuplas:
+            print("Advertencia: Progresión vacía, no se envía feedback negativo.")
+            return
+        
         reforzar_progresion_con_feedback(
-            _ultima_progresion_generada, 
-            feedback="positivo",
-            genero=_ultimo_genero, 
-            tonalidad_str=_ultima_tonalidad_str
+            _ultimo_genero,
+            _ultima_tonalidad_str,
+            progresion_tuplas,
+            _ultimo_ritmo_generado or [],
+            False
         )
     else:
         print("No hay suficiente información (progresión/género/tonalidad) para puntuar.")
@@ -864,13 +873,22 @@ def puntuar_acordes_negativamente():
     """Llama a la función de refuerzo con los datos de la última progresión generada."""
     if _ultima_progresion_generada and _ultimo_genero and _ultima_tonalidad_str:
         print(f"Reforzando NEGATIVAMENTE para género: {_ultimo_genero}, tonalidad: {_ultima_tonalidad_str}")
-        # --- CORRECCIÓN AQUÍ ---
-        # Pasamos la progresión como el primer argumento, sin nombrarlo.
+        progresion_tuplas = [
+            tuplificar_acorde_feedback(acorde)
+            for acorde in _ultima_progresion_generada
+            if acorde not in (None, "")
+        ]
+
+        if not progresion_tuplas:
+            print("Advertencia: Progresión vacía, no se envía feedback positivo.")
+            return
+        
         reforzar_progresion_con_feedback(
-            _ultima_progresion_generada,
-            feedback="negativo",
-            genero=_ultimo_genero,
-            tonalidad_str=_ultima_tonalidad_str
+            _ultimo_genero,
+            _ultima_tonalidad_str,
+            progresion_tuplas,
+            _ultimo_ritmo_generado or [],
+            True
         )
     else:
         print("No hay suficiente información (progresión/género/tonalidad) para puntuar.")
