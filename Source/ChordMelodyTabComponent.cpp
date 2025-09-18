@@ -130,6 +130,38 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             repaint();
         };
 
+    // Crear y configurar el botón "Me gusta"
+    likeButton = std::make_unique<juce::ImageButton>();
+    auto likeImg = juce::ImageCache::getFromMemory(BinaryData::corazon_png, BinaryData::corazon_pngSize);
+    likeButton->setImages(true, true, true,
+        likeImg, 1.0f, juce::Colours::transparentBlack, // Imagen normal
+        likeImg, 0.8f, juce::Colours::transparentBlack, // Imagen al pasar el ratón
+        likeImg, 0.5f, juce::Colours::transparentBlack); // Imagen al hacer clic
+    likeButton->onClick = [this] {
+        audioProcessor.pythonManager->like();
+        showNotification("Feedback Positivo Enviado!");
+        };
+    addAndMakeVisible(*likeButton);
+
+    // Crear y configurar el botón "No me gusta"
+    dislikeButton = std::make_unique<juce::ImageButton>();
+    auto dislikeImg = juce::ImageCache::getFromMemory(BinaryData::pulgar_abajo_png, BinaryData::pulgar_abajo_pngSize);
+    dislikeButton->setImages(true, true, true,
+        dislikeImg, 1.0f, juce::Colours::transparentBlack,
+        dislikeImg, 0.8f, juce::Colours::transparentBlack,
+        dislikeImg, 0.5f, juce::Colours::transparentBlack);
+    dislikeButton->onClick = [this] {
+        audioProcessor.pythonManager->dislike();
+        showNotification("Feedback Negativo Enviado!");
+        };
+    addAndMakeVisible(*dislikeButton);
+
+    addAndMakeVisible(notificationLabel);
+    notificationLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey.withAlpha(0.8f));
+    notificationLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    notificationLabel.setJustificationType(juce::Justification::centred);
+    notificationLabel.setAlpha(0.0f);
+
     generateMelodyButton.onClick = [this]
         {
             if (lastGeneratedChordsData.empty() || !lastGeneratedChordsData.contains("acordes"))
@@ -223,63 +255,88 @@ void ChordMelodyTabComponent::paint(juce::Graphics& g)
     g.fillAll(juce::Colours::grey);
 }
 
+// Source/ChordMelodyTabComponent.cpp
 void ChordMelodyTabComponent::resized()
 {
-    auto bounds = getLocalBounds().reduced(20);
+    juce::Rectangle<int> bounds = getLocalBounds().reduced(10);
 
-    // --- ÁREA SUPERIOR (PROMPT Y CONTROLES DERECHOS) ---
-    auto topArea = bounds.removeFromTop(150); // Aumentamos la altura a 150px para que todo quepa
+    // --- 1. ÁREA INFERIOR: Botones de Playback y Exportación ---
+    // Se define esta área primero, tomándola de la parte de abajo del plugin.
+    auto bottomButtonsArea = bounds.removeFromBottom(90); // 40px para cada fila + 10px de espacio
 
-    // Área del Prompt a la izquierda
-    auto promptArea = topArea.removeFromLeft(topArea.getWidth() * 0.7);
-    promptLabel.setBounds(promptArea.removeFromTop(20));
-    promptEditor.setBounds(promptArea);
+    // Fila superior de este bloque (Playback)
+    auto playbackRow = bottomButtonsArea.removeFromTop(40);
 
-    // Área de controles a la derecha
-    topArea.removeFromLeft(20); // Espacio entre prompt y controles
-    auto controlsArea = topArea;
+    // Fila inferior de este bloque (Exportar)
+    auto exportRow = bottomButtonsArea.removeFromBottom(40);
 
-    // Layout de los controles, uno debajo del otro
-    genreComboBox.setBounds(controlsArea.removeFromTop(30));
-    controlsArea.removeFromTop(10); // Espacio
-    chordCountComboBox.setBounds(controlsArea.removeFromTop(30));
-    controlsArea.removeFromTop(10); // Espacio
-    bpmSlider.setBounds(controlsArea.removeFromTop(30));
+    // Distribuimos los botones de Playback
+    int playbackButtonWidth = playbackRow.getWidth() / 4;
+    playAllButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 2));
+    playChordsButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 2));
+    playMelodyButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 2));
+    stopButton.setBounds(playbackRow.reduced(5, 2));
+
+    // Distribuimos los botones de Exportar
+    int exportButtonWidth = exportRow.getWidth() / 2;
+    exportChordsButton.setBounds(exportRow.removeFromLeft(exportButtonWidth).reduced(5, 2));
+    exportMelodyButton.setBounds(exportRow.reduced(5, 2));
 
 
-    // --- BOTONES DE GENERACIÓN (DEBAJO DEL ÁREA SUPERIOR) ---
-    bounds.removeFromTop(10);
-    auto generationButtonsArea = bounds.removeFromTop(40);
-    auto leftButtons = generationButtonsArea.removeFromLeft(generationButtonsArea.getWidth() * 0.7);
-    generateChordsButton.setBounds(leftButtons.removeFromLeft(leftButtons.getWidth() / 2).reduced(5, 0));
-    generateMelodyButton.setBounds(leftButtons.reduced(5, 0));
+    // --- 2. ÁREA SUPERIOR: Prompt y todos los controles ---
+    auto topArea = bounds.removeFromTop(180); // Altura para el prompt y los botones de abajo
 
-    auto transposeArea = generationButtonsArea;
-    transposeDownButton.setBounds(transposeArea.removeFromLeft(transposeArea.getWidth() / 2).reduced(5, 0));
-    transposeUpButton.setBounds(transposeArea.reduced(5, 0));
+    // Dividimos en columna izquierda y derecha
+    auto rightColumn = topArea.removeFromRight(200); // Ancho fijo de 200px para la columna derecha
+    auto leftColumn = topArea;
 
-    bounds.removeFromTop(10);
 
-    // --- ÁREA INFERIOR (PIANO ROLL Y BOTONES DE REPRODUCCIÓN) ---
-    const int playbackRowHeight = 40;
-    const int exportRowHeight = 40;
-    const int bottomSpacing = 10;
-    const int bottomAreaHeight = playbackRowHeight + exportRowHeight + bottomSpacing;
+    // --- Lado Derecho: Columna de Controles ---
+    rightColumn.reduce(5, 0); // Margen
+    genreComboBox.setBounds(rightColumn.removeFromTop(25));
+    rightColumn.removeFromTop(5);
+    chordCountComboBox.setBounds(rightColumn.removeFromTop(25));
+    rightColumn.removeFromTop(5);
+    bpmSlider.setBounds(rightColumn.removeFromTop(25));
+    rightColumn.removeFromTop(5);
 
-    pianoRollComponent.setBounds(bounds.removeFromTop(bounds.getHeight() - bottomAreaHeight));
+    auto transposeArea = rightColumn.removeFromTop(25);
+    transposeDownButton.setBounds(transposeArea.removeFromLeft(transposeArea.getWidth() / 2).reduced(2));
+    transposeUpButton.setBounds(transposeArea.reduced(2));
 
-    bounds.removeFromTop(bottomSpacing);
-    auto playbackRow = bounds.removeFromTop(playbackRowHeight);
-    auto exportRow = bounds;
+    rightColumn.removeFromTop(5);
 
-    auto playbackButtonWidth = playbackRow.getWidth() / 4;
-    playAllButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 0));
-    playChordsButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 0));
-    playMelodyButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 0));
-    stopButton.setBounds(playbackRow.reduced(5, 0));
+    auto feedbackArea = rightColumn.removeFromTop(25);
+    likeButton->setBounds(feedbackArea.removeFromLeft(feedbackArea.getWidth() / 2).reduced(2));
+    dislikeButton->setBounds(feedbackArea.reduced(2));
 
-    exportChordsButton.setBounds(exportRow.removeFromLeft(exportRow.getWidth() / 2).reduced(5, 0));
-    exportMelodyButton.setBounds(exportRow.reduced(5, 0));
+
+    // --- Lado Izquierdo: Prompt y Botones de Generación ---
+    leftColumn.removeFromRight(10); // Espacio entre columnas
+
+    // El prompt ocupa la parte de arriba
+    promptEditor.setBounds(leftColumn.removeFromTop(125));
+
+    leftColumn.removeFromTop(10); // Espacio
+
+    // Los botones de generar van debajo del prompt
+    auto generationArea = leftColumn;
+    generateChordsButton.setBounds(generationArea.removeFromLeft(generationArea.getWidth() / 2).reduced(5, 2));
+    generateMelodyButton.setBounds(generationArea.reduced(5, 2));
+
+
+    // --- 3. PIANO ROLL: Ocupa el espacio central restante ---
+    bounds.removeFromTop(10); // Un último espacio antes del piano roll
+    pianoRollComponent.setBounds(bounds);
+
+    notificationLabel.setBounds(pianoRollComponent.getBounds().reduced(pianoRollComponent.getWidth() / 3,
+        pianoRollComponent.getHeight() / 2.5));
+
+    // Ocultamos las etiquetas que no necesitamos en este diseño
+    promptLabel.setBounds({ 0,0,0,0 });
+    genreLabel.setBounds({ 0,0,0,0 });
+    chordCountLabel.setBounds({ 0,0,0,0 });
+    bpmLabel.setBounds({ 0,0,0,0 });
 }
 
 void ChordMelodyTabComponent::transpose(int semitones)
@@ -413,4 +470,17 @@ void ChordMelodyTabComponent::setBpmValue(double newValue, juce::NotificationTyp
 
     // Simplemente establece el valor. El slider se actualizará solo.
     bpmSlider.setValue(limitedValue, notification);
+}
+
+void ChordMelodyTabComponent::showNotification(const juce::String& message)
+{
+    notificationLabel.setText(message, juce::dontSendNotification);
+    notificationLabel.setAlpha(1.0f); // Hacemos visible la etiqueta
+    startTimer(2000); // Iniciamos un temporizador de 2 segundos (2000 ms)
+}
+
+void ChordMelodyTabComponent::timerCallback()
+{
+    notificationLabel.setAlpha(0.0f); // Ocultamos la etiqueta
+    stopTimer(); // Detenemos el temporizador
 }

@@ -22,6 +22,8 @@ public:
     juce::String exportChords(const py::dict& musicData, int bpm);
     juce::String exportMelody(const py::dict& musicData, int bpm);
     py::dict transposeMusic(const py::dict& musicData, int semitones);
+    void like();
+    void dislike();
 private:
     py::module neuraChordApi;
 };

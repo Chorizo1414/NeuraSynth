@@ -6,7 +6,7 @@
 
 class NeuraSynthAudioProcessor;
 
-class ChordMelodyTabComponent : public juce::Component
+class ChordMelodyTabComponent : public juce::Component, public juce::Timer
 {
 public:
     ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor);
@@ -14,6 +14,8 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+
+    void timerCallback() override;
 
 private:
     void transpose(int semitones);
@@ -23,7 +25,7 @@ private:
     void commitBpmEditorText();
     void updateBpmDisplayFromSlider();
     void setBpmValue(double newValue, juce::NotificationType notification = juce::sendNotification);
-
+    void showNotification(const juce::String& message);
 
     NeuraSynthAudioProcessor& audioProcessor;
 
@@ -42,6 +44,9 @@ private:
 
     juce::TextButton transposeUpButton;
     juce::TextButton transposeDownButton;
+
+    std::unique_ptr<juce::ImageButton> likeButton;
+    std::unique_ptr<juce::ImageButton> dislikeButton;
 
     juce::Slider bpmSlider;
     juce::Label bpmLabel;
@@ -66,6 +71,8 @@ private:
     bool isPlaying = false;
     double startTime = 0.0;
     int nextEventIndex = 0;
+
+    juce::Label notificationLabel;
 
     // Estructura para un evento MIDI temporizado
     struct TimedMidiEvent

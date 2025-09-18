@@ -152,3 +152,35 @@ py::dict PythonManager::transposeMusic(const py::dict& musicData, int semitones)
     }
     return result;
 }
+
+void PythonManager::like()
+{
+    if (!neuraChordApi) return;
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        // CORRECCIÓN: Llamamos a la función a través del generador de acordes
+        neuraChordApi.attr("generador_acordes").attr("puntuar_acordes_positivamente")();
+        DBG("PythonManager: 'Like' action sent.");
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("Python Error en like(): " << e.what());
+    }
+}
+
+void PythonManager::dislike()
+{
+    if (!neuraChordApi) return;
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        // CORRECCIÓN: Llamamos a la función a través del generador de acordes
+        neuraChordApi.attr("generador_acordes").attr("puntuar_acordes_negativamente")();
+        DBG("PythonManager: 'Dislike' action sent.");
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("Python Error en dislike(): " << e.what());
+    }
+}
