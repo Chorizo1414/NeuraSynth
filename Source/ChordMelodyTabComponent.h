@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <vector>
 #include "PythonManager.h"
 #include "PianoRollComponent.h" // Incluimos nuestro nuevo componente
 
@@ -26,6 +27,11 @@ private:
     void updateBpmDisplayFromSlider();
     void setBpmValue(double newValue, juce::NotificationType notification = juce::sendNotification);
     void showNotification(const juce::String& message);
+    void updateUiForCurrentState();
+    void pushStateToHistory(const py::dict& data);
+    void applyStateFromHistory(int newIndex);
+    void updateUndoRedoButtonStates();
+    py::dict deepCopyMusicDict(const py::dict& source);
 
     NeuraSynthAudioProcessor& audioProcessor;
 
@@ -47,6 +53,9 @@ private:
 
     std::unique_ptr<juce::ImageButton> likeButton;
     std::unique_ptr<juce::ImageButton> dislikeButton;
+
+    juce::TextButton undoButton;
+    juce::TextButton redoButton;
 
     juce::Slider bpmSlider;
     juce::Label bpmLabel;
@@ -88,6 +97,16 @@ private:
 
     // Almacenamos el resultado de la generacion de acordes
     py::dict lastGeneratedChordsData;
+
+    struct MusicState
+    {
+        py::dict data;
+        double bpm = 120.0;
+    };
+
+    std::vector<MusicState> historyStates;
+    int historyCurrentIndex = -1;
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChordMelodyTabComponent)
 };

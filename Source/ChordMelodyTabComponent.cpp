@@ -123,10 +123,8 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             }
 
             pianoRollComponent.setMusicData(lastGeneratedChordsData);
-            generateMelodyButton.setEnabled(true);
-            exportMelodyButton.setEnabled(false);
-            transposeUpButton.setEnabled(true);
-            transposeDownButton.setEnabled(true);
+            updateUiForCurrentState();
+            pushStateToHistory(lastGeneratedChordsData);
             repaint();
         };
 
@@ -155,6 +153,22 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
         showNotification("Feedback Negativo Enviado!");
         };
     addAndMakeVisible(*dislikeButton);
+
+    addAndMakeVisible(undoButton);
+    undoButton.setButtonText("Deshacer");
+    undoButton.onClick = [this]
+        {
+            if (historyCurrentIndex > 0)
+                applyStateFromHistory(historyCurrentIndex - 1);
+        };
+
+    addAndMakeVisible(redoButton);
+    redoButton.setButtonText("Rehacer");
+    redoButton.onClick = [this]
+        {
+            if (historyCurrentIndex >= 0 && historyCurrentIndex < (int)historyStates.size() - 1)
+                applyStateFromHistory(historyCurrentIndex + 1);
+        };
 
     addAndMakeVisible(notificationLabel);
     notificationLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey.withAlpha(0.8f));
@@ -190,7 +204,8 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
             lastGeneratedChordsData["melodia"] = melodyData["melodia"];
             pianoRollComponent.setMusicData(lastGeneratedChordsData);
-            exportMelodyButton.setEnabled(true);
+            updateUiForCurrentState();
+            pushStateToHistory(lastGeneratedChordsData);
             repaint();
         };
 
@@ -246,6 +261,9 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Melodia", result);
             DBG(result);
         };
+
+    updateUiForCurrentState();
+    updateUndoRedoButtonStates();
 }
 
 ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
@@ -310,6 +328,11 @@ void ChordMelodyTabComponent::resized()
     likeButton->setBounds(feedbackArea.removeFromLeft(feedbackArea.getWidth() / 2).reduced(2));
     dislikeButton->setBounds(feedbackArea.reduced(2));
 
+    rightColumn.removeFromTop(5);
+
+    auto historyArea = rightColumn.removeFromTop(25);
+    undoButton.setBounds(historyArea.removeFromLeft(historyArea.getWidth() / 2).reduced(2));
+    redoButton.setBounds(historyArea.reduced(2));
 
     // --- Lado Izquierdo: Prompt y Botones de Generación ---
     leftColumn.removeFromRight(10); // Espacio entre columnas
@@ -356,6 +379,8 @@ void ChordMelodyTabComponent::transpose(int semitones)
 
     lastGeneratedChordsData = transposedData;
     pianoRollComponent.setMusicData(lastGeneratedChordsData);
+    updateUiForCurrentState();
+    pushStateToHistory(lastGeneratedChordsData);
     repaint();
 }
 
@@ -483,4 +508,63 @@ void ChordMelodyTabComponent::timerCallback()
 {
     notificationLabel.setAlpha(0.0f); // Ocultamos la etiqueta
     stopTimer(); // Detenemos el temporizador
+}
+void ChordMelodyTabComponent::updateUiForCurrentState()
+{
+    const bool hasData = !lastGeneratedChordsData.empty();
+    const bool hasChords = hasData && lastGeneratedChordsData.contains("acordes");
+    const bool hasMelody = hasData && lastGeneratedChordsData.contains("melodia");
+
+    generateMelodyButton.setEnabled(hasChords);
+    exportMelodyButton.setEnabled(hasMelody);
+    transposeUpButton.setEnabled(hasData);
+    transposeDownButton.setEnabled(hasData);
+}
+
+void ChordMelodyTabComponent::pushStateToHistory(const py::dict& data)
+{
+    if (data.empty())
+        return;
+
+    MusicState state;
+    state.data = deepCopyMusicDict(data);
+    state.bpm = bpmSlider.getValue();
+
+    if (historyCurrentIndex + 1 < (int)historyStates.size())
+        historyStates.erase(historyStates.begin() + historyCurrentIndex + 1, historyStates.end());
+
+    historyStates.push_back(std::move(state));
+    historyCurrentIndex = (int)historyStates.size() - 1;
+
+    updateUndoRedoButtonStates();
+}
+
+void ChordMelodyTabComponent::applyStateFromHistory(int newIndex)
+{
+    if (newIndex < 0 || newIndex >= (int)historyStates.size())
+        return;
+
+    historyCurrentIndex = newIndex;
+
+    lastGeneratedChordsData = deepCopyMusicDict(historyStates[historyCurrentIndex].data);
+    pianoRollComponent.setMusicData(lastGeneratedChordsData);
+    setBpmValue(historyStates[historyCurrentIndex].bpm);
+
+    updateUiForCurrentState();
+    repaint();
+    updateUndoRedoButtonStates();
+}
+
+void ChordMelodyTabComponent::updateUndoRedoButtonStates()
+{
+    undoButton.setEnabled(historyCurrentIndex > 0);
+    redoButton.setEnabled(historyCurrentIndex >= 0 && historyCurrentIndex < (int)historyStates.size() - 1);
+}
+
+py::dict ChordMelodyTabComponent::deepCopyMusicDict(const py::dict& source)
+{
+    py::gil_scoped_acquire acquire;
+    static py::object deepcopyFunc = py::module::import("copy").attr("deepcopy");
+    py::object result = deepcopyFunc(source);
+    return result.cast<py::dict>();
 }
