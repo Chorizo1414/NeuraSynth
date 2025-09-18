@@ -13,8 +13,11 @@ from generos import detectar_estilo
 from generador_acordes import (
     extraer_tonalidad,
     generar_progresion_acordes_smart,
-    INFO_GENERO, # Necesario para la lógica de inferencia
-    MAPEO_GENERO_BPM # Asumiendo que MAPEO_GENERO_BPM está en generador_acordes
+    INFO_GENERO,
+    MAPEO_GENERO_BPM,
+    # --- ¡ESTAS LÍNEAS AHORA FUNCIONARÁN! ---
+    puntuar_acordes_positivamente,
+    puntuar_acordes_negativamente
 )
 from generador_melodia import generar_melodia_sobre_acordes
 from procesador_sentimientos import detectar_sentimiento_en_prompt, inferir_parametros_desde_sentimiento
@@ -219,3 +222,19 @@ def transponer_musica(datos_musica, semitonos):
         error_msg = f"Error al transponer: {e}\\n{traceback.format_exc()}"
         print(f"!!! Python API Error: {error_msg}")
         return {"error": error_msg}
+
+def puntuar_positivamente():
+    """
+    Endpoint de la API para el feedback positivo.
+    """
+    print(">>> Python API: Recibida puntuación positiva.")
+    puntuar_acordes_positivamente()
+    return {"status": "ok"}
+
+def puntuar_negativamente():
+    """
+    Endpoint de la API para el feedback negativo.
+    """
+    print(">>> Python API: Recibida puntuación negativa.")
+    puntuar_acordes_negativamente()
+    return {"status": "ok"}

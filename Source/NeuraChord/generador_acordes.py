@@ -22,6 +22,10 @@ MAPEO_GENERO_BPM = {
     "normal": (80, 120, 100) # Un default si el género es "normal"
 }
 
+# --- Variables Globales para Aprendizaje y Estado ---
+_ultima_progresion_generada = None
+_ultimo_ritmo_generado = None 
+
 # Importar INFO_GENERO directamente desde base_estilos
 # Asegúrate que base_estilos.py esté en el mismo directorio o en PYTHONPATH
 try:
@@ -773,6 +777,10 @@ def generar_progresion_acordes_smart(raiz, modo, estilo, num_acordes_deseado_ui,
 
 
     print(f"INFO (Smart): Progresión final de '{source_info}'. Longitud: {len(acordes_generados)}. Ritmo: {ritmo_asociado}")
+    global _ultima_progresion_generada, _ultimo_ritmo_generado
+    _ultima_progresion_generada = acordes_generados
+    _ultimo_ritmo_generado = ritmo_asociado
+    
     return acordes_generados, ritmo_asociado
 
 
@@ -833,6 +841,46 @@ def limpiar_nombre_acorde(nombre_acorde_original):
         # Si no es un ChordSymbol válido, podría ser un número romano o algo más. Devolver original.
         return nombre_acorde_original
 
+def puntuar_acordes_positivamente():
+    """
+    Refuerza la última progresión generada en el historial de aprendizaje.
+    """
+    global _ultima_progresion_generada, _ultimo_ritmo_generado
+    if _ultima_progresion_generada and _ultimo_ritmo_generado:
+        print(f"INFO (Feedback): Reforzando la progresion: {_ultima_progresion_generada} con ritmo: {_ultimo_ritmo_generado}")
+        
+        # Convertimos la lista de listas a una tupla de tuplas
+        progresion_tupla = tuple(tuple(acorde) for acorde in _ultima_progresion_generada)
+        
+        # ¡LA LLAMADA CORRECTA Y FINAL!
+        reforzar_progresion_con_feedback(
+            progresion_tuplas_feedback=progresion_tupla, 
+            ritmo=_ultimo_ritmo_generado, 
+            es_buena=True
+        )
+    else:
+        print("ADVERTENCIA (Feedback): No hay una ultima progresion generada para puntuar.")
+
+
+def puntuar_acordes_negativamente():
+    """
+    Penaliza la última progresión generada en el historial de aprendizaje.
+    """
+    global _ultima_progresion_generada, _ultimo_ritmo_generado
+    if _ultima_progresion_generada and _ultimo_ritmo_generado:
+        print(f"INFO (Feedback): Penalizando la progresion: {_ultima_progresion_generada} con ritmo: {_ultimo_ritmo_generado}")
+
+        # Convertimos la lista de listas a una tupla de tuplas
+        progresion_tupla = tuple(tuple(acorde) for acorde in _ultima_progresion_generada)
+
+        # ¡LA LLAMADA CORRECTA Y FINAL!
+        reforzar_progresion_con_feedback(
+            progresion_tuplas_feedback=progresion_tupla, 
+            ritmo=_ultimo_ritmo_generado, 
+            es_buena=False
+        )
+    else:
+        print("ADVERTENCIA (Feedback): No hay una ultima progresion generada para puntuar.")
 
 if __name__ == "__main__":
     print("\nProbando generación de progresión SMART:")
@@ -870,3 +918,4 @@ if __name__ == "__main__":
             print(f"No se encontraron tonalidades entrenadas con datos para '{estilo_prueba}'. Ejecuta autoentrenador.py.")
     else:
         print("INFO_GENERO está vacío. Ejecuta autoentrenador.py primero.")
+
