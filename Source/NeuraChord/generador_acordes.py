@@ -25,6 +25,8 @@ MAPEO_GENERO_BPM = {
 # --- Variables Globales para Aprendizaje y Estado ---
 _ultima_progresion_generada = None
 _ultimo_ritmo_generado = None 
+_ultimo_genero = None
+_ultima_tonalidad_str = None
 
 # Importar INFO_GENERO directamente desde base_estilos
 # Asegúrate que base_estilos.py esté en el mismo directorio o en PYTHONPATH
@@ -777,9 +779,11 @@ def generar_progresion_acordes_smart(raiz, modo, estilo, num_acordes_deseado_ui,
 
 
     print(f"INFO (Smart): Progresión final de '{source_info}'. Longitud: {len(acordes_generados)}. Ritmo: {ritmo_asociado}")
-    global _ultima_progresion_generada, _ultimo_ritmo_generado
+    global _ultima_progresion_generada, _ultimo_ritmo_generado, _ultimo_genero, _ultima_tonalidad_str
     _ultima_progresion_generada = acordes_generados
     _ultimo_ritmo_generado = ritmo_asociado
+    _ultimo_genero = estilo 
+    _ultima_tonalidad_str = clave_tonalidad 
     
     return acordes_generados, ritmo_asociado
 
@@ -842,45 +846,34 @@ def limpiar_nombre_acorde(nombre_acorde_original):
         return nombre_acorde_original
 
 def puntuar_acordes_positivamente():
-    """
-    Refuerza la última progresión generada en el historial de aprendizaje.
-    """
-    global _ultima_progresion_generada, _ultimo_ritmo_generado
-    if _ultima_progresion_generada and _ultimo_ritmo_generado:
-        print(f"INFO (Feedback): Reforzando la progresion: {_ultima_progresion_generada} con ritmo: {_ultimo_ritmo_generado}")
-        
-        # Convertimos la lista de listas a una tupla de tuplas
-        progresion_tupla = tuple(tuple(acorde) for acorde in _ultima_progresion_generada)
-        
-        # ¡LA LLAMADA CORRECTA Y FINAL!
+    """Llama a la función de refuerzo con los datos de la última progresión generada."""
+    if _ultima_progresion_generada and _ultimo_genero and _ultima_tonalidad_str:
+        print(f"Reforzando POSITIVAMENTE para género: {_ultimo_genero}, tonalidad: {_ultima_tonalidad_str}")
+        # --- CORRECCIÓN AQUÍ ---
+        # Pasamos la progresión como el primer argumento, sin nombrarlo.
         reforzar_progresion_con_feedback(
-            progresion_tuplas_feedback=progresion_tupla, 
-            ritmo=_ultimo_ritmo_generado, 
-            es_buena=True
+            _ultima_progresion_generada, 
+            feedback="positivo",
+            genero=_ultimo_genero, 
+            tonalidad_str=_ultima_tonalidad_str
         )
     else:
-        print("ADVERTENCIA (Feedback): No hay una ultima progresion generada para puntuar.")
-
+        print("No hay suficiente información (progresión/género/tonalidad) para puntuar.")
 
 def puntuar_acordes_negativamente():
-    """
-    Penaliza la última progresión generada en el historial de aprendizaje.
-    """
-    global _ultima_progresion_generada, _ultimo_ritmo_generado
-    if _ultima_progresion_generada and _ultimo_ritmo_generado:
-        print(f"INFO (Feedback): Penalizando la progresion: {_ultima_progresion_generada} con ritmo: {_ultimo_ritmo_generado}")
-
-        # Convertimos la lista de listas a una tupla de tuplas
-        progresion_tupla = tuple(tuple(acorde) for acorde in _ultima_progresion_generada)
-
-        # ¡LA LLAMADA CORRECTA Y FINAL!
+    """Llama a la función de refuerzo con los datos de la última progresión generada."""
+    if _ultima_progresion_generada and _ultimo_genero and _ultima_tonalidad_str:
+        print(f"Reforzando NEGATIVAMENTE para género: {_ultimo_genero}, tonalidad: {_ultima_tonalidad_str}")
+        # --- CORRECCIÓN AQUÍ ---
+        # Pasamos la progresión como el primer argumento, sin nombrarlo.
         reforzar_progresion_con_feedback(
-            progresion_tuplas_feedback=progresion_tupla, 
-            ritmo=_ultimo_ritmo_generado, 
-            es_buena=False
+            _ultima_progresion_generada,
+            feedback="negativo",
+            genero=_ultimo_genero,
+            tonalidad_str=_ultima_tonalidad_str
         )
     else:
-        print("ADVERTENCIA (Feedback): No hay una ultima progresion generada para puntuar.")
+        print("No hay suficiente información (progresión/género/tonalidad) para puntuar.")
 
 if __name__ == "__main__":
     print("\nProbando generación de progresión SMART:")
