@@ -1,12 +1,42 @@
 #include "PythonManager.h"
+#include <mutex>
+
+namespace
+{
+    std::mutex pythonInitMutex;
+    bool pythonInterpreterReady = false;
+}
 
 PythonManager::PythonManager()
 {
     try {
         _putenv_s("PYTHONHOME", "C:\\Users\\Progra.CHORI1414\\AppData\\Local\\Programs\\Python\\Python38");
-        py::initialize_interpreter();
+        std::scoped_lock<std::mutex> lock(pythonInitMutex);
+
+        if (!pythonInterpreterReady)
+        {
+            _putenv_s("PYTHONHOME", "C:\\Users\\Progra.CHORI1414\\AppData\\Local\\Programs\\Python\\Python38");
+            py::initialize_interpreter();
+            pythonInterpreterReady = true;
+        }
+
+        py::gil_scoped_acquire acquire;
         auto sys = py::module::import("sys");
-        sys.attr("path").attr("append")("C:\\Users\\Progra.CHORI1414\\Desktop\\Proyectos\\JUCE\\NeuraSynth\\Source\\NeuraChord");
+        py::list sysPath = sys.attr("path");
+        const std::string targetPath = "C:\\Users\\Progra.CHORI1414\\Desktop\\Proyectos\\JUCE\\NeuraSynth\\Source\\NeuraChord";
+
+        bool pathAlreadyPresent = false;
+        for (auto entry : sysPath)
+        {
+            if (entry.cast<std::string>() == targetPath)
+            {
+                pathAlreadyPresent = true;
+                break;
+            }
+        }
+
+        if (!pathAlreadyPresent)
+            sysPath.attr("append")(targetPath);
         neuraChordApi = py::module::import("neurachord_api");
         DBG("PythonManager: Interprete y neurachord_api importados con EXITO!");
     }
@@ -17,7 +47,23 @@ PythonManager::PythonManager()
 
 PythonManager::~PythonManager()
 {
-    py::finalize_interpreter();
+    std::scoped_lock<std::mutex> lock(pythonInitMutex);
+
+    if (!pythonInterpreterReady)
+        return;
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        neuraChordApi = py::module();
+    }
+    catch (const std::exception& e)
+    {
+        DBG("PythonManager::~PythonManager - error liberando modulo: " << e.what());
+    }
+    // No finalizamos el interprete para evitar cierres inesperados cuando otros objetos
+    // de Python (py::dict, etc.) aun estan vivos. El interprete permanece activo durante
+    // toda la vida del proceso, lo que es seguro en el contexto del plugin standalone/host.
 }
 
 // Implementación de la nueva función
