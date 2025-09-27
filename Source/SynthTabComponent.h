@@ -27,6 +27,7 @@ private:
     NeuraSynthAudioProcessor& audioProcessor;
 
     juce::Image backgroundImage;
+    juce::Rectangle<int> guiArea;
     juce::ComboBox sizeComboBox;
     juce::Label sizeLabel;
 

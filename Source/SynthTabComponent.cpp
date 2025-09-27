@@ -297,7 +297,7 @@ void SynthTabComponent::paint(juce::Graphics& g)
     // 3. Dibuja la imagen de fondo SOLAMENTE en el rea superior (guiArea).
     if (backgroundImage.isValid())
     {
-        g.drawImage(backgroundImage, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination);
+        g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::fillDestination);
     }
 }
 
@@ -310,7 +310,7 @@ void SynthTabComponent::resized()
     midiKeyboardComponent.setBounds(0, getHeight() - keyboardHeight, getWidth(), keyboardHeight);
 
     // --- 2. Define el rea para la GUI (Esto no cambia) ---
-    juce::Rectangle<int> guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
+    guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
 
     // --- 3. LGICA DE ESCALADO SIMPLIFICADA ---
     // Como tu ComboBox asegura que la proporcin es siempre correcta, no necesitamos
