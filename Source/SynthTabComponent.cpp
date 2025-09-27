@@ -297,7 +297,7 @@ void SynthTabComponent::paint(juce::Graphics& g)
     // 3. Dibuja la imagen de fondo SOLAMENTE en el rea superior (guiArea).
     if (backgroundImage.isValid())
     {
-        g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::stretchToFit);
+        g.drawImage(backgroundImage, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination);
     }
 }
 
