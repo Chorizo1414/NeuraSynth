@@ -48,8 +48,6 @@ private:
     FilterComponent filterSection;
     EnvelopeComponent envelopeSection;
 
-    juce::MidiKeyboardComponent midiKeyboardComponent;
-
     // El resto del código que tenías en PluginEditor.h para el modo diseño...
     juce::ComponentDragger componentDragger;
 

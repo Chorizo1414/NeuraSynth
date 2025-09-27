@@ -58,7 +58,6 @@ namespace
 // El constructor ahora recibe la referencia al procesador
 SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     : audioProcessor(p),
-    midiKeyboardComponent(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard),
     modulationComp(p),
     reverbSection(p),
     masterSection(p),
@@ -217,7 +216,6 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     // --- SECCIN DELAY ---
     addAndMakeVisible(delaySection);
 
-    addAndMakeVisible(midiKeyboardComponent);
 
     if (designMode)
     {
@@ -307,7 +305,6 @@ void SynthTabComponent::resized()
     const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
     int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
     if (keyboardHeight < 0) keyboardHeight = 0;
-    midiKeyboardComponent.setBounds(0, getHeight() - keyboardHeight, getWidth(), keyboardHeight);
 
     // --- 2. Define el rea para la GUI (Esto no cambia) ---
     guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
