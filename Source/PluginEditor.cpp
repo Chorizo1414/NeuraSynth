@@ -10,13 +10,13 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     // Inicializamos nuestras pestañas, pasando el procesador a la del sinte
     synthTab(p),
     chordMelodyTab(p)
-    {
+{
     addAndMakeVisible(tabbedComponent);
-    
+
     // Añadimos las pestañas con sus nombres
     tabbedComponent.addTab("Synthesizer", juce::Colours::black, &synthTab, false);
     tabbedComponent.addTab("Chord/Melody Generator", juce::Colours::black, &chordMelodyTab, false);
-    
+
     // Tamaño inicial de la ventana del plugin
     const double designImageHeight = 1360.0;
     const double designKeyboardHeight = 120.0; // Altura del teclado de tu diseño

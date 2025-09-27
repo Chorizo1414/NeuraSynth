@@ -145,7 +145,7 @@ private:
     DesignMouseListener designMouseListener;
 
 public:
-    bool designMode = false;
+    bool designMode = true;
     float scale = 1.0f;
     juce::Rectangle<float> scaledGuiArea;
 

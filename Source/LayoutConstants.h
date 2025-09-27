@@ -14,28 +14,28 @@ namespace LayoutConstants
     const int KEYBOARD_HEIGHT = 120; // Altura del teclado en el diseño original
     
     // --- Tamaños de Componentes (según tus medidas de Photoshop) ---
-    const juce::Point<int> KNOB_LARGE = { 95, 96 };
-    const juce::Point<int> KNOB_MEDIUM = { 72, 72 };
-    const juce::Point<int> KNOB_SMALL = { 60, 63 };
-    const juce::Point<int> BUTTON = { 79, 26 };
+    const juce::Point<int> KNOB_LARGE = { 100, 101 };
+    const juce::Point<int> KNOB_MEDIUM = { 75, 75 };
+    const juce::Point<int> KNOB_SMALL = { 47, 47 };
+    const juce::Point<int> BUTTON = { 83, 30 };
 
     // --- Posiciones de las Secciones Principales ---
-    const juce::Rectangle<int> MASTER_SECTION   = { 32, 164, 558, 240 };
-    const juce::Rectangle<int> REVERB_SECTION   = { 32, 474, 558, 240 };
-    const juce::Rectangle<int> DELAY_SECTION    = { 32, 793, 558, 250 };
+    const juce::Rectangle<int> MASTER_SECTION   = { 68, 159, 558, 240 };
+    const juce::Rectangle<int> REVERB_SECTION   = { 66, 550, 558, 240 };
+    const juce::Rectangle<int> DELAY_SECTION    = { 68, 909, 558, 250 };
     
-    const juce::Rectangle<int> UNISON_1_SECTION = { 637, 120, 230, 300 };
-    const juce::Rectangle<int> UNISON_2_SECTION = { 637, 436, 230, 300 };
-    const juce::Rectangle<int> UNISON_3_SECTION = { 637, 757, 230, 300 };
+    const juce::Rectangle<int> UNISON_1_SECTION = { 729, 122, 230, 300 };
+    const juce::Rectangle<int> UNISON_2_SECTION = { 729, 490, 230, 300 };
+    const juce::Rectangle<int> UNISON_3_SECTION = { 729, 857, 230, 300 };
 
-    const juce::Rectangle<int> OSC_1_SECTION    = { 867, 120, 635, 300 };
-    const juce::Rectangle<int> OSC_2_SECTION    = { 867, 436, 635, 300 };
-    const juce::Rectangle<int> OSC_3_SECTION    = { 867, 757, 635, 300 };
+    const juce::Rectangle<int> OSC_1_SECTION    = { 996, 120, 635, 300 };
+    const juce::Rectangle<int> OSC_2_SECTION    = { 996, 490, 635, 300 };
+    const juce::Rectangle<int> OSC_3_SECTION    = { 996, 859, 635, 300 };
     // Nota: El Unison lo integraremos dentro del layout del oscilador.
 
-    const juce::Rectangle<int> FILTER_SECTION   = { 1551, 148, 480, 210 };
-    const juce::Rectangle<int> LFO_FM_SECTION   = { 1551, 432, 480, 210 };
-    const juce::Rectangle<int> ENVELOPE_SECTION = { 1551, 679, 480, 400 };
+    const juce::Rectangle<int> FILTER_SECTION   = { 1765, 158, 480, 210 };
+    const juce::Rectangle<int> LFO_FM_SECTION   = { 1765, 552, 480, 210 };
+    const juce::Rectangle<int> ENVELOPE_SECTION = { 1765, 871, 480, 400 };
 
     // --- Posiciones de los Knobs y Botones DENTRO de sus secciones ---
     
