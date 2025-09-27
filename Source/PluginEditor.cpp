@@ -9,9 +9,11 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     tabbedComponent(juce::TabbedButtonBar::Orientation::TabsAtTop),
     // Inicializamos nuestras pestañas, pasando el procesador a la del sinte
     synthTab(p),
-    chordMelodyTab(p)
+    chordMelodyTab(p),
+    keyboardComponent(keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
     addAndMakeVisible(tabbedComponent);
+    addAndMakeVisible(keyboardComponent);
 
     // Añadimos las pestañas con sus nombres
     tabbedComponent.addTab("Synthesizer", juce::Colours::black, &synthTab, false);
@@ -48,6 +50,23 @@ void NeuraSynthAudioProcessorEditor::paint(juce::Graphics& g)
 
 void NeuraSynthAudioProcessorEditor::resized()
 {
-    // Hacemos que el componente de pestañas ocupe toda la ventana del editor.
-    tabbedComponent.setBounds(getLocalBounds());
+    // Obtiene el área total del editor
+    auto totalArea = getLocalBounds();
+
+    // Define la altura del teclado. 
+    // Lo calculamos dinámicamente basándonos en la proporción del diseño original.
+    const double designImageHeight = 1360.0;
+    const double designKeyboardHeight = 120.0;
+    const double totalDesignHeight = designImageHeight + designKeyboardHeight;
+    int keyboardHeight = static_cast<int>(getHeight() * (designKeyboardHeight / totalDesignHeight));
+
+    // El área para el teclado es la franja inferior
+    auto keyboardArea = totalArea.removeFromBottom(keyboardHeight);
+
+    // El área restante en la parte superior es para las pestañas (synthTab y chordMelodyTab)
+    auto mainArea = totalArea;
+
+    // Asigna las áreas a los componentes
+    tabbedComponent.setBounds(mainArea);
+    keyboardComponent.setBounds(keyboardArea);
 }

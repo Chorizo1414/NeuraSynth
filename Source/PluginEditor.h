@@ -17,13 +17,13 @@ public:
 private:
     NeuraSynthAudioProcessor& audioProcessor;
 
-    // Componente que gestionará las pestañas
     juce::TabbedComponent tabbedComponent;
-    
-    // Instancias de nuestras dos pestañas
     SynthTabComponent synthTab;
     ChordMelodyTabComponent chordMelodyTab;
    
+    juce::MidiKeyboardState keyboardState;
+    juce::MidiKeyboardComponent keyboardComponent;
+
     std::unique_ptr<juce::ComponentBoundsConstrainer> constrainer;
     juce::AudioProcessorValueTreeState::Listener* vtsListener = nullptr;
 
