@@ -304,7 +304,6 @@ public:
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::MidiKeyboardState keyboardState;
-    juce::MidiMessageCollector midiMessageCollector;
 
     void startGeneration(const juce::String& prompt);
     void run() override; 

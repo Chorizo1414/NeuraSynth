@@ -35,12 +35,10 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
     setResizable(true, true);
 
-    audioProcessor.keyboardState.addListener(this);
 }
 
 NeuraSynthAudioProcessorEditor::~NeuraSynthAudioProcessorEditor()
 {
-    audioProcessor.keyboardState.removeListener(this);
 }
 
 void NeuraSynthAudioProcessorEditor::paint(juce::Graphics& g)
@@ -72,16 +70,4 @@ void NeuraSynthAudioProcessorEditor::resized()
     // Asigna las áreas a los componentes
     tabbedComponent.setBounds(mainArea);
     keyboardComponent.setBounds(keyboardArea);
-}
-
-void NeuraSynthAudioProcessorEditor::handleNoteOn(juce::MidiKeyboardState*, int midiChannel, int midiNoteNumber, float velocity)
-{
-    auto message = juce::MidiMessage::noteOn(midiChannel, midiNoteNumber, velocity);
-    audioProcessor.midiMessageCollector.addMessageToQueue(message);
-}
-
-void NeuraSynthAudioProcessorEditor::handleNoteOff(juce::MidiKeyboardState*, int midiChannel, int midiNoteNumber, float velocity)
-{
-    auto message = juce::MidiMessage::noteOff(midiChannel, midiNoteNumber, velocity);
-    audioProcessor.midiMessageCollector.addMessageToQueue(message);
 }
