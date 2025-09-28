@@ -316,6 +316,7 @@ void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     lfo.setFrequency(0.5f); // Frecuencia lenta para el "wow"
 
     midiCollector.reset(sampleRate);
+    midiMessageCollector.reset(sampleRate);
 
     synth.setCurrentPlaybackSampleRate(sampleRate);
     for (int i = 0; i < synth.getNumVoices(); ++i)
