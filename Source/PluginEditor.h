@@ -5,7 +5,8 @@
 #include "SynthTabComponent.h"
 #include "ChordMelodyTabComponent.h"
 
-class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor
+class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                       public juce::MidiKeyboardState::Listener
 {
 public:
     NeuraSynthAudioProcessorEditor(NeuraSynthAudioProcessor&);
@@ -13,6 +14,8 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void handleNoteOn(juce::MidiKeyboardState*, int midiChannel, int midiNoteNumber, float velocity) override;
+    void handleNoteOff(juce::MidiKeyboardState*, int midiChannel, int midiNoteNumber, float velocity) override;
 
 private:
     NeuraSynthAudioProcessor& audioProcessor;
@@ -21,7 +24,6 @@ private:
     SynthTabComponent synthTab;
     ChordMelodyTabComponent chordMelodyTab;
    
-    juce::MidiKeyboardState keyboardState;
     juce::MidiKeyboardComponent keyboardComponent;
 
     std::unique_ptr<juce::ComponentBoundsConstrainer> constrainer;

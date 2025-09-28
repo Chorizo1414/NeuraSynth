@@ -381,6 +381,15 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         }
     }
 
+    // 1. Creamos un búfer temporal solo para el teclado virtual.
+    juce::MidiBuffer keyboardMidiBuffer;
+
+    // 2. Llenamos nuestro búfer temporal (que está vacío, como le gusta a la función).
+    midiMessageCollector.removeNextBlockOfMessages(keyboardMidiBuffer, buffer.getNumSamples());
+
+    // 3. Añadimos las notas del teclado al búfer principal, fusionándolas con las del host o tu secuenciador.
+    midiMessages.addEvents(keyboardMidiBuffer, 0, -1, 0);
+
     synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 
     // --- CADENA DE EFECTOS MASTER ---

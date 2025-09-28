@@ -183,7 +183,7 @@ public:
     void startPlaybackWithSequence(const juce::MidiBuffer& midiSequence);
     void stopPlayback();
     bool isPlayingSequence() const;
-    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
+    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
@@ -304,6 +304,7 @@ public:
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::MidiKeyboardState keyboardState;
+    juce::MidiMessageCollector midiMessageCollector;
 
     void startGeneration(const juce::String& prompt);
     void run() override; 
