@@ -20,8 +20,9 @@ namespace LayoutConstants
     const juce::Point<int> BUTTON = { 83, 30 };
 
     // --- Posiciones de las Secciones Principales ---
+    static const juce::Rectangle<int> PROMPT_SECTION{ 370, 20, 510, 35 };
     const juce::Rectangle<int> MASTER_SECTION   = { 68, 159, 558, 240 };
-    const juce::Rectangle<int> REVERB_SECTION   = { 66, 550, 558, 240 };
+    const juce::Rectangle<int> REVERB_SECTION   = { 68, 550, 558, 240 };
     const juce::Rectangle<int> DELAY_SECTION    = { 68, 909, 558, 250 };
     
     const juce::Rectangle<int> UNISON_1_SECTION = { 729, 122, 230, 300 };

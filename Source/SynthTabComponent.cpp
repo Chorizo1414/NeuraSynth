@@ -216,6 +216,19 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     // --- SECCIN DELAY ---
     addAndMakeVisible(delaySection);
 
+    addAndMakeVisible(soundPromptEditor);
+    soundPromptEditor.setMultiLine(false);
+    soundPromptEditor.setReturnKeyStartsNewLine(false);
+    soundPromptEditor.setReadOnly(false);
+    soundPromptEditor.setScrollbarsShown(false);
+    soundPromptEditor.setCaretVisible(true);
+    soundPromptEditor.setPopupMenuEnabled(true);
+    soundPromptEditor.setTextToShowWhenEmpty("Escribe un sonido (ej: 'Warm Lead', 'Bright Pad')...", juce::Colours::darkgrey);
+
+    addAndMakeVisible(soundPromptLabel);
+    soundPromptLabel.setText("Generador de Sonido:", juce::dontSendNotification);
+    soundPromptLabel.attachToComponent(&soundPromptEditor, true);
+    // ----------------------------------------------
 
     if (designMode)
     {
@@ -328,6 +341,7 @@ void SynthTabComponent::resized()
     scaleAndSet(masterSection, LayoutConstants::MASTER_SECTION);
     scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
     scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);
+    scaleAndSet(soundPromptEditor, LayoutConstants::PROMPT_SECTION);
     scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);
     scaleAndSet(osc2, LayoutConstants::OSC_2_SECTION);
     scaleAndSet(osc3, LayoutConstants::OSC_3_SECTION);

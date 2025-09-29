@@ -48,7 +48,9 @@ private:
     FilterComponent filterSection;
     EnvelopeComponent envelopeSection;
 
-    // El resto del código que tenías en PluginEditor.h para el modo diseño...
+    juce::TextEditor soundPromptEditor;
+    juce::Label soundPromptLabel;
+
     juce::ComponentDragger componentDragger;
 
     class DesignMouseListener : public juce::MouseListener
