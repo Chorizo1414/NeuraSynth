@@ -20,107 +20,107 @@ namespace LayoutConstants
     const juce::Point<int> BUTTON = { 83, 30 };
 
     // --- Posiciones de las Secciones Principales ---
-    static const juce::Rectangle<int> PROMPT_SECTION{ 370, 20, 510, 35 };
-    const juce::Rectangle<int> MASTER_SECTION   = { 68, 159, 558, 240 };
-    const juce::Rectangle<int> REVERB_SECTION   = { 68, 550, 558, 240 };
-    const juce::Rectangle<int> DELAY_SECTION    = { 68, 909, 558, 250 };
+    static const juce::Rectangle<int> PROMPT_SECTION{ 370, 20, 510, 45 };
+    const juce::Rectangle<int> MASTER_SECTION   = { 68, 159, 580, 272 };
+    const juce::Rectangle<int> REVERB_SECTION   = { 68, 550, 580, 242 };
+    const juce::Rectangle<int> DELAY_SECTION    = { 68, 909, 580, 290 };
     
-    const juce::Rectangle<int> UNISON_1_SECTION = { 729, 122, 230, 300 };
-    const juce::Rectangle<int> UNISON_2_SECTION = { 729, 490, 230, 300 };
-    const juce::Rectangle<int> UNISON_3_SECTION = { 729, 857, 230, 300 };
+    const juce::Rectangle<int> UNISON_1_SECTION = { 729, 120, 270, 345 };
+    const juce::Rectangle<int> UNISON_2_SECTION = { 729, 490, 270, 345 };
+    const juce::Rectangle<int> UNISON_3_SECTION = { 729, 859, 270, 345 };
 
-    const juce::Rectangle<int> OSC_1_SECTION    = { 996, 120, 635, 300 };
-    const juce::Rectangle<int> OSC_2_SECTION    = { 996, 490, 635, 300 };
-    const juce::Rectangle<int> OSC_3_SECTION    = { 996, 859, 635, 300 };
+    const juce::Rectangle<int> OSC_1_SECTION    = { 994, 120, 685, 345 };
+    const juce::Rectangle<int> OSC_2_SECTION    = { 994, 490, 685, 345 };
+    const juce::Rectangle<int> OSC_3_SECTION    = { 994, 859, 685, 345 };
     // Nota: El Unison lo integraremos dentro del layout del oscilador.
 
-    const juce::Rectangle<int> FILTER_SECTION   = { 1765, 158, 480, 210 };
-    const juce::Rectangle<int> LFO_FM_SECTION   = { 1765, 552, 480, 210 };
-    const juce::Rectangle<int> ENVELOPE_SECTION = { 1765, 871, 480, 400 };
+    const juce::Rectangle<int> FILTER_SECTION   = { 1765, 158, 520, 272 };
+    const juce::Rectangle<int> LFO_FM_SECTION   = { 1765, 552, 520, 200 };
+    const juce::Rectangle<int> ENVELOPE_SECTION = { 1765, 871, 520, 340 };
 
     // --- Posiciones de los Knobs y Botones DENTRO de sus secciones ---
     
     namespace Master
     {
         // Coordenadas relativas a la esquina superior izquierda de la sección MASTER (40, 100)
-        const juce::Rectangle<int> MASTER_GAIN_KNOB = { 84, 58, KNOB_LARGE.x, KNOB_LARGE.y };
-        const juce::Rectangle<int> GLIDE_KNOB       = { 222, 41, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> DRIVE_KNOB       = { 350, 41, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> DARK_KNOB        = { 222, 116, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> BRIGHT_KNOB      = { 352, 116, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> CHORUS_BUTTON    = { 458, 102, BUTTON.x, BUTTON.y };
+        const juce::Rectangle<int> MASTER_GAIN_KNOB = { 90, 74, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<int> GLIDE_KNOB       = { 240, 41, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> DRIVE_KNOB       = { 380, 43, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> DARK_KNOB        = { 240, 135, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> BRIGHT_KNOB      = { 380, 135, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> CHORUS_BUTTON    = { 485, 117, BUTTON.x, BUTTON.y };
     }
 
     namespace Reverb
     {
-        const juce::Rectangle<int> DRY_KNOB = { 112, 42, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> WET_KNOB = { 244, 42, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> SIZE_KNOB = { 368, 42, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> PRE_DELAY_KNOB = { 50, 116, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> DIFFUSION_KNOB = { 178, 116, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> DAMP_KNOB = { 304, 116, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> DECAY_KNOB = { 438, 116, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> DRY_KNOB = { 118, 41, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> WET_KNOB = { 260, 41, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> SIZE_KNOB = { 402, 41, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> PRE_DELAY_KNOB = { 47, 130, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> DIFFUSION_KNOB = { 189, 130, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> DAMP_KNOB = { 330, 130, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> DECAY_KNOB = { 475, 130, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
     }
 
     namespace Delay
     {
-        const juce::Rectangle<int> DRY_KNOB = { 32, 36, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> CENTER_VOL_KNOB = { 136, 36, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> SIDE_VOL_KNOB = { 236, 36, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> HP_KNOB = { 340, 36, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> LP_KNOB = { 442, 36, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> LEFT_KNOB = { 32, 138, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> CENTER_KNOB = { 132, 138, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> RIGHT_KNOB = { 236, 136, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> WOW_KNOB = { 336, 140, KNOB_MEDIUM.x, KNOB_MEDIUM.y }; // Extra, lo centramos abajo
-        const juce::Rectangle<int> FEEDBACK_KNOB = { 440, 138, KNOB_MEDIUM.x, KNOB_MEDIUM.y }; // Extra, lo centramos abajo
+        const juce::Rectangle<int> DRY_KNOB = { 31, 49, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> CENTER_VOL_KNOB = { 141, 49, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> SIDE_VOL_KNOB = { 254, 49, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> HP_KNOB = { 366, 49, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> LP_KNOB = { 479, 49, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> LEFT_KNOB = { 32, 172, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> CENTER_KNOB = { 141, 172, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> RIGHT_KNOB = { 256, 172, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> WOW_KNOB = { 366, 172, KNOB_MEDIUM.x, KNOB_MEDIUM.y }; // Extra, lo centramos abajo
+        const juce::Rectangle<int> FEEDBACK_KNOB = { 479, 172, KNOB_MEDIUM.x, KNOB_MEDIUM.y }; // Extra, lo centramos abajo
     }
 
     namespace Oscillator
     {
         // Layout para los 3 osciladores, es el mismo
-        const juce::Rectangle<int> WAVE_SELECT = { 40, 50, 337, 42 };
-        const juce::Rectangle<int> WAVE_DISPLAY = { 42, 125, 337, 150 };
-        const juce::Rectangle<int> OCT_KNOB = { 402, 40, KNOB_SMALL.x, KNOB_SMALL.y };
-        const juce::Rectangle<int> FINE_KNOB = { 462, 40, KNOB_SMALL.x, KNOB_SMALL.y };
-        const juce::Rectangle<int> PITCH_KNOB = { 521, 26, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> SPREAD_KNOB = { 420, 100, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> PAN_KNOB = { 521, 102, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> POSITION_KNOB = { 420, 194, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> GAIN_KNOB = { 521, 196, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> WAVE_SELECT = { 25, 65, 372, 55 };
+        const juce::Rectangle<int> WAVE_DISPLAY = { 36, 158, 360, 150 };
+        const juce::Rectangle<int> OCT_KNOB = { 465, 44, KNOB_SMALL.x, KNOB_SMALL.y };
+        const juce::Rectangle<int> FINE_KNOB = { 532, 44, KNOB_SMALL.x, KNOB_SMALL.y };
+        const juce::Rectangle<int> PITCH_KNOB = { 595, 30, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> SPREAD_KNOB = { 486, 116, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> PAN_KNOB = { 595, 119, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> POSITION_KNOB = { 486, 235, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> GAIN_KNOB = { 594, 236, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
     }
 
     namespace Filter
     {
         // Coordenadas relativas a la sección FILTER
-        const juce::Rectangle<int> CUTOFF_KNOB = { 25, 8, KNOB_LARGE.x, KNOB_LARGE.y };
-        const juce::Rectangle<int> RES_KNOB    = { 180, 8, KNOB_LARGE.x, KNOB_LARGE.y };
-        const juce::Rectangle<int> ENV_KNOB    = { 338, 8, KNOB_LARGE.x, KNOB_LARGE.y };
-        const juce::Rectangle<int> KEY_BUTTON  = { 206, 170, BUTTON.x, BUTTON.y };
+        const juce::Rectangle<int> CUTOFF_KNOB = { 37, 27, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<int> RES_KNOB    = { 199, 27, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<int> ENV_KNOB    = { 366, 27, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<int> KEY_BUTTON  = { 210, 212, BUTTON.x, BUTTON.y };
     }
 
     namespace LFO_FM
     {
-        const juce::Rectangle<int> LFO_SPEED_KNOB = { 29, 26, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> LFO_AMOUNT_KNOB = { 152, 26, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> FM_KNOB = { 328, 4, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<int> LFO_SPEED_KNOB = { 37, 22, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<int> LFO_AMOUNT_KNOB = { 201, 22, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<int> FM_KNOB = { 366, 22, KNOB_LARGE.x, KNOB_LARGE.y };
     }
 
     namespace Envelope
     {
-        const juce::Rectangle<int> DISPLAY = { 23, 29, 430, 200 };
-        const juce::Rectangle<int> ATTACK_KNOB = { 72, 222, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> DECAY_KNOB = { 158, 222, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> SUSTAIN_KNOB = { 244, 222, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<int> RELEASE_KNOB = { 332, 222, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> DISPLAY = { 44, 20, 430, 167 };
+        const juce::Rectangle<int> ATTACK_KNOB = { 48, 190, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> DECAY_KNOB = { 158, 190, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> SUSTAIN_KNOB = { 269, 190, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<int> RELEASE_KNOB = { 379, 190, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
     }
 
     namespace Unison
     {
         // Coordenadas relativas al área del Unison
-        const juce::Rectangle<int> VOICES_SLIDER = { 10, 90, 50, 40 };
-        const juce::Rectangle<int> BALANCE_SLIDER = { 70, 90,  65, 40 };
-        const juce::Rectangle<int> DETUNE_SLIDER = { 148, 90,  74, 40 };
-        const juce::Rectangle<int> VISUALIZER = { 10, 150, 210, 120 };
+        const juce::Rectangle<int> VOICES_SLIDER = { 29, 90, 50, 40 };
+        const juce::Rectangle<int> BALANCE_SLIDER = { 106, 90,  65, 40 };
+        const juce::Rectangle<int> DETUNE_SLIDER = { 190, 90,  74, 40 };
+        const juce::Rectangle<int> VISUALIZER = { 28, 160, 230, 150 };
     }
 }

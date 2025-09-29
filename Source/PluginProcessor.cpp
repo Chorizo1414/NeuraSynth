@@ -84,7 +84,7 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
             // Un valor más pequeño (ej. 0.0005f) da un glide más lento.
             const float glideCoefficient = 0.001f / (*pGlideSeconds + 0.001f);
             currentFrequency += (targetFrequency - currentFrequency) * glideCoefficient;
-            
+
             // Si estamos muy cerca, simplemente saltamos al final para evitar errores de precisión
             if (std::abs(targetFrequency - currentFrequency) < 0.01)
             {
@@ -184,34 +184,34 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         // --- NUEVA LÓGICA DE RENDER PARA OSCILADOR 1 CON UNISON ---
         const int numVoices = *pUnisonVoices1;
         float totalGainOsc1 = *oscGain1 / std::sqrt((float)numVoices); // Compensación de ganancia
-        
+
         for (int i = 0; i < numVoices; ++i)
         {
             // Calcular detune y pan para esta voz de unison
             float detuneCents = 0.0f;
             float pan = *panOsc1;
-            
+
             if (numVoices > 1)
-                {
+            {
                 // Mapear el índice de la voz a un rango de -1 a 1 (bipolar)
                 float bipolarSpread = juce::jmap((float)i, 0.0f, (float)numVoices - 1.0f, -1.0f, 1.0f);
-               
+
                 // El balance (-1 a 1) desplaza el centro del detune
                 float balance = *pUnisonBalance1;
                 float voicePosition = bipolarSpread + balance;
                 voicePosition = juce::jlimit(-1.0f, 1.0f, voicePosition - (bipolarSpread * balance));
-                
-                    // Detune: el máximo detune es de +/- 50 cents (un cuarto de tono)
-                    detuneCents = voicePosition * (*pUnisonDetune1) * 50.0f;
-                
-                    // Pan: esparce las voces en el campo estéreo
-                    pan = juce::jlimit(0.0f, 1.0f, *panOsc1 + voicePosition * (*spreadOsc1));
-                }
-            
+
+                // Detune: el máximo detune es de +/- 50 cents (un cuarto de tono)
+                detuneCents = voicePosition * (*pUnisonDetune1) * 50.0f;
+
+                // Pan: esparce las voces en el campo estéreo
+                pan = juce::jlimit(0.0f, 1.0f, *panOsc1 + voicePosition * (*spreadOsc1));
+            }
+
             double detuneFactor = std::pow(2.0, detuneCents / 1200.0);
             double modulatedFreq1 = (baseFreq1 * detuneFactor) + modulationDepth;
             double increment1 = (wt1 && modulatedFreq1 > 0) ? (modulatedFreq1 / getSampleRate()) * 2048.0 : 0.0;
-            
+
             auto osc1_out = getOscSample(wt1, *numFrames1, *wavePosition1, unisonVoices[i].readPosOsc1, increment1, totalGainOsc1, pan);
             finalLeft += osc1_out.first;
             finalRight += osc1_out.second;
@@ -252,15 +252,15 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
 
 NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       ), Thread("PythonMusicGenerationThread"),
-                          apvts(*this, nullptr, "PARAMETERS", createParameterLayout())
+    : AudioProcessor(BusesProperties()
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
+        .withInput("Input", juce::AudioChannelSet::stereo(), true)
+#endif
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+    ), Thread("PythonMusicGenerationThread"),
+    apvts(*this, nullptr, "PARAMETERS", createParameterLayout())
 #endif
 {
     // --- CORRECCIÓN AQUÍ ---
@@ -279,7 +279,7 @@ void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = 2; // Estéreo
-    
+
     // Preparamos nuestras cadenas de filtros con estas especificaciones
     leftTone.prepare(spec);
     rightTone.prepare(spec);
@@ -301,14 +301,14 @@ void NeuraSynthAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     preDelay.prepare(spec);
     leftReverbFilter.prepare(spec);
     rightReverbFilter.prepare(spec);
-    
+
     // Coeficientes iniciales para los filtros (sonido vintage)
     // Cortamos graves debajo de 200Hz y agudos por encima de 5000Hz
     leftReverbFilter.get<0>().coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 200.0f);
     rightReverbFilter.get<0>().coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 200.0f);
     leftReverbFilter.get<1>().coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 5000.0f);
     rightReverbFilter.get<1>().coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 5000.0f);
-    
+
     // Preparamos los componentes del Delay
     leftDelay.prepare(spec);
     centerDelay.prepare(spec);
@@ -420,11 +420,11 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // --- 4. PROCESADO DE DELAY MULTI-TAP ---
     juce::AudioBuffer<float> delayInputBuffer;
     delayInputBuffer.makeCopyOf(buffer);
-    auto * leftChannel = buffer.getWritePointer(0);
-    auto * rightChannel = buffer.getWritePointer(1);
-    auto * leftDelayInput = delayInputBuffer.getReadPointer(0);
-    auto * rightDelayInput = delayInputBuffer.getReadPointer(1);
-    
+    auto* leftChannel = buffer.getWritePointer(0);
+    auto* rightChannel = buffer.getWritePointer(1);
+    auto* leftDelayInput = delayInputBuffer.getReadPointer(0);
+    auto* rightDelayInput = delayInputBuffer.getReadPointer(1);
+
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
         // 1. Efecto "Wow" (modulación de tiempo)
@@ -435,32 +435,32 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         float totalTimeLeftMs = juce::jlimit(0.0f, maxDelayTimeMs, delayTimeLeftMs + wowEffect);
         float totalTimeCenterMs = juce::jlimit(0.0f, maxDelayTimeMs, delayTimeCenterMs + wowEffect);
         float totalTimeRightMs = juce::jlimit(0.0f, maxDelayTimeMs, delayTimeRightMs + wowEffect);
-        
+
         leftDelay.setDelay(totalTimeLeftMs * getSampleRate() / 1000.0f);
         centerDelay.setDelay(totalTimeCenterMs * getSampleRate() / 1000.0f);
         rightDelay.setDelay(totalTimeRightMs * getSampleRate() / 1000.0f);
-        
+
         // 2. Leer la salida de cada línea de delay
         float leftDelayed = leftDelay.popSample(0);
         float centerDelayed = centerDelay.popSample(0);
         float rightDelayed = rightDelay.popSample(1);
-        
+
         // 3. Crear la señal de feedback (mezcla mono de la entrada + la salida del delay)
         float inputMono = (leftDelayInput[sample] + rightDelayInput[sample]) * 0.5f;
         float delayedMono = (leftDelayed + centerDelayed + rightDelayed) * 0.33f;
         float feedbackSignal = inputMono + delayedMono * delayFeedback;
-        
+
         // 4. Filtrar la señal de feedback y enviarla de vuelta a las 3 líneas
         float filteredFeedback = rightFeedbackFilter.get<1>().processSample(rightFeedbackFilter.get<0>().processSample(feedbackSignal));
         leftDelay.pushSample(0, filteredFeedback);
         centerDelay.pushSample(0, filteredFeedback);
         rightDelay.pushSample(1, filteredFeedback);
-        
+
         // 5. Mezcla de salida final
         // La salida "Center" va a ambos canales. Las "Side" solo al suyo.
         float wetSignalLeft = (leftDelayed * delayGainSide) + (centerDelayed * delayGainCenter);
         float wetSignalRight = (rightDelayed * delayGainSide) + (centerDelayed * delayGainCenter);
-        
+
         leftChannel[sample] = leftDelayInput[sample] * delayDry + wetSignalLeft;
         rightChannel[sample] = rightDelayInput[sample] * delayDry + wetSignalRight;
     }
@@ -470,22 +470,22 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::AudioBuffer<float> wetBuffer;
     wetBuffer.makeCopyOf(buffer);
     juce::dsp::AudioBlock<float> wetBlock(wetBuffer);
-    
+
     // Procesamos el buffer "wet" con toda la cadena de reverb
     preDelay.process(juce::dsp::ProcessContextReplacing<float>(wetBlock));
     reverb.process(juce::dsp::ProcessContextReplacing<float>(wetBlock));
-    
+
     auto leftWetBlock = wetBlock.getSingleChannelBlock(0);
     auto rightWetBlock = wetBlock.getSingleChannelBlock(1);
     leftReverbFilter.process(juce::dsp::ProcessContextReplacing<float>(leftWetBlock));
     rightReverbFilter.process(juce::dsp::ProcessContextReplacing<float>(rightWetBlock));
-    
+
     // --- 6. MEZCLA DRY/WET Y MASTER GAIN ---
     // Aplicamos ganancia Dry al buffer original y Wet al procesado, y luego los sumamos.
     buffer.applyGain(reverbParams.dryLevel);
     buffer.addFrom(0, 0, wetBuffer, 0, 0, buffer.getNumSamples(), reverbParams.wetLevel);
     buffer.addFrom(1, 0, wetBuffer, 1, 0, buffer.getNumSamples(), reverbParams.wetLevel);
-    
+
     buffer.applyGain(masterGain);
 }
 
@@ -685,24 +685,80 @@ void NeuraSynthAudioProcessor::run()
     py::gil_scoped_acquire acquire;
 
     py::dict result = pythonManager->generateMusicData(promptParaGenerar);
-    
-        if (!result.is_none() && !result.empty())
-        {
-            
-                std::string estilo = result["estilo"].cast<std::string>();
-                std::string raiz = result["raiz"].cast<std::string>();
-                std::string modo = result["modo"].cast<std::string>();
-                
-                DBG("Python devolvio: Estilo=" << estilo << ", Tonalidad=" << raiz << " " << modo);
-        }
-            else
-            { 
-                DBG("La generacion desde Python fallo o no devolvio resultados."); 
-            }
+
+    if (!result.is_none() && !result.empty())
+    {
+
+        std::string estilo = result["estilo"].cast<std::string>();
+        std::string raiz = result["raiz"].cast<std::string>();
+        std::string modo = result["modo"].cast<std::string>();
+
+        DBG("Python devolvio: Estilo=" << estilo << ", Tonalidad=" << raiz << " " << modo);
+    }
+    else
+    {
+        DBG("La generacion desde Python fallo o no devolvio resultados.");
+    }
 
 }
 
-// ++ AÑADE ESTA FUNCIÓN COMPLETA AL FINAL DE TU ARCHIVO .CPP ++
+void NeuraSynthAudioProcessor::applyPatchFromPython(const py::dict& patchData) noexcept
+{
+    // Función auxiliar para obtener valores numéricos del diccionario de forma segura
+    auto getValue = [&](const char* key) -> std::optional<double> {
+        if (patchData.contains(key)) {
+            try { return patchData[key].cast<double>(); }
+            catch (const py::cast_error&) { return std::nullopt; }
+        }
+        return std::nullopt;
+        };
+
+    // Función auxiliar para obtener strings
+    auto getString = [&](const char* key) -> std::optional<std::string> {
+        if (patchData.contains(key)) {
+            try { return patchData[key].cast<std::string>(); }
+            catch (const py::cast_error&) { return std::nullopt; }
+        }
+        return std::nullopt;
+        };
+
+    // --- ENVOLVENTE (ADSR) ---
+    if (auto val = getValue("attack"))  setAttack(static_cast<float>(*val));
+    if (auto val = getValue("decay"))   setDecay(static_cast<float>(*val));
+    if (auto val = getValue("sustain")) setSustain(static_cast<float>(*val));
+    if (auto val = getValue("release")) setRelease(static_cast<float>(*val));
+
+    // --- OSCILADORES (Ganancia) ---
+    if (auto val = getValue("osc1_gain")) setOsc1Gain(static_cast<float>(*val));
+    if (auto val = getValue("osc2_gain")) setOsc2Gain(static_cast<float>(*val));
+    if (auto val = getValue("osc3_gain")) setOsc3Gain(static_cast<float>(*val));
+
+    // --- UNISON ---
+    if (auto val = getValue("osc1_unison_voices")) setOsc1UnisonVoices(static_cast<int>(*val));
+    if (auto val = getValue("osc1_unison_detune")) setOsc1UnisonDetune(static_cast<float>(*val));
+    if (auto val = getValue("osc1_unison_spread")) setOsc1Spread(static_cast<float>(*val));
+
+    // --- FILTRO, LFO & FM ---
+    if (auto val = getValue("filter_cutoff_hz")) filterCutoffHz = *val;
+    if (auto val = getValue("filter_q"))         filterQ = *val;
+    if (auto val = getValue("filter_env_amt"))   filterEnvAmt = *val;
+    if (auto val = getValue("lfo_speed_hz"))   lfoSpeedHz = static_cast<float>(*val);
+    if (auto val = getValue("lfo_amount"))     lfoAmount = static_cast<float>(*val);
+    if (auto val = getValue("fm_amount"))      fmAmount = static_cast<float>(*val);
+
+    // --- ACTUALIZACIÓN FINAL ---
+    updateAllVoices();
+
+    DBG("Patch de Python aplicado con exito al procesador.");
+
+    // ---> CAMBIOS AQUÍ: Usamos el operador '<<' que es más seguro <---
+    if (auto wtName = getString("osc1_wavetable"))
+        DBG("Python eligio para OSC1: " << *wtName);
+    if (auto wtName = getString("osc2_wavetable"))
+        DBG("Python eligio para OSC2: " << *wtName);
+    if (auto wtName = getString("osc3_wavetable"))
+        DBG("Python eligio para OSC3: " << *wtName);
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout NeuraSynthAudioProcessor::createParameterLayout()
 {
@@ -717,4 +773,3 @@ juce::AudioProcessorValueTreeState::ParameterLayout NeuraSynthAudioProcessor::cr
 
     return { params.begin(), params.end() };
 }
-

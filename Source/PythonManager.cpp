@@ -230,3 +230,26 @@ void PythonManager::dislike()
         DBG("Python Error en dislike(): " << e.what());
     }
 }
+
+py::dict PythonManager::generateSynthSound(const juce::String& prompt)
+{
+    py::dict result;
+    if (!neuraChordApi) {
+        DBG("ERROR: Modulo neurachord_api no cargado.");
+        result["error"] = "Modulo neurachord_api no cargado.";
+        return result;
+    }
+
+    try {
+        py::gil_scoped_acquire acquire;
+        // Llamamos a la nueva función 'generar_sonido' de nuestro script Python
+        result = neuraChordApi.attr("generar_sonido")(prompt.toStdString());
+    }
+    catch (const py::error_already_set& e) {
+        DBG("Error de Python en generateSynthSound: " << e.what());
+        py::dict errorDict;
+        errorDict["error"] = juce::String("Error de Python en generateSynthSound: ") + e.what();
+        return errorDict;
+    }
+    return result;
+}

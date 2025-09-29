@@ -36,7 +36,7 @@ public:
         int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, int* unisonVoices1, float* unisonDetune1, float* unisonBalance1,
         int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
         int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
-        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr, 
+        double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr,
         float* glideSecondsPtr, double sr);
 
     bool canPlaySound(juce::SynthesiserSound* sound) override
@@ -50,7 +50,7 @@ public:
 
         // Ya no asignamos 'frequency' directamente, ahora es nuestro objetivo
         targetFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
-        
+
         // Si el glide está desactivado o es la primera nota, empezamos en el tono final
         if (*pGlideSeconds <= 0.0f || lastNoteFrequency == 0.0)
         {
@@ -174,7 +174,7 @@ private:
 // 3. CLASE PRINCIPAL DEL PROCESADOR: Ahora gestiona el sintetizador polifónico.
 // ==============================================================================
 class NeuraSynthAudioProcessor : public juce::AudioProcessor,
-                                 public juce::Thread
+    public juce::Thread
 {
 public:
     NeuraSynthAudioProcessor();
@@ -183,7 +183,7 @@ public:
     void startPlaybackWithSequence(const juce::MidiBuffer& midiSequence);
     void stopPlayback();
     bool isPlayingSequence() const;
-    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
@@ -202,6 +202,8 @@ public:
     void changeProgramName(int index, const juce::String& newName) override;
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
+
+    void applyPatchFromPython(const py::dict& patchData) noexcept;
 
     // --- Funciones para actualizar parámetros desde el Editor ---
     void updateADSR();
@@ -306,7 +308,7 @@ public:
     juce::MidiKeyboardState keyboardState;
 
     void startGeneration(const juce::String& prompt);
-    void run() override; 
+    void run() override;
 
     void addMidiMessageToQueue(const juce::MidiMessage& msg);
     juce::AudioProcessorValueTreeState apvts;
@@ -377,13 +379,13 @@ private:
     // Tendremos un filtro Low-Shelf (Dark) y un High-Shelf (Bright).
     using Filter = juce::dsp::IIR::Filter<float>;
     using FilterChain = juce::dsp::ProcessorChain<Filter, Filter>;
-    
+
     // Necesitamos una cadena para cada canal (estéreo)
     FilterChain leftTone, rightTone;
 
     // Objeto para el efecto de Chorus
     juce::dsp::Chorus<float> chorus;
-    
+
     // Objeto para el efecto de Reverb
     juce::dsp::Reverb reverb;
     juce::Reverb::Parameters reverbParams;
@@ -391,7 +393,7 @@ private:
     // --- Componentes para una Reverb "Vintage" ---
     // Delay para el Pre-Delay
     juce::dsp::DelayLine<float> preDelay{ 24000 }; // Max 500ms a 48kHz
-    
+
     // Filtros para colorear la cola de la reverb
     using ReverbFilter = juce::dsp::IIR::Filter<float>;
     using ReverbFilterChain = juce::dsp::ProcessorChain<ReverbFilter, ReverbFilter>;
@@ -405,7 +407,7 @@ private:
     using DelayFilterChain = juce::dsp::ProcessorChain<DelayFilter, DelayFilter>;
     DelayFilterChain leftFeedbackFilter, rightFeedbackFilter;
     juce::dsp::Oscillator<float> lfo{ [](float x) { return std::sin(x); } }; // "Wow" LFO
-    
+
     // El 'spec' guarda información como la frecuencia de muestreo
     juce::dsp::ProcessSpec spec;
 

@@ -11,19 +11,20 @@ public:
     PythonManager();
     ~PythonManager();
 
-    // Ahora devuelve un diccionario py::dict con toda la info (acordes, ritmo, etc.)
+    // --- Funciones de NeuraChord ---
     py::dict generateMusicData(const juce::String& prompt, int numChords = -1);
-
-    // Nueva función para generar la melodía
     py::dict generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode, int bpm);
-
     juce::StringArray getAvailableGenres();
-
     juce::String exportChords(const py::dict& musicData, int bpm);
     juce::String exportMelody(const py::dict& musicData, int bpm);
     py::dict transposeMusic(const py::dict& musicData, int semitones);
     void like();
     void dislike();
+
+    // ---> AÑADE ESTA NUEVA LÍNEA <---
+    // --- Función del Generador de Sonido ---
+    py::dict generateSynthSound(const juce::String& prompt);
+
 private:
     py::module neuraChordApi;
 };

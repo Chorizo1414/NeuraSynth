@@ -13,7 +13,7 @@
 #include "FilterComponent.h"
 #include "EnvelopeComponent.h"
 
-class SynthTabComponent : public juce::Component
+class SynthTabComponent : public juce::Component, public juce::TextEditor::Listener
 {
 public:
     SynthTabComponent(NeuraSynthAudioProcessor& p);
@@ -21,6 +21,9 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+
+    // ---> AÑADE ESTA NUEVA DECLARACIÓN <---
+    void textEditorReturnKeyPressed(juce::TextEditor& editor) override;
 
 private:
     // Mantenemos la referencia al procesador de audio
@@ -145,7 +148,7 @@ private:
     DesignMouseListener designMouseListener;
 
 public:
-    bool designMode = true;
+    bool designMode = false;
     float scale = 1.0f;
     juce::Rectangle<float> scaledGuiArea;
 

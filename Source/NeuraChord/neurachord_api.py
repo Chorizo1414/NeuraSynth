@@ -3,6 +3,7 @@ import traceback
 import os
 from music21 import stream, note, chord, instrument, tempo, midi
 from generador_acordes import transponer_progresion
+from sound_designer import generate_synth_patch
 
 # Definimos una ruta de exportación fija para el plugin
 RUTA_BASE_PLUGIN = os.path.dirname(os.path.abspath(__file__))
@@ -238,3 +239,28 @@ def puntuar_negativamente():
     print(">>> Python API: Recibida puntuación negativa.")
     puntuar_acordes_negativamente()
     return {"status": "ok"}
+
+#Generacion de sonido
+def generar_sonido(prompt: str):
+    """
+    Función principal para generar un patch de sintetizador desde JUCE.
+    """
+    try:
+        print(f">>> Python API: Recibido prompt de sonido: '{prompt}'")
+        
+        # Lógica simple de parsing: separamos el prompt por espacios o comas
+        tags = [tag.strip().lower() for tag in prompt.replace(",", " ").split()]
+        
+        patch = generate_synth_patch(tags)
+        
+        if "error" in patch:
+            print(f"!!! Python API Error: {patch['error']}")
+            return patch
+
+        print(f">>> Python API: Patch generado con éxito: {patch}")
+        return patch
+
+    except Exception as e:
+        error_message = f"Error en generar_sonido: {str(e)}"
+        print(error_message)
+        return {"error": error_message}
