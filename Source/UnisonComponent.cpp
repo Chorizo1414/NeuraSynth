@@ -130,3 +130,18 @@ void UnisonComponent::resized()
     scaleAndSet(detuneControl,  LayoutConstants::Unison::DETUNE_SLIDER);
     scaleAndSet(visualizer,     LayoutConstants::Unison::VISUALIZER);
 }
+
+void UnisonComponent::setVoices(int voices)
+{
+    voicesControl.setValue(juce::jlimit(1, 16, voices));
+}
+
+void UnisonComponent::setDetune(float normalizedAmount)
+{
+    detuneControl.setValue(juce::jlimit(0.0f, 1.0f, normalizedAmount) * 100.0f);
+}
+
+void UnisonComponent::setBalance(float balance)
+{
+    balanceControl.setValue(juce::jlimit(-1.0f, 1.0f, balance));
+}

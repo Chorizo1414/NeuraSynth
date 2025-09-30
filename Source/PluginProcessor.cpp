@@ -831,9 +831,11 @@ void NeuraSynthAudioProcessor::applyPatchFromPython(const py::dict& patchData) n
        if (patchData.contains("osc1_wavetable"))
         DBG("Python eligio para OSC1: " << patchData["osc1_wavetable"].cast<std::string>());
    if (patchData.contains("osc2_wavetable"))
-        DBG("Python eligio para OSC2: " << patchData["osc2_wavetable"].cast<std::string>());
+       DBG("Python eligio para OSC2: " << patchData["osc2_wavetable"].cast<std::string>());
    if (patchData.contains("osc3_wavetable"))
-        DBG("Python eligio para OSC3: " << patchData["osc3_wavetable"].cast<std::string>());
+       DBG("Python eligio para OSC3: " << patchData["osc3_wavetable"].cast<std::string>());
+
+   updateAllVoices();
 }
 
 

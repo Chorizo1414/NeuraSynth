@@ -387,8 +387,67 @@ void SynthTabComponent::textEditorReturnKeyPressed(juce::TextEditor& editor)
             else
             {
                 DBG("Patch generado con éxito desde Python!");
+                applyPatchFromPython(patchData);
                 audioProcessor.applyPatchFromPython(patchData);
             }
         }
     }
+}
+
+void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
+{
+    auto applyFloat = [&](const char* key, auto&& fn)
+        {
+            if (patchData.contains(key))
+                fn(patchData[key].cast<float>());
+        };
+
+    auto applyKnob = [&](CustomKnob& knob, const char* key)
+        {
+            applyFloat(key, [&](float value) { knob.setValue(value, juce::sendNotificationSync); });
+        };
+
+    applyFloat("attack", [&](float value) { envelopeSection.setAttackValue(value); });
+    applyFloat("decay", [&](float value) { envelopeSection.setDecayValue(value); });
+    applyFloat("sustain", [&](float value) { envelopeSection.setSustainValue(value); });
+    applyFloat("release", [&](float value) { envelopeSection.setReleaseValue(value); });
+
+    applyKnob(osc1.gainKnob, "osc1_gain");
+    applyKnob(osc2.gainKnob, "osc2_gain");
+    applyKnob(osc3.gainKnob, "osc3_gain");
+
+    if (patchData.contains("osc1_unison_voices"))
+        unisonComp1.setVoices(patchData["osc1_unison_voices"].cast<int>());
+
+    applyFloat("osc1_unison_detune", [&](float value) { unisonComp1.setDetune(value); });
+    applyFloat("osc1_unison_balance", [&](float value) { unisonComp1.setBalance(value); });
+    applyFloat("osc1_unison_spread", [&](float value) { osc1.spreadKnob.setValue(value, juce::sendNotificationSync); });
+
+    applyFloat("filter_cutoff_hz", [&](float value) { filterSection.setCutoffValue(value); });
+    applyFloat("filter_q", [&](float value) { filterSection.setResonanceValue(value); });
+    applyFloat("filter_env_amt", [&](float value) { filterSection.setEnvAmountValue(value); });
+
+    if (patchData.contains("filter_keytrack"))
+        filterSection.setKeyTrackEnabled(patchData["filter_keytrack"].cast<bool>());
+
+    applyFloat("fm_amount", [&](float value) { modulationComp.setFmAmountValue(value); });
+    applyFloat("lfo_speed_hz", [&](float value) { modulationComp.setLfoSpeedValue(value); });
+    applyFloat("lfo_amount", [&](float value) { modulationComp.setLfoAmountValue(value); });
+
+    auto selectWave = [&](OscillatorComponent& osc, const char* key)
+        {
+            if (!patchData.contains(key))
+                return;
+
+            auto waveName = patchData[key].cast<std::string>();
+            if (waveName.empty() || waveName == "None")
+                return;
+
+            if (!osc.oscSection.selectWaveByFilename(waveName.c_str()))
+                DBG("No se encontró el wavetable solicitado: " << waveName);
+        };
+
+    selectWave(osc1, "osc1_wavetable");
+    selectWave(osc2, "osc2_wavetable");
+    selectWave(osc3, "osc3_wavetable");
 }

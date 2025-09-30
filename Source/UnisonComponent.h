@@ -18,6 +18,9 @@ public:
     std::function<void(float)> onDetuneChanged;
     std::function<void(float)> onBalanceChanged;
 
+    void setVoices(int voices);
+    void setDetune(float normalizedAmount);
+    void setBalance(float balance);
 
 private:
 

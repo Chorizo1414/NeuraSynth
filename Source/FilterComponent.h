@@ -14,6 +14,10 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void setCutoffValue(double hz);
+    void setResonanceValue(double q);
+    void setEnvAmountValue(double amount);
+    void setKeyTrackEnabled(bool enabled);
 
 private:
     NeuraSynthAudioProcessor& audioProcessor;

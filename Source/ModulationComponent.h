@@ -12,6 +12,9 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void setFmAmountValue(float amount);
+    void setLfoSpeedValue(float hz);
+    void setLfoAmountValue(float amount);
 
 private:
     NeuraSynthAudioProcessor& audioProcessor;

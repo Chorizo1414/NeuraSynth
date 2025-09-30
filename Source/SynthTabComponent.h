@@ -13,6 +13,8 @@
 #include "FilterComponent.h"
 #include "EnvelopeComponent.h"
 
+namespace pybind11 { class dict; }
+
 class SynthTabComponent : public juce::Component, public juce::TextEditor::Listener
 {
 public:
@@ -22,8 +24,8 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
-    // ---> AÑADE ESTA NUEVA DECLARACIÓN <---
     void textEditorReturnKeyPressed(juce::TextEditor& editor) override;
+    void applyPatchFromPython(const pybind11::dict& patchData);
 
 private:
     // Mantenemos la referencia al procesador de audio
@@ -50,6 +52,8 @@ private:
     DelayComponent delaySection;
     FilterComponent filterSection;
     EnvelopeComponent envelopeSection;
+
+    juce::File wavetableDirectory;
 
     juce::TextEditor soundPromptEditor;
     juce::Label soundPromptLabel;

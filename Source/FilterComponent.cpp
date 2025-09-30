@@ -84,3 +84,23 @@ auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& design
     scaleAndSet(filterEnvKnob, LayoutConstants::Filter::ENV_KNOB);
     scaleAndSet(keyButton, LayoutConstants::Filter::KEY_BUTTON);
 }
+
+void FilterComponent::setCutoffValue(double hz)
+{
+    filterCutoffKnob.setValue(hz, juce::sendNotificationSync);
+}
+
+void FilterComponent::setResonanceValue(double q)
+{
+    filterResonanceKnob.setValue(q, juce::sendNotificationSync);
+}
+
+void FilterComponent::setEnvAmountValue(double amount)
+{
+    filterEnvKnob.setValue(amount, juce::sendNotificationSync);
+}
+
+void FilterComponent::setKeyTrackEnabled(bool enabled)
+{
+    keyButton.setToggleState(enabled, juce::sendNotificationSync);
+}

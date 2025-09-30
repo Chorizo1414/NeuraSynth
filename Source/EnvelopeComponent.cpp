@@ -72,3 +72,23 @@ void EnvelopeComponent::resized()
     scaleAndSet(sustainKnob, LayoutConstants::Envelope::SUSTAIN_KNOB);
     scaleAndSet(releaseKnob, LayoutConstants::Envelope::RELEASE_KNOB);
 }
+
+void EnvelopeComponent::setAttackValue(float value)
+{
+	attackKnob.setValue(value, juce::sendNotificationSync);
+}
+
+void EnvelopeComponent::setDecayValue(float value)
+{
+	decayKnob.setValue(value, juce::sendNotificationSync);
+}
+
+void EnvelopeComponent::setSustainValue(float value)
+{
+	sustainKnob.setValue(value, juce::sendNotificationSync);
+}
+
+void EnvelopeComponent::setReleaseValue(float value)
+{
+	releaseKnob.setValue(value, juce::sendNotificationSync);
+}

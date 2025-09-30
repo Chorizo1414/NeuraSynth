@@ -66,3 +66,18 @@ void ModulationComponent::resized()
     scaleAndSet(lfoAmountKnob, LayoutConstants::LFO_FM::LFO_AMOUNT_KNOB);
     scaleAndSet(fmKnob, LayoutConstants::LFO_FM::FM_KNOB);
 }
+
+void ModulationComponent::setFmAmountValue(float amount)
+{
+    fmKnob.setValue(amount, juce::sendNotificationSync);
+}
+
+void ModulationComponent::setLfoSpeedValue(float hz)
+{
+    lfoSpeedKnob.setValue(hz, juce::sendNotificationSync);
+}
+
+void ModulationComponent::setLfoAmountValue(float amount)
+{
+    lfoAmountKnob.setValue(amount, juce::sendNotificationSync);
+}

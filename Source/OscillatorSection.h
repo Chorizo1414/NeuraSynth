@@ -44,6 +44,23 @@ public:
         waveSelector.setBounds(getLocalBounds());
     }
 
+    bool selectWaveByFilename(const juce::String& fileNameWithExtension,
+        juce::NotificationType notificationType = juce::sendNotificationSync)
+    {
+        for (size_t i = 0; i < waveFiles.size(); ++i)
+        {
+            const auto& file = waveFiles[i];
+            if (file.getFileName().equalsIgnoreCase(fileNameWithExtension)
+                || file.getFileNameWithoutExtension().equalsIgnoreCase(fileNameWithExtension))
+            {
+                waveSelector.setSelectedItemIndex((int)i, notificationType);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 private:
     juce::ComboBox waveSelector;
     std::vector<juce::File> waveFiles;
