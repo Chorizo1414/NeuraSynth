@@ -205,7 +205,7 @@ ARCHETYPES = {
             "osc3_gain": float_range(0.0, 0.2, limits=(0.0, 1.0)),
 
             "osc1_unison_voices": int_range(3, 6, limits=(1, 16)),
-            "osc1_unison_detune": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+            "osc1_unison_detune": float_range(0.15, 0.35, limits=(0.0, 1.0)),
             "osc1_unison_spread": float_range(0.6, 1.3, limits=(0.0, 2.5)),
 
             "filter_cutoff_hz": float_range(2000.0, 16000.0, limits=(20.0, 20000.0)),
@@ -249,7 +249,7 @@ ARCHETYPES = {
             "attack": float_range(0.8, 3.0, limits=(0.0, 5.0)),
             "decay": float_range(1.5, 3.5, limits=(0.0, 5.0)),
             "sustain": float_range(0.7, 0.9, limits=(0.0, 1.0)),
-            "release": float_range(2.0, 6.0, limits=(0.0, 5.0)),
+            "release": float_range(2.0, 5.0, limits=(0.0, 5.0)),
 
             "osc1_gain": float_range(0.6, 0.85, limits=(0.0, 1.0)),
             "osc2_gain": float_range(0.5, 0.8, limits=(0.0, 1.0)),
@@ -398,8 +398,441 @@ ARCHETYPES = {
             "osc3": ["triangle.wav", "senHarmonic.wav"],
         },
     },
+    "keys": {
+        "params": {
+            "master_gain": float_range(0.55, 0.8, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.3, 0.6, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.45),
+
+            "attack": float_range(0.03, 0.15, limits=(0.0, 5.0)),
+            "decay": float_range(0.4, 1.0, limits=(0.0, 5.0)),
+            "sustain": float_range(0.25, 0.55, limits=(0.0, 1.0)),
+            "release": float_range(0.35, 0.9, limits=(0.0, 5.0)),
+
+            "osc1_gain": float_range(0.65, 0.9, limits=(0.0, 1.0)),
+            "osc2_gain": float_range(0.45, 0.75, limits=(0.0, 1.0)),
+            "osc3_gain": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+
+            "osc1_unison_voices": int_range(2, 3, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.08, 0.2, limits=(0.0, 1.0)),
+            "osc1_unison_spread": float_range(0.4, 1.0, limits=(0.0, 2.5)),
+
+            "filter_cutoff_hz": float_range(900.0, 6000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.2, 0.5, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(0.1, 0.35, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.5),
+
+            "fm_amount": float_range(0.0, 0.25, limits=(-1.0, 1.0)),
+            "lfo_speed_hz": float_range(0.6, 2.0, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+
+            "reverb_dry_level": float_range(0.6, 0.85, limits=(0.0, 1.0)),
+            "reverb_wet_level": float_range(0.15, 0.3, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.45, 0.75, limits=(0.0, 1.0)),
+            "reverb_decay": float_range(0.45, 0.75, limits=(0.0, 1.0)),
+            "reverb_pre_delay": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+
+            "delay_dry_level": float_range(0.6, 0.85, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.15, 0.3, limits=(0.0, 1.0)),
+            "delay_side_level": float_range(0.1, 0.25, limits=(0.0, 1.0)),
+            "delay_hp_freq": float_range(0.05, 0.3, limits=(0.0, 1.0)),
+            "delay_lp_freq": float_range(0.6, 0.9, limits=(0.0, 1.0)),
+            "delay_time_left": float_range(0.22, 0.55, limits=(0.0, 1.0)),
+            "delay_time_center": float_range(0.28, 0.6, limits=(0.0, 1.0)),
+            "delay_time_right": float_range(0.32, 0.65, limits=(0.0, 1.0)),
+            "delay_feedback": float_range(0.25, 0.45, limits=(0.0, 0.98)),
+            "delay_wow_depth": float_range(0.1, 0.3, limits=(0.0, 1.0)),
+        },
+        "wavetable_options": {
+            "osc1": ["sen.wav", "triangle.wav", "saw.wav"],
+            "osc2": ["sen.wav", "triangle.wav", "square.wav"],
+            "osc3": ["saw.wav", "senHarmonic.wav", "triangle.wav"],
+        },
+    },
+    "poly_synth": {
+        "params": {
+            "master_gain": float_range(0.55, 0.8, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.05, 0.3, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.2, 0.5, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.35, 0.65, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.55),
+
+            "attack": float_range(0.1, 0.45, limits=(0.0, 5.0)),
+            "decay": float_range(0.35, 1.1, limits=(0.0, 5.0)),
+            "sustain": float_range(0.4, 0.7, limits=(0.0, 1.0)),
+            "release": float_range(0.45, 1.2, limits=(0.0, 5.0)),
+
+            "osc1_gain": float_range(0.7, 0.95, limits=(0.0, 1.0)),
+            "osc2_gain": float_range(0.5, 0.8, limits=(0.0, 1.0)),
+            "osc3_gain": float_range(0.35, 0.65, limits=(0.0, 1.0)),
+
+            "osc1_unison_voices": int_range(4, 6, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.12, 0.28, limits=(0.0, 1.0)),
+            "osc1_unison_spread": float_range(0.7, 1.6, limits=(0.0, 2.5)),
+
+            "filter_cutoff_hz": float_range(600.0, 8000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.2, 0.55, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(0.15, 0.45, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.55),
+
+            "fm_amount": float_range(-0.15, 0.3, limits=(-1.0, 1.0)),
+            "lfo_speed_hz": float_range(0.3, 1.5, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+
+            "reverb_dry_level": float_range(0.55, 0.8, limits=(0.0, 1.0)),
+            "reverb_wet_level": float_range(0.18, 0.35, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.5, 0.8, limits=(0.0, 1.0)),
+            "reverb_decay": float_range(0.5, 0.85, limits=(0.0, 1.0)),
+            "reverb_pre_delay": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+            "reverb_diffusion": float_range(0.55, 0.85, limits=(0.0, 1.0)),
+
+            "delay_dry_level": float_range(0.55, 0.85, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.2, 0.35, limits=(0.0, 1.0)),
+            "delay_side_level": float_range(0.15, 0.3, limits=(0.0, 1.0)),
+            "delay_hp_freq": float_range(0.05, 0.3, limits=(0.0, 1.0)),
+            "delay_lp_freq": float_range(0.6, 0.95, limits=(0.0, 1.0)),
+            "delay_time_left": float_range(0.25, 0.6, limits=(0.0, 1.0)),
+            "delay_time_center": float_range(0.3, 0.65, limits=(0.0, 1.0)),
+            "delay_time_right": float_range(0.35, 0.7, limits=(0.0, 1.0)),
+            "delay_feedback": float_range(0.3, 0.55, limits=(0.0, 0.98)),
+            "delay_wow_depth": float_range(0.15, 0.4, limits=(0.0, 1.0)),
+        },
+        "wavetable_options": {
+            "osc1": ["saw.wav", "square.wav", "triangle.wav"],
+            "osc2": ["saw.wav", "triangle.wav", "pulse.wav"],
+            "osc3": ["triangle.wav", "sen.wav", "senHarmonic.wav"],
+        },
+    },
+    "string_brass": {
+        "params": {
+            "master_gain": float_range(0.55, 0.78, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.25, 0.55, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.35, 0.7, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.65),
+
+            "attack": float_range(0.25, 1.1, limits=(0.0, 5.0)),
+            "decay": float_range(0.6, 1.6, limits=(0.0, 5.0)),
+            "sustain": float_range(0.55, 0.85, limits=(0.0, 1.0)),
+            "release": float_range(0.8, 1.8, limits=(0.0, 5.0)),
+
+            "osc1_gain": float_range(0.75, 0.95, limits=(0.0, 1.0)),
+            "osc2_gain": float_range(0.55, 0.85, limits=(0.0, 1.0)),
+            "osc3_gain": float_range(0.25, 0.55, limits=(0.0, 1.0)),
+
+            "osc1_unison_voices": int_range(5, 7, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.12, 0.26, limits=(0.0, 1.0)),
+            "osc1_unison_spread": float_range(0.9, 1.8, limits=(0.0, 2.5)),
+
+            "filter_cutoff_hz": float_range(800.0, 5000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.25, 0.55, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(0.2, 0.5, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.6),
+
+            "fm_amount": float_range(-0.1, 0.25, limits=(-1.0, 1.0)),
+            "lfo_speed_hz": float_range(0.3, 1.2, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+
+            "reverb_dry_level": float_range(0.55, 0.8, limits=(0.0, 1.0)),
+            "reverb_wet_level": float_range(0.25, 0.45, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.55, 0.85, limits=(0.0, 1.0)),
+            "reverb_decay": float_range(0.6, 0.9, limits=(0.0, 1.0)),
+            "reverb_pre_delay": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+            "reverb_diffusion": float_range(0.6, 0.9, limits=(0.0, 1.0)),
+
+            "delay_dry_level": float_range(0.55, 0.8, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.2, 0.35, limits=(0.0, 1.0)),
+            "delay_side_level": float_range(0.15, 0.3, limits=(0.0, 1.0)),
+            "delay_hp_freq": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+            "delay_lp_freq": float_range(0.65, 0.95, limits=(0.0, 1.0)),
+            "delay_time_left": float_range(0.3, 0.65, limits=(0.0, 1.0)),
+            "delay_time_center": float_range(0.35, 0.7, limits=(0.0, 1.0)),
+            "delay_time_right": float_range(0.4, 0.75, limits=(0.0, 1.0)),
+            "delay_feedback": float_range(0.35, 0.6, limits=(0.0, 0.98)),
+            "delay_wow_depth": float_range(0.15, 0.35, limits=(0.0, 1.0)),
+        },
+        "wavetable_options": {
+            "osc1": ["saw.wav", "senHarmonic.wav"],
+            "osc2": ["saw.wav", "square.wav", "triangle.wav"],
+            "osc3": ["triangle.wav", "sen.wav"],
+        },
+    },
+    "kick": {
+        "params": {
+            "master_gain": float_range(0.75, 0.95, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.3, 0.7, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.4, 0.75, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.05),
+
+            "attack": float_range(0.0, 0.01, limits=(0.0, 5.0)),
+            "decay": float_range(0.08, 0.2, limits=(0.0, 5.0)),
+            "sustain": float_range(0.0, 0.05, limits=(0.0, 1.0)),
+            "release": float_range(0.15, 0.35, limits=(0.0, 5.0)),
+
+            "osc1_gain": float_range(0.85, 1.0, limits=(0.0, 1.0)),
+            "osc2_gain": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+            "osc3_gain": float_range(0.0, 0.2, limits=(0.0, 1.0)),
+
+            "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.02, 0.08, limits=(0.0, 1.0)),
+            "osc1_unison_spread": float_range(0.1, 0.35, limits=(0.0, 2.5)),
+
+            "filter_cutoff_hz": float_range(1000.0, 12000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.1, 0.35, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(0.1, 0.35, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.2),
+
+            "fm_amount": float_range(0.1, 0.45, limits=(-1.0, 1.0)),
+            "lfo_speed_hz": float_range(1.0, 4.0, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+
+            "reverb_dry_level": float_range(0.9, 1.0, limits=(0.0, 1.0)),
+            "reverb_wet_level": float_range(0.0, 0.1, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.2, 0.5, limits=(0.0, 1.0)),
+            "reverb_decay": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+
+            "delay_dry_level": float_range(0.9, 1.0, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.0, 0.1, limits=(0.0, 1.0)),
+            "delay_side_level": float_range(0.0, 0.1, limits=(0.0, 1.0)),
+            "delay_hp_freq": float_range(0.0, 0.1, limits=(0.0, 1.0)),
+            "delay_lp_freq": float_range(0.6, 0.95, limits=(0.0, 1.0)),
+            "delay_time_left": float_range(0.08, 0.2, limits=(0.0, 1.0)),
+            "delay_time_center": float_range(0.1, 0.25, limits=(0.0, 1.0)),
+            "delay_time_right": float_range(0.12, 0.3, limits=(0.0, 1.0)),
+            "delay_feedback": float_range(0.05, 0.2, limits=(0.0, 0.98)),
+            "delay_wow_depth": float_range(0.0, 0.1, limits=(0.0, 1.0)),
+        },
+        "wavetable_options": {
+            "osc1": ["sen.wav", "saw.wav"],
+            "osc2": ["square.wav", "pulse.wav"],
+            "osc3": ["whitenoise.wav"],
+        },
+    },
+    "snare": {
+        "params": {
+            "master_gain": float_range(0.7, 0.9, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.3, 0.7, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.15, 0.4, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.45, 0.8, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.2),
+
+            "attack": float_range(0.0, 0.01, limits=(0.0, 5.0)),
+            "decay": float_range(0.18, 0.45, limits=(0.0, 5.0)),
+            "sustain": float_range(0.0, 0.15, limits=(0.0, 1.0)),
+            "release": float_range(0.25, 0.6, limits=(0.0, 5.0)),
+
+            "osc1_gain": float_range(0.55, 0.8, limits=(0.0, 1.0)),
+            "osc2_gain": float_range(0.3, 0.6, limits=(0.0, 1.0)),
+            "osc3_gain": float_range(0.5, 0.9, limits=(0.0, 1.0)),
+
+            "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.05, 0.15, limits=(0.0, 1.0)),
+            "osc1_unison_spread": float_range(0.2, 0.6, limits=(0.0, 2.5)),
+
+            "filter_cutoff_hz": float_range(1500.0, 8000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.35, 0.8, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(0.2, 0.6, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.35),
+
+            "fm_amount": float_range(0.0, 0.35, limits=(-1.0, 1.0)),
+            "lfo_speed_hz": float_range(2.0, 8.0, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+
+            "reverb_dry_level": float_range(0.75, 0.95, limits=(0.0, 1.0)),
+            "reverb_wet_level": float_range(0.1, 0.28, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.3, 0.6, limits=(0.0, 1.0)),
+            "reverb_decay": float_range(0.35, 0.6, limits=(0.0, 1.0)),
+
+            "delay_dry_level": float_range(0.8, 1.0, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+            "delay_side_level": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+            "delay_hp_freq": float_range(0.2, 0.5, limits=(0.0, 1.0)),
+            "delay_lp_freq": float_range(0.5, 0.85, limits=(0.0, 1.0)),
+            "delay_time_left": float_range(0.12, 0.3, limits=(0.0, 1.0)),
+            "delay_time_center": float_range(0.15, 0.35, limits=(0.0, 1.0)),
+            "delay_time_right": float_range(0.18, 0.4, limits=(0.0, 1.0)),
+            "delay_feedback": float_range(0.1, 0.3, limits=(0.0, 0.98)),
+            "delay_wow_depth": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+        },
+        "wavetable_options": {
+            "osc1": ["square.wav", "saw.wav"],
+            "osc2": ["saw.wav", "triangle.wav"],
+            "osc3": ["whitenoise.wav"],
+        },
+    },
+    "hihat": {
+        "params": {
+            "master_gain": float_range(0.6, 0.85, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.25, 0.6, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.0, 0.25, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.55, 0.85, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.25),
+
+            "attack": float_range(0.0, 0.005, limits=(0.0, 5.0)),
+            "decay": float_range(0.03, 0.12, limits=(0.0, 5.0)),
+            "sustain": float_range(0.0, 0.05, limits=(0.0, 1.0)),
+            "release": float_range(0.05, 0.2, limits=(0.0, 5.0)),
+
+            "osc1_gain": float_range(0.4, 0.7, limits=(0.0, 1.0)),
+            "osc2_gain": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+            "osc3_gain": float_range(0.8, 1.0, limits=(0.0, 1.0)),
+
+            "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.05, 0.15, limits=(0.0, 1.0)),
+            "osc1_unison_spread": float_range(0.2, 0.6, limits=(0.0, 2.5)),
+
+            "filter_cutoff_hz": float_range(6000.0, 18000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.25, 0.55, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(0.0, 0.25, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.25),
+
+            "fm_amount": float_range(0.0, 0.25, limits=(-1.0, 1.0)),
+            "lfo_speed_hz": float_range(5.0, 18.0, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+
+            "reverb_dry_level": float_range(0.85, 1.0, limits=(0.0, 1.0)),
+            "reverb_wet_level": float_range(0.05, 0.18, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.2, 0.5, limits=(0.0, 1.0)),
+            "reverb_decay": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+
+            "delay_dry_level": float_range(0.85, 1.0, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.0, 0.12, limits=(0.0, 1.0)),
+            "delay_side_level": float_range(0.0, 0.12, limits=(0.0, 1.0)),
+            "delay_hp_freq": float_range(0.2, 0.6, limits=(0.0, 1.0)),
+            "delay_lp_freq": float_range(0.6, 1.0, limits=(0.0, 1.0)),
+            "delay_time_left": float_range(0.05, 0.18, limits=(0.0, 1.0)),
+            "delay_time_center": float_range(0.08, 0.2, limits=(0.0, 1.0)),
+            "delay_time_right": float_range(0.1, 0.25, limits=(0.0, 1.0)),
+            "delay_feedback": float_range(0.05, 0.18, limits=(0.0, 0.98)),
+            "delay_wow_depth": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+        },
+        "wavetable_options": {
+            "osc1": ["square.wav", "pulse.wav"],
+            "osc2": ["triangle.wav", "square.wav"],
+            "osc3": ["whitenoise.wav"],
+        },
+    },
+    "fx": {
+        "params": {
+            "master_gain": float_range(0.5, 0.8, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.1, 0.5, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.1, 0.5, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.3, 0.7, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.55),
+
+            "attack": float_range(0.15, 4.0, limits=(0.0, 5.0)),
+            "decay": float_range(0.4, 3.0, limits=(0.0, 5.0)),
+            "sustain": float_range(0.1, 0.7, limits=(0.0, 1.0)),
+            "release": float_range(0.3, 4.5, limits=(0.0, 5.0)),
+
+            "osc1_gain": float_range(0.5, 0.85, limits=(0.0, 1.0)),
+            "osc2_gain": float_range(0.3, 0.7, limits=(0.0, 1.0)),
+            "osc3_gain": float_range(0.2, 0.6, limits=(0.0, 1.0)),
+
+            "osc1_unison_voices": int_range(3, 6, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.15, 0.45, limits=(0.0, 1.0)),
+            "osc1_unison_spread": float_range(0.8, 2.0, limits=(0.0, 2.5)),
+
+            "filter_cutoff_hz": float_range(200.0, 18000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.2, 0.9, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(-0.6, 0.8, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.4),
+
+            "fm_amount": float_range(-0.5, 0.6, limits=(-1.0, 1.0)),
+            "lfo_speed_hz": float_range(0.1, 6.0, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0.2, 0.7, limits=(0.0, 1.0)),
+
+            "reverb_dry_level": float_range(0.45, 0.75, limits=(0.0, 1.0)),
+            "reverb_wet_level": float_range(0.3, 0.6, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.55, 0.95, limits=(0.0, 1.0)),
+            "reverb_decay": float_range(0.55, 0.95, limits=(0.0, 1.0)),
+            "reverb_pre_delay": float_range(0.05, 0.35, limits=(0.0, 1.0)),
+            "reverb_diffusion": float_range(0.55, 0.95, limits=(0.0, 1.0)),
+
+            "delay_dry_level": float_range(0.5, 0.8, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.25, 0.55, limits=(0.0, 1.0)),
+            "delay_side_level": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+            "delay_hp_freq": float_range(0.0, 0.4, limits=(0.0, 1.0)),
+            "delay_lp_freq": float_range(0.4, 1.0, limits=(0.0, 1.0)),
+            "delay_time_left": float_range(0.2, 0.75, limits=(0.0, 1.0)),
+            "delay_time_center": float_range(0.25, 0.8, limits=(0.0, 1.0)),
+            "delay_time_right": float_range(0.3, 0.85, limits=(0.0, 1.0)),
+            "delay_feedback": float_range(0.35, 0.7, limits=(0.0, 0.98)),
+            "delay_wow_depth": float_range(0.25, 0.6, limits=(0.0, 1.0)),
+        },
+        "wavetable_options": {
+            "osc1": ["saw.wav", "square.wav", "senHarmonic.wav"],
+            "osc2": ["pulse.wav", "triangle.wav", "whitenoise.wav"],
+            "osc3": ["whitenoise.wav", "sen.wav", "saw.wav"],
+        },
+    },
+    "bell": {
+        "params": {
+            "master_gain": float_range(0.55, 0.8, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.0, 0.25, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.45, 0.75, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.35),
+
+            "attack": float_range(0.0, 0.02, limits=(0.0, 5.0)),
+            "decay": float_range(0.35, 0.9, limits=(0.0, 5.0)),
+            "sustain": float_range(0.0, 0.2, limits=(0.0, 1.0)),
+            "release": float_range(0.6, 1.4, limits=(0.0, 5.0)),
+
+            "osc1_gain": float_range(0.6, 0.85, limits=(0.0, 1.0)),
+            "osc2_gain": float_range(0.45, 0.7, limits=(0.0, 1.0)),
+            "osc3_gain": float_range(0.25, 0.55, limits=(0.0, 1.0)),
+
+            "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.05, 0.15, limits=(0.0, 1.0)),
+            "osc1_unison_spread": float_range(0.3, 0.8, limits=(0.0, 2.5)),
+
+            "filter_cutoff_hz": float_range(2000.0, 12000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.25, 0.55, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(0.0, 0.25, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.45),
+
+            "fm_amount": float_range(0.25, 0.6, limits=(-1.0, 1.0)),
+            "lfo_speed_hz": float_range(0.4, 2.5, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+
+            "reverb_dry_level": float_range(0.5, 0.75, limits=(0.0, 1.0)),
+            "reverb_wet_level": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.5, 0.8, limits=(0.0, 1.0)),
+            "reverb_decay": float_range(0.5, 0.85, limits=(0.0, 1.0)),
+            "reverb_pre_delay": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+
+            "delay_dry_level": float_range(0.55, 0.85, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.2, 0.4, limits=(0.0, 1.0)),
+            "delay_side_level": float_range(0.15, 0.35, limits=(0.0, 1.0)),
+            "delay_hp_freq": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+            "delay_lp_freq": float_range(0.6, 0.95, limits=(0.0, 1.0)),
+            "delay_time_left": float_range(0.25, 0.6, limits=(0.0, 1.0)),
+            "delay_time_center": float_range(0.3, 0.65, limits=(0.0, 1.0)),
+            "delay_time_right": float_range(0.35, 0.7, limits=(0.0, 1.0)),
+            "delay_feedback": float_range(0.3, 0.55, limits=(0.0, 0.98)),
+            "delay_wow_depth": float_range(0.1, 0.3, limits=(0.0, 1.0)),
+        },
+        "wavetable_options": {
+            "osc1": ["sen.wav", "triangle.wav"],
+            "osc2": ["senHarmonic.wav", "triangle.wav"],
+            "osc3": ["sen.wav", "saw.wav"],
+        },
+    },
 }
 
+
+ARCHETYPES.update(
+    {
+        "string_synth": deepcopy(ARCHETYPES["string_brass"]),
+        "brass_synth": deepcopy(ARCHETYPES["string_brass"]),
+        "poly": deepcopy(ARCHETYPES["poly_synth"]),
+        "mallet": deepcopy(ARCHETYPES["bell"]),
+    }
+)
 
 # ==============================================================================
 # ==                           MODIFICADORES SEMÁNTICOS                       ==
@@ -492,6 +925,8 @@ def _generate_value(param: str, spec: Dict):
     raise ValueError(f"Tipo de especificación desconocido para '{param}': {spec}")
 
 
+
+
 def generate_synth_patch(tags: List[str]) -> Dict:
     archetype_name = None
     modifier_names: List[str] = []
@@ -505,13 +940,9 @@ def generate_synth_patch(tags: List[str]) -> Dict:
     if not archetype_name:
         return {"error": "No se encontró un arquetipo de sonido base (ej: lead, pad, bass)."}
 
-    # 1. Cargar la receta base del arquetipo
-    patch = ARCHETYPES[archetype_name]
-    final_params = {k: list(v) for k, v in patch["params"].items()} # Copiamos los rangos
     archetype = ARCHETYPES[archetype_name]
     specs = _merge_param_specs(DEFAULT_PARAM_SPECS, archetype.get("params", {}))
 
-    # 2. Aplicar los modificadores a los rangos
     for mod_name in modifier_names:
         _apply_modifier(specs, MODIFIERS[mod_name])
 
