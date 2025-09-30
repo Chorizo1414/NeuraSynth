@@ -134,6 +134,22 @@ DEFAULT_PARAM_SPECS: Dict[str, Dict] = {
     "osc2_gain": float_range(0.3, 0.7, limits=(0.0, 1.0)),
     "osc3_gain": float_range(0.1, 0.5, limits=(0.0, 1.0)),
 
+    # --- Oscillator tuning & panorama ---
+    "osc1_octave": int_range(-1, 1, limits=(-2, 2)),
+    "osc1_pitch": int_range(-7, 7, limits=(-12, 12)),
+    "osc1_fine": float_range(-20.0, 20.0, limits=(-50.0, 50.0)),
+    "osc1_pan": float_range(0.4, 0.6, limits=(0.0, 1.0)),
+
+    "osc2_octave": int_range(-2, 0, limits=(-2, 2)),
+    "osc2_pitch": int_range(-9, 9, limits=(-12, 12)),
+    "osc2_fine": float_range(-25.0, 25.0, limits=(-50.0, 50.0)),
+    "osc2_pan": float_range(0.2, 0.8, limits=(0.0, 1.0)),
+
+    "osc3_octave": int_range(-2, 2, limits=(-2, 2)),
+    "osc3_pitch": int_range(-12, 12, limits=(-12, 12)),
+    "osc3_fine": float_range(-30.0, 30.0, limits=(-50.0, 50.0)),
+    "osc3_pan": float_range(0.1, 0.9, limits=(0.0, 1.0)),
+
     # --- Unison (Osc1 siempre disponible, 2 y 3 opcionales) ---
     "osc1_unison_voices": int_range(2, 5, limits=(1, 16)),
     "osc1_unison_detune": float_range(0.08, 0.35, limits=(0.0, 1.0)),
@@ -156,8 +172,8 @@ DEFAULT_PARAM_SPECS: Dict[str, Dict] = {
 
     # --- Modulación ---
     "fm_amount": float_range(-0.25, 0.25, limits=(-1.0, 1.0)),
-    "lfo_speed_hz": float_range(0.3, 3.0, limits=(0.1, 30.0)),
-    "lfo_amount": float_range(0.05, 0.4, limits=(0.0, 1.0)),
+    "lfo_speed_hz": float_range(0.1, 1.6, limits=(0.0, 30.0)),
+    "lfo_amount": float_range(0.02, 0.2, limits=(0.0, 1.0)),
 
     # --- Reverb ---
     "reverb_dry_level": float_range(0.6, 0.85, limits=(0.0, 1.0)),
@@ -214,8 +230,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.3),
 
             "fm_amount": float_range(0.05, 0.35, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(1.5, 5.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.2, 1.4, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.03, 0.15, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.65, 0.85, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.08, 0.2, limits=(0.0, 1.0)),
@@ -265,8 +281,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.7),
 
             "fm_amount": float_range(-0.1, 0.1, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0, 1.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0, 0.6, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.0, 0.8, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.0, 0.15, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.5, 0.7, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.2, 0.4, limits=(0.0, 1.0)),
@@ -319,8 +335,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.2),
 
             "fm_amount": float_range(0.0, 0.4, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.5, 2.5, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.05, 0.3, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.1, 1.2, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.02, 0.12, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.85, 1.0, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.0, 0.12, limits=(0.0, 1.0)),
@@ -372,8 +388,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.4),
 
             "fm_amount": float_range(0.0, 0.3, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(1.0, 4.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.1, 1.2, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.02, 0.15, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.6, 0.85, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.1, 0.25, limits=(0.0, 1.0)),
@@ -425,8 +441,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.5),
 
             "fm_amount": float_range(0.0, 0.25, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.6, 2.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.1, 1.1, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.02, 0.12, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.6, 0.85, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.15, 0.3, limits=(0.0, 1.0)),
@@ -478,8 +494,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.55),
 
             "fm_amount": float_range(-0.15, 0.3, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.3, 1.5, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.1, 1.0, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.55, 0.8, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.18, 0.35, limits=(0.0, 1.0)),
@@ -532,8 +548,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.6),
 
             "fm_amount": float_range(-0.1, 0.25, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.3, 1.2, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.1, 0.9, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.55, 0.8, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.25, 0.45, limits=(0.0, 1.0)),
@@ -586,8 +602,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.2),
 
             "fm_amount": float_range(0.1, 0.45, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(1.0, 4.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.0, 1.0, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.0, 0.1, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.9, 1.0, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.0, 0.1, limits=(0.0, 1.0)),
@@ -638,8 +654,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.35),
 
             "fm_amount": float_range(0.0, 0.35, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(2.0, 8.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.2, 1.5, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.02, 0.15, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.75, 0.95, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.1, 0.28, limits=(0.0, 1.0)),
@@ -690,8 +706,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.25),
 
             "fm_amount": float_range(0.0, 0.25, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(5.0, 18.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.05, 0.25, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.5, 2.5, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.02, 0.15, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.85, 1.0, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.05, 0.18, limits=(0.0, 1.0)),
@@ -742,8 +758,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.4),
 
             "fm_amount": float_range(-0.5, 0.6, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.1, 6.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.2, 0.7, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.2, 4.5, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.1, 0.45, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.45, 0.75, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.3, 0.6, limits=(0.0, 1.0)),
@@ -796,8 +812,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.45),
 
             "fm_amount": float_range(0.25, 0.6, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.4, 2.5, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.05, 0.2, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0.1, 1.5, limits=(0.0, 30.0)),
+            "lfo_amount": float_range(0.02, 0.15, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.5, 0.75, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.2, 0.45, limits=(0.0, 1.0)),
@@ -950,6 +966,27 @@ def generate_synth_patch(tags: List[str]) -> Dict:
     for param, spec in specs.items():
         result[param] = _generate_value(param, spec)
 
+    if (
+        archetype_name != "fx"
+        and "lfo_amount" in result
+        and "lfo_speed_hz" in result
+    ):
+        if random.random() < 0.8:
+            result["lfo_amount"] = 0.0
+            result["lfo_speed_hz"] = 0.0
+        else:
+            subtle_amount_cap = random.uniform(0.02, 0.12)
+            result["lfo_amount"] = max(0.0, min(result["lfo_amount"], subtle_amount_cap))
+            if result["lfo_amount"] <= 0.0:
+                result["lfo_speed_hz"] = 0.0
+            else:
+                subtle_speed_cap = random.uniform(0.2, 1.5)
+                current_speed = result["lfo_speed_hz"]
+                if current_speed <= 0.0 or current_speed > subtle_speed_cap:
+                    result["lfo_speed_hz"] = subtle_speed_cap
+                else:
+                    result["lfo_speed_hz"] = current_speed
+                    
     # Alias para compatibilidad con el procesador en C++
     if "filter_cutoff_hz" in result:
         result["filter_cutoff"] = result["filter_cutoff_hz"]
