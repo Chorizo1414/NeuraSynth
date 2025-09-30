@@ -9,6 +9,20 @@
 #include <memory>
 #include "PythonManager.h"
 
+namespace WavetableHelper
+{
+    // Asegúrate de que estos nombres coincidan EXACTAMENTE con tus archivos .wav
+    const juce::StringArray wavetableNames = {
+        "saw.wav",
+        "square.wav",
+        "pulse.wav",
+        "triangle.wav",
+        "sen.wav",
+        "senHarmonic.wav",
+        "whitenoise.wav"
+    };
+}
+
 // ==============================================================================
 // 1. CLASE "SOUND": Simplemente le dice al sinte qué tipo de sonidos puede tocar.
 // ==============================================================================

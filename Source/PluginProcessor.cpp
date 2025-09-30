@@ -491,14 +491,48 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
 void NeuraSynthAudioProcessor::updateAllVoices()
 {
-    for (int i = 0; i < synth.getNumVoices(); ++i)
+    // 1. Leemos los valores del APVTS y los guardamos en las variables miembro del procesador.
+    // Usamos los nombres de variable correctos que están definidos en tu PluginProcessor.h
+       
+    // ADSR
+    adsrParams.attack = *apvts.getRawParameterValue("attack");
+    adsrParams.decay = *apvts.getRawParameterValue("decay");
+    adsrParams.sustain = *apvts.getRawParameterValue("sustain");
+    adsrParams.release = *apvts.getRawParameterValue("release");
+    
+    // OSC 1
+    osc1Gain = *apvts.getRawParameterValue("osc1_gain");
+    osc1UnisonVoices = *apvts.getRawParameterValue("osc1_unison_voices");
+    osc1UnisonDetune = *apvts.getRawParameterValue("osc1_unison_detune");
+    
+    // OSC 2
+    osc2Gain = *apvts.getRawParameterValue("osc2_gain");
+    
+    // OSC 3
+    osc3Gain = *apvts.getRawParameterValue("osc3_gain");
+    
+    // Filtro, Modulación y Master
+    filterCutoffHz = *apvts.getRawParameterValue("filter_cutoff");
+    filterQ = *apvts.getRawParameterValue("filter_q");
+    filterEnvAmt = *apvts.getRawParameterValue("filter_env_amt");
+    lfoSpeedHz = *apvts.getRawParameterValue("lfo_speed_hz");
+    lfoAmount = *apvts.getRawParameterValue("lfo_amount");
+    fmAmount = *apvts.getRawParameterValue("fm_amount");
+    
+        // 2. Pasamos punteros a estas variables a cada una de las voces del sintetizador.
+        // Esta llamada a setParameters AHORA SÍ coincide con la declaración en tu PluginProcessor.h
+        for (int i = 0; i < synth.getNumVoices(); ++i)
+        {
         if (auto* voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
+            {
             voice->setParameters(adsrParams,
-                &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1UnisonVoices, &osc1UnisonDetune, &osc1UnisonBalance,
-                &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
-                &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
-                &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount, &glideSeconds, getSampleRate()
-            );
+            &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1UnisonVoices, &osc1UnisonDetune, &osc1UnisonBalance,
+               &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
+               &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
+               &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount,
+               &glideSeconds, getSampleRate());
+           }
+        }
 }
 
 // Función auxiliar para calcular el desplazamiento de pitch total
@@ -704,72 +738,142 @@ void NeuraSynthAudioProcessor::run()
 
 void NeuraSynthAudioProcessor::applyPatchFromPython(const py::dict& patchData) noexcept
 {
-    // Función auxiliar para obtener valores numéricos del diccionario de forma segura
-    auto getValue = [&](const char* key) -> std::optional<double> {
-        if (patchData.contains(key)) {
-            try { return patchData[key].cast<double>(); }
-            catch (const py::cast_error&) { return std::nullopt; }
-        }
-        return std::nullopt;
+       // Helper lambda para actualizar un parámetro de tipo 'float' o 'int' de forma segura
+       auto updateNumericParam = [&](const std::string& paramName, const std::string& pythonKey)
+        {
+       if (patchData.contains(pythonKey))
+            {
+                       // 1. Obtenemos el valor de Python
+               float pyValue = patchData[pythonKey.c_str()].cast<float>();
+           
+                           // 2. Obtenemos el parámetro del APVTS por su ID
+               if (auto* param = apvts.getParameter(paramName))
+                {
+                               // 3. Obtenemos el rango del parámetro (ej: 0.0 a 5.0 para el attack)
+                   auto range = param->getNormalisableRange();
+               
+                                   // 4. Convertimos el valor de Python a su equivalente normalizado (0.0 a 1.0)
+                                   //    y lo asignamos usando setValueNotifyingHost.
+                                   //    Esta función es la clave, ya que notifica a la GUI del cambio.
+                   param->setValueNotifyingHost(range.convertTo0to1(pyValue));
+               }
+            }
         };
-
-    // Función auxiliar para obtener strings
-    auto getString = [&](const char* key) -> std::optional<std::string> {
-        if (patchData.contains(key)) {
-            try { return patchData[key].cast<std::string>(); }
-            catch (const py::cast_error&) { return std::nullopt; }
-        }
-        return std::nullopt;
+   
+          // Helper lambda para actualizar los ComboBox de Wavetable
+       auto updateWavetableParam = [&](const std::string& paramName, const std::string& pythonKey)
+        {
+       if (patchData.contains(pythonKey))
+            {
+           std::string wtName = patchData[pythonKey.c_str()].cast<std::string>();
+           
+                           // Si el nombre es "None", lo tratamos como el índice 0 (el primer wavetable de la lista)
+               if (wtName == "None" || wtName.empty())
+                {
+               if (auto* param = apvts.getParameter(paramName))
+                    {
+                   param->setValueNotifyingHost(0.0f); // 0.0f normalizado es siempre el primer item
+                   }
+                return;
+               }
+           
+                           // Buscamos el índice del nombre del wavetable en nuestro array global
+               int index = WavetableHelper::wavetableNames.indexOf(wtName);
+           
+               if (index != -1) // Si lo encontramos...
+                {
+              if (auto* param = apvts.getParameter(paramName))
+                    {
+                                        // El valor normalizado para un ComboBox (AudioParameterChoice)
+                                            // se calcula como: indice_del_item / (numero_total_de_items - 1)
+                       float normalizedValue = (float)index / (float)(WavetableHelper::wavetableNames.size() - 1);
+                   param->setValueNotifyingHost(normalizedValue);
+                   }
+                }
+            }
         };
-
-    // --- ENVOLVENTE (ADSR) ---
-    if (auto val = getValue("attack"))  setAttack(static_cast<float>(*val));
-    if (auto val = getValue("decay"))   setDecay(static_cast<float>(*val));
-    if (auto val = getValue("sustain")) setSustain(static_cast<float>(*val));
-    if (auto val = getValue("release")) setRelease(static_cast<float>(*val));
-
-    // --- OSCILADORES (Ganancia) ---
-    if (auto val = getValue("osc1_gain")) setOsc1Gain(static_cast<float>(*val));
-    if (auto val = getValue("osc2_gain")) setOsc2Gain(static_cast<float>(*val));
-    if (auto val = getValue("osc3_gain")) setOsc3Gain(static_cast<float>(*val));
-
-    // --- UNISON ---
-    if (auto val = getValue("osc1_unison_voices")) setOsc1UnisonVoices(static_cast<int>(*val));
-    if (auto val = getValue("osc1_unison_detune")) setOsc1UnisonDetune(static_cast<float>(*val));
-    if (auto val = getValue("osc1_unison_spread")) setOsc1Spread(static_cast<float>(*val));
-
-    // --- FILTRO, LFO & FM ---
-    if (auto val = getValue("filter_cutoff_hz")) filterCutoffHz = *val;
-    if (auto val = getValue("filter_q"))         filterQ = *val;
-    if (auto val = getValue("filter_env_amt"))   filterEnvAmt = *val;
-    if (auto val = getValue("lfo_speed_hz"))   lfoSpeedHz = static_cast<float>(*val);
-    if (auto val = getValue("lfo_amount"))     lfoAmount = static_cast<float>(*val);
-    if (auto val = getValue("fm_amount"))      fmAmount = static_cast<float>(*val);
-
-    // --- ACTUALIZACIÓN FINAL ---
-    updateAllVoices();
-
-    DBG("Patch de Python aplicado con exito al procesador.");
-
-    // ---> CAMBIOS AQUÍ: Usamos el operador '<<' que es más seguro <---
-    if (auto wtName = getString("osc1_wavetable"))
-        DBG("Python eligio para OSC1: " << *wtName);
-    if (auto wtName = getString("osc2_wavetable"))
-        DBG("Python eligio para OSC2: " << *wtName);
-    if (auto wtName = getString("osc3_wavetable"))
-        DBG("Python eligio para OSC3: " << *wtName);
+   
+           // --- ACTUALIZACIÓN DE PARÁMETROS ---
+           // Ahora, en lugar de asignar a las variables locales, usamos nuestros helpers
+           // para actualizar directamente el APVTS, que a su vez actualizará la GUI.
+       updateNumericParam("attack", "attack");
+   updateNumericParam("decay", "decay");
+   updateNumericParam("sustain", "sustain");
+   updateNumericParam("release", "release");
+   
+       updateNumericParam("osc1_gain", "osc1_gain");
+   updateNumericParam("osc2_gain", "osc2_gain");
+   updateNumericParam("osc3_gain", "osc3_gain");
+   
+       updateNumericParam("osc1_unison_voices", "osc1_unison_voices");
+   updateNumericParam("osc1_unison_detune", "osc1_unison_detune");
+   updateNumericParam("osc2_unison_voices", "osc2_unison_voices");
+   updateNumericParam("osc2_unison_detune", "osc2_unison_detune");
+   updateNumericParam("osc3_unison_voices", "osc3_unison_voices");
+   updateNumericParam("osc3_unison_detune", "osc3_unison_detune");
+   
+       updateNumericParam("filter_cutoff", "filter_cutoff");
+   updateNumericParam("filter_q", "filter_q");
+   updateNumericParam("filter_env_amt", "filter_env_amt");
+   
+       updateNumericParam("lfo_speed_hz", "lfo_speed_hz");
+   updateNumericParam("lfo_amount", "lfo_amount");
+   updateNumericParam("fm_amount", "fm_amount");
+   
+           // Actualizamos los wavetables usando el helper correspondiente
+     updateWavetableParam("osc1_wavetable", "osc1_wavetable");
+   updateWavetableParam("osc2_wavetable", "osc2_wavetable");
+   updateWavetableParam("osc3_wavetable", "osc3_wavetable");
+   
+       DBG("Patch de Python aplicado con exito al procesador y la GUI.");
+   
+           // Los mensajes de depuración siguen siendo útiles para verificar
+       if (patchData.contains("osc1_wavetable"))
+        DBG("Python eligio para OSC1: " << patchData["osc1_wavetable"].cast<std::string>());
+   if (patchData.contains("osc2_wavetable"))
+        DBG("Python eligio para OSC2: " << patchData["osc2_wavetable"].cast<std::string>());
+   if (patchData.contains("osc3_wavetable"))
+        DBG("Python eligio para OSC3: " << patchData["osc3_wavetable"].cast<std::string>());
 }
+
 
 juce::AudioProcessorValueTreeState::ParameterLayout NeuraSynthAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // AQUÍ ES DONDE NORMALMENTE SE AÑADEN TODOS LOS PARÁMETROS DEL SINTETIZADOR
-    // (knobs, sliders, etc.). 
-    // Por ahora, la dejaremos vacía para que el proyecto pueda compilar.
-    //
-    // Ejemplo de cómo añadirías un parámetro en el futuro:
-    // params.push_back(std::make_unique<juce::AudioParameterFloat>("GAIN", "Gain", 0.0f, 1.0f, 0.5f));
+    // --- ENVELOPE ---
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("attack", "Attack", 0.0f, 5.0f, 0.01f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("decay", "Decay", 0.0f, 5.0f, 0.2f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("sustain", "Sustain", 0.0f, 1.0f, 0.8f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("release", "Release", 0.0f, 5.0f, 0.1f));
+    
+    // --- OSCILLATORS ---
+    // Usamos el helper que creamos en PluginProcessor.h para las opciones del ComboBox
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("osc1_wavetable", "OSC1 Wavetable", WavetableHelper::wavetableNames, 0));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("osc1_gain", "OSC1 Gain", 0.0f, 1.0f, 0.8f));
+    params.push_back(std::make_unique<juce::AudioParameterInt>("osc1_unison_voices", "OSC1 Unison", 1, 16, 1));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("osc1_unison_detune", "OSC1 Detune", 0.0f, 1.0f, 0.1f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("osc2_wavetable", "OSC2 Wavetable", WavetableHelper::wavetableNames, 1));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("osc2_gain", "OSC2 Gain", 0.0f, 1.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterInt>("osc2_unison_voices", "OSC2 Unison", 1, 16, 1));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("osc2_unison_detune", "OSC2 Detune", 0.0f, 1.0f, 0.1f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("osc3_wavetable", "OSC3 Wavetable", WavetableHelper::wavetableNames, 2));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("osc3_gain", "OSC3 Gain", 0.0f, 1.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterInt>("osc3_unison_voices", "OSC3 Unison", 1, 16, 1));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("osc3_unison_detune", "OSC3 Detune", 0.0f, 1.0f, 0.1f));
+   
+    // --- FILTER ---
+    // Usamos un skew factor en el cutoff para que el recorrido del knob sea más musical (logarítmico)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("filter_cutoff", "Filter Cutoff", juce::NormalisableRange<float>(20.0f, 20000.0f, 0.0f, 0.6f), 20000.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("filter_q", "Filter Q", 0.1f, 10.0f, 0.7f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("filter_env_amt", "Filter Env Amount", -1.0f, 1.0f, 0.0f));
+    
+    // --- MODULATION ---
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("lfo_speed_hz", "LFO Speed", 0.1f, 30.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("lfo_amount", "LFO Amount", 0.0f, 1.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("fm_amount", "FM Amount", 0.0f, 1.0f, 0.0f));
 
     return { params.begin(), params.end() };
 }
