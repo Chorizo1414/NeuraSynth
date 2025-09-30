@@ -751,6 +751,10 @@ void NeuraSynthAudioProcessor::applyPatchFromPython(const py::dict& patchData) n
                 {
                                // 3. Obtenemos el rango del parámetro (ej: 0.0 a 5.0 para el attack)
                    auto range = param->getNormalisableRange();
+                   float low = range.start;
+                   float high = range.end;
+                   if (low > high) { float tmp = low; low = high; high = tmp; }
+                   pyValue = juce::jlimit(low, high, pyValue);
                
                                    // 4. Convertimos el valor de Python a su equivalente normalizado (0.0 a 1.0)
                                    //    y lo asignamos usando setValueNotifyingHost.
@@ -834,6 +838,51 @@ void NeuraSynthAudioProcessor::applyPatchFromPython(const py::dict& patchData) n
        DBG("Python eligio para OSC2: " << patchData["osc2_wavetable"].cast<std::string>());
    if (patchData.contains("osc3_wavetable"))
        DBG("Python eligio para OSC3: " << patchData["osc3_wavetable"].cast<std::string>());
+   // --- Parmetros adicionales fuera del APVTS ---
+   if (patchData.contains("master_gain"))        setMasterGain(patchData["master_gain"].cast<float>());
+   if (patchData.contains("master_glide"))       setGlide(patchData["master_glide"].cast<float>());
+   if (patchData.contains("master_dark"))        setDark(patchData["master_dark"].cast<float>());
+   if (patchData.contains("master_bright"))      setBright(patchData["master_bright"].cast<float>());
+   if (patchData.contains("master_drive"))       setDrive(patchData["master_drive"].cast<float>());
+   if (patchData.contains("master_chorus_on"))   setChorus(patchData["master_chorus_on"].cast<bool>());
+
+   if (patchData.contains("osc1_octave"))        setOsc1Octave(patchData["osc1_octave"].cast<int>());
+   if (patchData.contains("osc1_pitch"))         setOsc1Pitch(patchData["osc1_pitch"].cast<int>());
+   if (patchData.contains("osc1_fine"))          setOsc1FineTune(patchData["osc1_fine"].cast<double>());
+   if (patchData.contains("osc1_pan"))           setOsc1Pan(patchData["osc1_pan"].cast<float>());
+   if (patchData.contains("osc1_unison_balance")) setOsc1UnisonBalance(patchData["osc1_unison_balance"].cast<float>());
+   if (patchData.contains("osc1_unison_spread")) setOsc1Spread(patchData["osc1_unison_spread"].cast<float>());
+
+   if (patchData.contains("osc2_octave"))        setOsc2Octave(patchData["osc2_octave"].cast<int>());
+   if (patchData.contains("osc2_pitch"))         setOsc2Pitch(patchData["osc2_pitch"].cast<int>());
+   if (patchData.contains("osc2_fine"))          setOsc2FineTune(patchData["osc2_fine"].cast<double>());
+   if (patchData.contains("osc2_pan"))           setOsc2Pan(patchData["osc2_pan"].cast<float>());
+
+   if (patchData.contains("osc3_octave"))        setOsc3Octave(patchData["osc3_octave"].cast<int>());
+   if (patchData.contains("osc3_pitch"))         setOsc3Pitch(patchData["osc3_pitch"].cast<int>());
+   if (patchData.contains("osc3_fine"))          setOsc3FineTune(patchData["osc3_fine"].cast<double>());
+   if (patchData.contains("osc3_pan"))           setOsc3Pan(patchData["osc3_pan"].cast<float>());
+
+   if (patchData.contains("filter_keytrack"))    setKeyTrack(patchData["filter_keytrack"].cast<bool>());
+
+   if (patchData.contains("reverb_dry_level"))   setReverbDryLevel(patchData["reverb_dry_level"].cast<float>());
+   if (patchData.contains("reverb_wet_level"))   setReverbWetLevel(patchData["reverb_wet_level"].cast<float>());
+   if (patchData.contains("reverb_room_size"))   setReverbRoomSize(patchData["reverb_room_size"].cast<float>());
+   if (patchData.contains("reverb_pre_delay"))   setReverbPreDelay(patchData["reverb_pre_delay"].cast<float>());
+   if (patchData.contains("reverb_diffusion"))   setReverbDiffusion(patchData["reverb_diffusion"].cast<float>());
+   if (patchData.contains("reverb_damping"))     setReverbDamping(patchData["reverb_damping"].cast<float>());
+   if (patchData.contains("reverb_decay"))       setReverbDecay(patchData["reverb_decay"].cast<float>());
+
+   if (patchData.contains("delay_dry_level"))    setDelayDry(patchData["delay_dry_level"].cast<float>());
+   if (patchData.contains("delay_wet_level"))    setDelayWet(patchData["delay_wet_level"].cast<float>());
+   if (patchData.contains("delay_side_level"))   setDelaySide(patchData["delay_side_level"].cast<float>());
+   if (patchData.contains("delay_hp_freq"))      setDelayHPFreq(patchData["delay_hp_freq"].cast<float>());
+   if (patchData.contains("delay_lp_freq"))      setDelayLPFreq(patchData["delay_lp_freq"].cast<float>());
+   if (patchData.contains("delay_time_left"))    setDelayTimeLeft(patchData["delay_time_left"].cast<float>());
+   if (patchData.contains("delay_time_center"))  setDelayTimeCenter(patchData["delay_time_center"].cast<float>());
+   if (patchData.contains("delay_time_right"))   setDelayTimeRight(patchData["delay_time_right"].cast<float>());
+   if (patchData.contains("delay_wow_depth"))    setDelayWow(patchData["delay_wow_depth"].cast<float>());
+   if (patchData.contains("delay_feedback"))     setDelayFeedback(patchData["delay_feedback"].cast<float>());
 
    updateAllVoices();
 }

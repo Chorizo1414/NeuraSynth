@@ -265,8 +265,8 @@ ARCHETYPES = {
             "filter_keytrack": bool_prob(0.7),
 
             "fm_amount": float_range(-0.1, 0.1, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.1, 1.0, limits=(0.1, 30.0)),
-            "lfo_amount": float_range(0.2, 0.6, limits=(0.0, 1.0)),
+            "lfo_speed_hz": float_range(0, 1.0, limits=(0.1, 30.0)),
+            "lfo_amount": float_range(0, 0.6, limits=(0.0, 1.0)),
 
             "reverb_dry_level": float_range(0.5, 0.7, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.2, 0.4, limits=(0.0, 1.0)),

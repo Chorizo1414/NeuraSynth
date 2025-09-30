@@ -13,7 +13,18 @@ public:
  
     void paint (juce::Graphics& g) override;
     void resized() override;
- 
+    
+    void setDryLevel(float value);
+    void setCenterLevel(float value);
+    void setSideLevel(float value);
+    void setHighPass(float value);
+    void setLowPass(float value);
+    void setTimeLeft(float value);
+    void setTimeCenter(float value);
+    void setTimeRight(float value);
+    void setWowDepth(float value);
+    void setFeedback(float value);
+
 private:
     NeuraSynthAudioProcessor& audioProcessor;
  

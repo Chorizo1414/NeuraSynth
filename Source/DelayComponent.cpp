@@ -53,6 +53,56 @@ DelayComponent::DelayComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
 
 DelayComponent::~DelayComponent() {}
 
+void DelayComponent::setDryLevel(float value)
+{
+    dryKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setCenterLevel(float value)
+{
+    centerVolKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setSideLevel(float value)
+{
+    sideVolKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setHighPass(float value)
+{
+    hpKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setLowPass(float value)
+{
+    lpKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setTimeLeft(float value)
+{
+    leftKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setTimeCenter(float value)
+{
+    centerKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setTimeRight(float value)
+{
+    rightKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setWowDepth(float value)
+{
+    wowKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void DelayComponent::setFeedback(float value)
+{
+    feedbackKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
 void DelayComponent::paint (juce::Graphics& g) 
 {
     // Solo dibuja el borde si el designMode del editor está activo

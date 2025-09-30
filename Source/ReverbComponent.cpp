@@ -42,6 +42,41 @@ ReverbComponent::ReverbComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p
 
 ReverbComponent::~ReverbComponent() {}
 
+void ReverbComponent::setDryLevel(float value)
+{
+    dryKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void ReverbComponent::setWetLevel(float value)
+{
+    wetKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void ReverbComponent::setRoomSize(float value)
+{
+    sizeKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void ReverbComponent::setPreDelay(float value)
+{
+    preDelayKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void ReverbComponent::setDiffusion(float value)
+{
+    diffusionKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void ReverbComponent::setDamping(float value)
+{
+    dampKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void ReverbComponent::setDecay(float value)
+{
+    decayKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
 void ReverbComponent::paint (juce::Graphics& g) 
 {
     // Solo dibuja el borde si el designMode del editor está activo

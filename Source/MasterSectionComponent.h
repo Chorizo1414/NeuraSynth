@@ -13,6 +13,13 @@ public:
     void paint (juce::Graphics& g) override;
     void resized() override;
 
+    void setMasterGain(float value);
+    void setGlide(float value);
+    void setDark(float value);
+    void setBright(float value);
+    void setDrive(float value);
+    void setChorusEnabled(bool enabled);
+
 private:
     NeuraSynthAudioProcessor& audioProcessor;
 

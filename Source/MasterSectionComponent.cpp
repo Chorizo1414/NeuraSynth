@@ -75,6 +75,36 @@ MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : au
 
 MasterSectionComponent::~MasterSectionComponent() {}
 
+void MasterSectionComponent::setMasterGain(float value)
+{
+    masterGainKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void MasterSectionComponent::setGlide(float value)
+{
+    glideKnob.setValue(juce::jlimit(0.0f, 2.0f, value), juce::sendNotificationSync);
+}
+
+void MasterSectionComponent::setDark(float value)
+{
+    darkKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void MasterSectionComponent::setBright(float value)
+{
+    brightKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void MasterSectionComponent::setDrive(float value)
+{
+    driveKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+}
+
+void MasterSectionComponent::setChorusEnabled(bool enabled)
+{
+    chorusButton.setToggleState(enabled, juce::sendNotificationSync);
+}
+
 void MasterSectionComponent::paint(juce::Graphics& g)
 {
     // Solo dibuja el borde si el designMode del editor está activo

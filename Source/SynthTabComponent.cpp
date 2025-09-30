@@ -402,15 +402,46 @@ void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
                 fn(patchData[key].cast<float>());
         };
 
+    auto applyBool = [&](const char* key, auto&& fn)
+        {
+            if (patchData.contains(key))
+                fn(patchData[key].cast<bool>());
+        };
+
     auto applyKnob = [&](CustomKnob& knob, const char* key)
         {
             applyFloat(key, [&](float value) { knob.setValue(value, juce::sendNotificationSync); });
         };
 
+    // --- Seccin Master ---
+    applyFloat("master_gain", [&](float value) { masterSection.setMasterGain(value); });
+    applyFloat("master_glide", [&](float value) { masterSection.setGlide(value); });
+    applyFloat("master_dark", [&](float value) { masterSection.setDark(value); });
+    applyFloat("master_bright", [&](float value) { masterSection.setBright(value); });
+    applyFloat("master_drive", [&](float value) { masterSection.setDrive(value); });
+    applyBool("master_chorus_on", [&](bool enabled) { masterSection.setChorusEnabled(enabled); });
+
+    // --- Envolvente ---
     applyFloat("attack", [&](float value) { envelopeSection.setAttackValue(value); });
     applyFloat("decay", [&](float value) { envelopeSection.setDecayValue(value); });
     applyFloat("sustain", [&](float value) { envelopeSection.setSustainValue(value); });
     applyFloat("release", [&](float value) { envelopeSection.setReleaseValue(value); });
+
+    // --- Pitching, panormica y ganancia de osciladores ---
+    applyFloat("osc1_octave", [&](float value) { osc1.octKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc1_pitch", [&](float value) { osc1.pitchKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc1_fine", [&](float value) { osc1.fineKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc1_pan", [&](float value) { osc1.panKnob.setValue(value, juce::sendNotificationSync); });
+
+    applyFloat("osc2_octave", [&](float value) { osc2.octKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc2_pitch", [&](float value) { osc2.pitchKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc2_fine", [&](float value) { osc2.fineKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc2_pan", [&](float value) { osc2.panKnob.setValue(value, juce::sendNotificationSync); });
+
+    applyFloat("osc3_octave", [&](float value) { osc3.octKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc3_pitch", [&](float value) { osc3.pitchKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc3_fine", [&](float value) { osc3.fineKnob.setValue(value, juce::sendNotificationSync); });
+    applyFloat("osc3_pan", [&](float value) { osc3.panKnob.setValue(value, juce::sendNotificationSync); });
 
     applyKnob(osc1.gainKnob, "osc1_gain");
     applyKnob(osc2.gainKnob, "osc2_gain");
@@ -423,12 +454,22 @@ void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
     applyFloat("osc1_unison_balance", [&](float value) { unisonComp1.setBalance(value); });
     applyFloat("osc1_unison_spread", [&](float value) { osc1.spreadKnob.setValue(value, juce::sendNotificationSync); });
 
+    if (patchData.contains("osc2_unison_voices"))
+        unisonComp2.setVoices(patchData["osc2_unison_voices"].cast<int>());
+    applyFloat("osc2_unison_detune", [&](float value) { unisonComp2.setDetune(value); });
+    applyFloat("osc2_unison_balance", [&](float value) { unisonComp2.setBalance(value); });
+
+    if (patchData.contains("osc3_unison_voices"))
+        unisonComp3.setVoices(patchData["osc3_unison_voices"].cast<int>());
+    applyFloat("osc3_unison_detune", [&](float value) { unisonComp3.setDetune(value); });
+    applyFloat("osc3_unison_balance", [&](float value) { unisonComp3.setBalance(value); });
+
+    // --- Filtro y modulacin ---
     applyFloat("filter_cutoff_hz", [&](float value) { filterSection.setCutoffValue(value); });
     applyFloat("filter_q", [&](float value) { filterSection.setResonanceValue(value); });
     applyFloat("filter_env_amt", [&](float value) { filterSection.setEnvAmountValue(value); });
 
-    if (patchData.contains("filter_keytrack"))
-        filterSection.setKeyTrackEnabled(patchData["filter_keytrack"].cast<bool>());
+    applyBool("filter_keytrack", [&](bool enabled) { filterSection.setKeyTrackEnabled(enabled); });
 
     applyFloat("fm_amount", [&](float value) { modulationComp.setFmAmountValue(value); });
     applyFloat("lfo_speed_hz", [&](float value) { modulationComp.setLfoSpeedValue(value); });
@@ -450,4 +491,25 @@ void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
     selectWave(osc1, "osc1_wavetable");
     selectWave(osc2, "osc2_wavetable");
     selectWave(osc3, "osc3_wavetable");
+
+    // --- Reverb ---
+    applyFloat("reverb_dry_level", [&](float value) { reverbSection.setDryLevel(value); });
+    applyFloat("reverb_wet_level", [&](float value) { reverbSection.setWetLevel(value); });
+    applyFloat("reverb_room_size", [&](float value) { reverbSection.setRoomSize(value); });
+    applyFloat("reverb_pre_delay", [&](float value) { reverbSection.setPreDelay(value); });
+    applyFloat("reverb_diffusion", [&](float value) { reverbSection.setDiffusion(value); });
+    applyFloat("reverb_damping", [&](float value) { reverbSection.setDamping(value); });
+    applyFloat("reverb_decay", [&](float value) { reverbSection.setDecay(value); });
+
+    // --- Delay ---
+    applyFloat("delay_dry_level", [&](float value) { delaySection.setDryLevel(value); });
+    applyFloat("delay_wet_level", [&](float value) { delaySection.setCenterLevel(value); });
+    applyFloat("delay_side_level", [&](float value) { delaySection.setSideLevel(value); });
+    applyFloat("delay_hp_freq", [&](float value) { delaySection.setHighPass(value); });
+    applyFloat("delay_lp_freq", [&](float value) { delaySection.setLowPass(value); });
+    applyFloat("delay_time_left", [&](float value) { delaySection.setTimeLeft(value); });
+    applyFloat("delay_time_center", [&](float value) { delaySection.setTimeCenter(value); });
+    applyFloat("delay_time_right", [&](float value) { delaySection.setTimeRight(value); });
+    applyFloat("delay_wow_depth", [&](float value) { delaySection.setWowDepth(value); });
+    applyFloat("delay_feedback", [&](float value) { delaySection.setFeedback(value); });
 }
