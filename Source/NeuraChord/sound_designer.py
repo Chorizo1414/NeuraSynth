@@ -940,7 +940,437 @@ def _generate_value(param: str, spec: Dict):
 
     raise ValueError(f"Tipo de especificación desconocido para '{param}': {spec}")
 
+def _effective_bounds(spec: Dict) -> Tuple[Number, Number]:
+    range_low, range_high = spec.get("range", (None, None))
+    limit_low, limit_high = spec.get("limits", (range_low, range_high))
 
+    low = range_low if range_low is not None else limit_low
+    high = range_high if range_high is not None else limit_high
+
+    if limit_low is not None:
+        low = max(low, limit_low)
+    if limit_high is not None:
+        high = min(high, limit_high)
+
+    return low, high
+
+
+def _clamp_to_spec(value: Number, spec: Dict) -> Number:
+    low, high = _effective_bounds(spec)
+    if spec.get("type") == "int":
+        value = int(round(value))
+        low = int(round(low))
+        high = int(round(high))
+    return max(low, min(value, high))
+
+
+def _set_numeric_param(result: Dict, specs: Dict[str, Dict], param: str, value: Number):
+    spec = specs.get(param)
+    if spec is None:
+        result[param] = value
+        return
+
+    clamped = _clamp_to_spec(value, spec)
+    if spec.get("type") == "int":
+        clamped = int(clamped)
+    else:
+        clamped = float(clamped)
+    result[param] = clamped
+
+
+DEFAULT_INTERVAL_PROFILE: List[Tuple[int, float]] = [
+    (0, 0.45),
+    (12, 0.18),
+    (-12, 0.12),
+    (7, 0.1),
+    (-7, 0.05),
+    (5, 0.04),
+    (-5, 0.03),
+    (3, 0.02),
+    (9, 0.01),
+]
+
+
+INTERVAL_PROFILES: Dict[str, List[Tuple[int, float]]] = {
+    "pad": [
+        (0, 0.4),
+        (12, 0.18),
+        (-12, 0.14),
+        (7, 0.12),
+        (5, 0.08),
+        (-7, 0.05),
+        (3, 0.03),
+    ],
+    "poly_synth": [
+        (0, 0.38),
+        (7, 0.2),
+        (12, 0.18),
+        (-12, 0.12),
+        (5, 0.07),
+        (-5, 0.05),
+    ],
+    "poly": [
+        (0, 0.4),
+        (7, 0.2),
+        (12, 0.16),
+        (-5, 0.1),
+        (5, 0.08),
+        (-12, 0.06),
+    ],
+    "lead": [
+        (0, 0.35),
+        (7, 0.22),
+        (12, 0.18),
+        (-12, 0.12),
+        (5, 0.08),
+        (-5, 0.05),
+    ],
+    "keys": [
+        (0, 0.38),
+        (12, 0.2),
+        (7, 0.16),
+        (5, 0.1),
+        (-12, 0.1),
+        (3, 0.06),
+    ],
+    "pluck": [
+        (0, 0.42),
+        (7, 0.22),
+        (12, 0.14),
+        (-5, 0.1),
+        (5, 0.08),
+        (-12, 0.04),
+    ],
+    "string_synth": [
+        (0, 0.38),
+        (12, 0.18),
+        (7, 0.16),
+        (-12, 0.12),
+        (5, 0.09),
+        (-5, 0.07),
+    ],
+    "string_brass": [
+        (0, 0.36),
+        (7, 0.2),
+        (12, 0.18),
+        (-12, 0.12),
+        (5, 0.08),
+        (3, 0.06),
+    ],
+    "brass_synth": [
+        (0, 0.35),
+        (7, 0.22),
+        (12, 0.18),
+        (-5, 0.1),
+        (-12, 0.1),
+        (5, 0.05),
+    ],
+    "bell": [
+        (0, 0.32),
+        (12, 0.24),
+        (7, 0.18),
+        (-12, 0.12),
+        (5, 0.08),
+        (3, 0.06),
+    ],
+    "mallet": [
+        (0, 0.34),
+        (12, 0.24),
+        (7, 0.18),
+        (5, 0.12),
+        (-12, 0.08),
+        (3, 0.04),
+    ],
+    "bass": [
+        (0, 0.48),
+        (-12, 0.22),
+        (12, 0.12),
+        (7, 0.1),
+        (-5, 0.08),
+    ],
+    "kick": [
+        (0, 0.6),
+        (-12, 0.25),
+        (12, 0.15),
+    ],
+    "snare": [
+        (0, 0.55),
+        (12, 0.25),
+        (-12, 0.2),
+    ],
+    "hihat": [
+        (0, 0.6),
+        (12, 0.25),
+        (7, 0.15),
+    ],
+    "fx": [
+        (0, 0.28),
+        (12, 0.18),
+        (-12, 0.16),
+        (7, 0.12),
+        (-7, 0.1),
+        (5, 0.08),
+        (-5, 0.05),
+        (3, 0.03),
+    ],
+}
+
+
+FINE_SPAN_BY_ARCHETYPE: Dict[str, float] = {
+    "bass": 2.5,
+    "kick": 1.5,
+    "snare": 2.0,
+    "hihat": 2.0,
+    "lead": 4.0,
+    "pad": 5.0,
+    "poly_synth": 5.0,
+    "string_synth": 5.0,
+    "string_brass": 5.0,
+    "brass_synth": 4.5,
+    "poly": 4.5,
+    "keys": 4.0,
+    "pluck": 3.5,
+    "bell": 6.0,
+    "mallet": 4.5,
+    "fx": 9.0,
+}
+
+
+CENTERED_ARCHETYPES = {"bass", "kick", "snare"}
+
+
+def _interval_allowed_for_osc(interval: int, osc_index: int, specs: Dict[str, Dict]) -> bool:
+    octave_spec = specs.get(f"osc{osc_index}_octave")
+    pitch_spec = specs.get(f"osc{osc_index}_pitch")
+    if not octave_spec or not pitch_spec:
+        return True
+
+    oct_low, oct_high = _effective_bounds(octave_spec)
+    pitch_low, pitch_high = _effective_bounds(pitch_spec)
+
+    oct_low = int(round(oct_low))
+    oct_high = int(round(oct_high))
+    pitch_low = int(round(pitch_low))
+    pitch_high = int(round(pitch_high))
+
+    for octave in range(oct_low, oct_high + 1):
+        remainder = interval - octave * 12
+        if pitch_low <= remainder <= pitch_high:
+            return True
+    return False
+
+
+def _choose_interval(archetype: str, osc_index: int, specs: Dict[str, Dict], used: List[int]) -> int:
+    profile = INTERVAL_PROFILES.get(archetype, DEFAULT_INTERVAL_PROFILE)
+    candidates: List[int] = []
+    weights: List[float] = []
+
+    for interval, weight in profile:
+        if not _interval_allowed_for_osc(interval, osc_index, specs):
+            continue
+
+        penalty = 0.4 if any(abs(interval - other) < 0.1 for other in used) else 1.0
+        candidates.append(interval)
+        weights.append(weight * penalty)
+
+    if not candidates:
+        return 0
+
+    if sum(weights) == 0:
+        weights = [1.0] * len(candidates)
+
+    return random.choices(candidates, weights=weights, k=1)[0]
+
+
+def _assign_interval_to_osc(result: Dict, specs: Dict[str, Dict], osc_index: int, interval: int):
+    octave_spec = specs.get(f"osc{osc_index}_octave")
+    pitch_spec = specs.get(f"osc{osc_index}_pitch")
+    if not octave_spec or not pitch_spec:
+        return
+
+    oct_low, oct_high = _effective_bounds(octave_spec)
+    pitch_low, pitch_high = _effective_bounds(pitch_spec)
+
+    oct_low = int(round(oct_low))
+    oct_high = int(round(oct_high))
+    pitch_low = int(round(pitch_low))
+    pitch_high = int(round(pitch_high))
+
+    best_octave = None
+    best_pitch = None
+    best_error = None
+
+    for octave in range(oct_low, oct_high + 1):
+        candidate_pitch = interval - octave * 12
+        if pitch_low <= candidate_pitch <= pitch_high:
+            error = abs(interval - (octave * 12 + candidate_pitch))
+            if best_error is None or error < best_error:
+                best_error = error
+                best_octave = octave
+                best_pitch = candidate_pitch
+
+    if best_octave is None or best_pitch is None:
+        octave = _clamp_to_spec(round(interval / 12), octave_spec)
+        candidate_pitch = interval - octave * 12
+        best_octave = octave
+        best_pitch = _clamp_to_spec(candidate_pitch, pitch_spec)
+
+    _set_numeric_param(result, specs, f"osc{osc_index}_octave", best_octave)
+    _set_numeric_param(result, specs, f"osc{osc_index}_pitch", best_pitch)
+
+
+def _shape_fine_offsets(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int], archetype: str):
+    base_span = FINE_SPAN_BY_ARCHETYPE.get(archetype, 4.0)
+    for osc_index in active_oscillators:
+        if osc_index == 1:
+            continue
+        spec = specs.get(f"osc{osc_index}_fine")
+        if not spec:
+            continue
+
+        span = base_span
+        if osc_index == 3 and len(active_oscillators) >= 3:
+            span *= 1.2
+
+        fine_value = random.uniform(-span, span)
+        _set_numeric_param(result, specs, f"osc{osc_index}_fine", fine_value)
+
+
+def _ensure_layered_gains(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int]):
+    active_count = len(active_oscillators)
+    if active_count <= 1:
+        return
+
+    for position, osc_index in enumerate(active_oscillators, start=1):
+        gain_key = f"osc{osc_index}_gain"
+        spec = specs.get(gain_key)
+        if not spec:
+            continue
+
+        range_low, range_high = spec.get("range", (0.0, 1.0))
+        floor_factor = 0.55 if position == 1 else 0.3
+        if active_count >= 3 and position == 3:
+            floor_factor = 0.25
+        elif active_count == 2 and position == 2:
+            floor_factor = 0.35
+
+        minimum = range_low + (range_high - range_low) * floor_factor
+        minimum = max(range_low, min(minimum, range_high))
+
+        if result.get(gain_key, 0.0) < minimum:
+            result[gain_key] = random.uniform(minimum, range_high)
+
+    primary_gain_key = f"osc{active_oscillators[0]}_gain"
+    primary_gain = result.get(primary_gain_key, 0.0)
+    for osc_index in active_oscillators[1:]:
+        gain_key = f"osc{osc_index}_gain"
+        spec = specs.get(gain_key)
+        if not spec:
+            continue
+        range_low, range_high = spec.get("range", (0.0, 1.0))
+        if result[gain_key] >= primary_gain:
+            result[gain_key] = max(range_low, min(primary_gain - 0.05, range_high))
+
+
+def _shape_panorama(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int], archetype: str):
+    if not active_oscillators:
+        return
+
+    centered = archetype in CENTERED_ARCHETYPES
+
+    if centered:
+        for osc_index in active_oscillators:
+            pan_key = f"osc{osc_index}_pan"
+            variation = random.uniform(-0.03, 0.03)
+            _set_numeric_param(result, specs, pan_key, 0.5 + variation)
+        return
+
+    active_count = len(active_oscillators)
+    if active_count == 1:
+        variation = random.uniform(-0.05, 0.05)
+        _set_numeric_param(
+            result,
+            specs,
+            f"osc{active_oscillators[0]}_pan",
+            0.5 + variation,
+        )
+        return
+
+    root_variation = random.uniform(-0.04, 0.04)
+    _set_numeric_param(
+        result,
+        specs,
+        f"osc{active_oscillators[0]}_pan",
+        0.5 + root_variation,
+    )
+
+    if active_count == 2:
+        offset = random.uniform(0.15, 0.22)
+        orientation = 1 if random.random() < 0.5 else -1
+        target = 0.5 + orientation * offset
+        variation = random.uniform(-0.04, 0.04)
+        _set_numeric_param(
+            result,
+            specs,
+            f"osc{active_oscillators[1]}_pan",
+            target + variation,
+        )
+        return
+
+    # Tres osciladores: centro + izquierda/derecha
+    offset = random.uniform(0.18, 0.26)
+    orientations = [-1, 1]
+    random.shuffle(orientations)
+
+    for osc_index, orientation in zip(active_oscillators[1:], orientations):
+        target = 0.5 + orientation * offset
+        variation = random.uniform(-0.04, 0.04)
+        _set_numeric_param(result, specs, f"osc{osc_index}_pan", target + variation)
+
+
+def _harmonize_oscillators(result: Dict, specs: Dict[str, Dict], archetype: str):
+    active_oscillators: List[int] = []
+    for osc_index in (1, 2, 3):
+        wavetable = result.get(f"osc{osc_index}_wavetable", "None")
+        gain = result.get(f"osc{osc_index}_gain", 0.0)
+        if wavetable == "None" or gain <= 0.0:
+            continue
+        active_oscillators.append(osc_index)
+
+    if not active_oscillators:
+        return
+
+    # Root oscillator: mantenerlo estable y bien centrado
+    root_pitch_spec = specs.get("osc1_pitch")
+    if root_pitch_spec:
+        preferred = [0, 0, 0, 2, -2, 1, -1]
+        preferred = [
+            val
+            for val in preferred
+            if _effective_bounds(root_pitch_spec)[0] <= val <= _effective_bounds(root_pitch_spec)[1]
+        ] or [0]
+        _set_numeric_param(result, specs, "osc1_pitch", random.choice(preferred))
+
+    root_fine_spec = specs.get("osc1_fine")
+    if root_fine_spec:
+        fine_span = FINE_SPAN_BY_ARCHETYPE.get(archetype, 4.0) * 0.5
+        _set_numeric_param(
+            result,
+            specs,
+            "osc1_fine",
+            random.uniform(-fine_span, fine_span),
+        )
+
+    if len(active_oscillators) >= 2:
+        used_intervals = [0]
+        for osc_index in active_oscillators[1:]:
+            interval = _choose_interval(archetype, osc_index, specs, used_intervals)
+            used_intervals.append(interval)
+            _assign_interval_to_osc(result, specs, osc_index, interval)
+
+    _shape_fine_offsets(result, specs, active_oscillators, archetype)
+    _ensure_layered_gains(result, specs, active_oscillators)
+    _shape_panorama(result, specs, active_oscillators, archetype)
 
 
 def generate_synth_patch(tags: List[str]) -> Dict:
@@ -966,6 +1396,16 @@ def generate_synth_patch(tags: List[str]) -> Dict:
     for param, spec in specs.items():
         result[param] = _generate_value(param, spec)
 
+    wavetable_choices = archetype.get("wavetable_options", BASE_WAVETABLE_OPTIONS)
+    for osc_name in ("osc1", "osc2", "osc3"):
+        options = wavetable_choices.get(osc_name, BASE_WAVETABLE_OPTIONS.get(osc_name, []))
+        if options:
+            result[f"{osc_name}_wavetable"] = random.choice(options)
+        else:
+            result[f"{osc_name}_wavetable"] = "None"
+
+    _harmonize_oscillators(result, specs, archetype_name)
+
     if (
         archetype_name != "fx"
         and "lfo_amount" in result
@@ -986,7 +1426,7 @@ def generate_synth_patch(tags: List[str]) -> Dict:
                     result["lfo_speed_hz"] = subtle_speed_cap
                 else:
                     result["lfo_speed_hz"] = current_speed
-                    
+
     # Alias para compatibilidad con el procesador en C++
     if "filter_cutoff_hz" in result:
         result["filter_cutoff"] = result["filter_cutoff_hz"]
