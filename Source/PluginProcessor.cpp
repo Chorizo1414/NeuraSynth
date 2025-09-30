@@ -2,6 +2,8 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <algorithm>
+#include <cmath>
 
 void NeuraSynthAudioProcessor::addMidiMessageToQueue(const juce::MidiMessage& msg)
 {
@@ -10,6 +12,27 @@ void NeuraSynthAudioProcessor::addMidiMessageToQueue(const juce::MidiMessage& ms
     messageWithTimestamp.setTimeStamp(juce::Time::getMillisecondCounterHiRes() * 0.001);
 
     midiCollector.addMessageToQueue(messageWithTimestamp);
+}
+
+void NeuraSynthAudioProcessor::syncParameterToValue(const juce::String& paramID, float value, bool forceInteger)
+{
+    if (auto* param = apvts.getParameter(paramID))
+    {
+        auto range = param->getNormalisableRange();
+        float start = range.start;
+        float end = range.end;
+
+        if (end < start)
+            std::swap(start, end);
+
+        float adjusted = juce::jlimit(start, end, value);
+
+        if (forceInteger)
+            adjusted = std::round(adjusted);
+
+        auto normalized = range.convertTo0to1(adjusted);
+        param->setValueNotifyingHost(normalized);
+    }
 }
 
 bool NeuraSynthAudioProcessor::isPlayingSequence() const
@@ -489,35 +512,38 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     buffer.applyGain(masterGain);
 }
 
-void NeuraSynthAudioProcessor::updateAllVoices()
+void NeuraSynthAudioProcessor::updateAllVoices(bool syncFromParameters)
 {
-    // 1. Leemos los valores del APVTS y los guardamos en las variables miembro del procesador.
-    // Usamos los nombres de variable correctos que están definidos en tu PluginProcessor.h
-       
-    // ADSR
-    adsrParams.attack = *apvts.getRawParameterValue("attack");
-    adsrParams.decay = *apvts.getRawParameterValue("decay");
-    adsrParams.sustain = *apvts.getRawParameterValue("sustain");
-    adsrParams.release = *apvts.getRawParameterValue("release");
-    
-    // OSC 1
-    osc1Gain = *apvts.getRawParameterValue("osc1_gain");
-    osc1UnisonVoices = *apvts.getRawParameterValue("osc1_unison_voices");
-    osc1UnisonDetune = *apvts.getRawParameterValue("osc1_unison_detune");
-    
-    // OSC 2
-    osc2Gain = *apvts.getRawParameterValue("osc2_gain");
-    
-    // OSC 3
-    osc3Gain = *apvts.getRawParameterValue("osc3_gain");
-    
-    // Filtro, Modulación y Master
-    filterCutoffHz = *apvts.getRawParameterValue("filter_cutoff");
-    filterQ = *apvts.getRawParameterValue("filter_q");
-    filterEnvAmt = *apvts.getRawParameterValue("filter_env_amt");
-    lfoSpeedHz = *apvts.getRawParameterValue("lfo_speed_hz");
-    lfoAmount = *apvts.getRawParameterValue("lfo_amount");
-    fmAmount = *apvts.getRawParameterValue("fm_amount");
+    if (syncFromParameters)
+    {
+        // 1. Leemos los valores del APVTS y los guardamos en las variables miembro del procesador.
+        // Usamos los nombres de variable correctos que están definidos en tu PluginProcessor.h
+
+        // ADSR
+        adsrParams.attack = *apvts.getRawParameterValue("attack");
+        adsrParams.decay = *apvts.getRawParameterValue("decay");
+        adsrParams.sustain = *apvts.getRawParameterValue("sustain");
+        adsrParams.release = *apvts.getRawParameterValue("release");
+
+        // OSC 1
+        osc1Gain = *apvts.getRawParameterValue("osc1_gain");
+        osc1UnisonVoices = *apvts.getRawParameterValue("osc1_unison_voices");
+        osc1UnisonDetune = *apvts.getRawParameterValue("osc1_unison_detune");
+
+        // OSC 2
+        osc2Gain = *apvts.getRawParameterValue("osc2_gain");
+
+        // OSC 3
+        osc3Gain = *apvts.getRawParameterValue("osc3_gain");
+
+        // Filtro, Modulación y Master
+        filterCutoffHz = *apvts.getRawParameterValue("filter_cutoff");
+        filterQ = *apvts.getRawParameterValue("filter_q");
+        filterEnvAmt = *apvts.getRawParameterValue("filter_env_amt");
+        lfoSpeedHz = *apvts.getRawParameterValue("lfo_speed_hz");
+        lfoAmount = *apvts.getRawParameterValue("lfo_amount");
+        fmAmount = *apvts.getRawParameterValue("fm_amount");
+    }
     
         // 2. Pasamos punteros a estas variables a cada una de las voces del sintetizador.
         // Esta llamada a setParameters AHORA SÍ coincide con la declaración en tu PluginProcessor.h
@@ -552,7 +578,12 @@ void NeuraSynthAudioProcessor::setWavePosition2(float p) { wavePosition2 = p; }
 void NeuraSynthAudioProcessor::setWavePosition3(float p) { wavePosition3 = p; }
 
 // --- Setters Oscilador 1 ---
-void NeuraSynthAudioProcessor::setOsc1Gain(float g) { osc1Gain = g; }
+void NeuraSynthAudioProcessor::setOsc1Gain(float g)
+{
+    osc1Gain = juce::jlimit(0.0f, 1.0f, g);
+    syncParameterToValue("osc1_gain", osc1Gain);
+    updateAllVoices();
+}
 void NeuraSynthAudioProcessor::setOsc1Octave(int v) { osc1Octave = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc1Pitch(int v) { osc1PitchSemitones = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc1FineTune(double v) { osc1FineTuneCents = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
@@ -560,12 +591,28 @@ void NeuraSynthAudioProcessor::setOsc1Spread(float s) { osc1Spread = s; updateAl
 void NeuraSynthAudioProcessor::setOsc1Pan(float p) { osc1Pan = p; updateAllVoices(); }
 
 // --- Setters de Unison (para OSC 1) ---
-void NeuraSynthAudioProcessor::setOsc1UnisonVoices(int numVoices) { osc1UnisonVoices = numVoices; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc1UnisonDetune(float amount) { osc1UnisonDetune = amount; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc1UnisonVoices(int numVoices)
+{
+    osc1UnisonVoices = juce::jlimit(1, 16, numVoices);
+    syncParameterToValue("osc1_unison_voices", static_cast<float>(osc1UnisonVoices), true);
+    updateAllVoices();
+}
+
+void NeuraSynthAudioProcessor::setOsc1UnisonDetune(float amount)
+{
+    osc1UnisonDetune = juce::jlimit(0.0f, 1.0f, amount);
+    syncParameterToValue("osc1_unison_detune", osc1UnisonDetune);
+    updateAllVoices();
+}
 void NeuraSynthAudioProcessor::setOsc1UnisonBalance(float balance) { osc1UnisonBalance = balance; updateAllVoices(); }
 
 // --- Setters Oscilador 2 ---
-void NeuraSynthAudioProcessor::setOsc2Gain(float g) { osc2Gain = g; }
+void NeuraSynthAudioProcessor::setOsc2Gain(float g)
+{
+    osc2Gain = juce::jlimit(0.0f, 1.0f, g);
+    syncParameterToValue("osc2_gain", osc2Gain);
+    updateAllVoices();
+}
 void NeuraSynthAudioProcessor::setOsc2Octave(int v) { osc2Octave = v; pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents); updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc2Pitch(int v) { osc2PitchSemitones = v; pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents); updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc2FineTune(double v) { osc2FineTuneCents = v; pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents); updateAllVoices(); }
@@ -574,7 +621,12 @@ void NeuraSynthAudioProcessor::setOsc2Spread(float s) { osc2Spread = s; updateAl
 void NeuraSynthAudioProcessor::setOsc2Pan(float p) { osc2Pan = p; updateAllVoices(); }
 
 // --- Setters Oscilador 3 ---
-void NeuraSynthAudioProcessor::setOsc3Gain(float g) { osc3Gain = g; }
+void NeuraSynthAudioProcessor::setOsc3Gain(float g)
+{
+    osc3Gain = juce::jlimit(0.0f, 1.0f, g);
+    syncParameterToValue("osc3_gain", osc3Gain);
+    updateAllVoices();
+}
 void NeuraSynthAudioProcessor::setOsc3Octave(int v) { osc3Octave = v; pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents); updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc3Pitch(int v) { osc3PitchSemitones = v; pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents); updateAllVoices(); }
 void NeuraSynthAudioProcessor::setOsc3FineTune(double v) { osc3FineTuneCents = v; pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents); updateAllVoices(); }
@@ -583,10 +635,75 @@ void NeuraSynthAudioProcessor::setOsc3Spread(float s) { osc3Spread = s; updateAl
 void NeuraSynthAudioProcessor::setOsc3Pan(float p) { osc3Pan = p; updateAllVoices(); }
 
 // Setters para ADSR
-void NeuraSynthAudioProcessor::setAttack(float a) { adsrParams.attack = a; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setDecay(float d) { adsrParams.decay = d; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setSustain(float s) { adsrParams.sustain = s; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setRelease(float r) { adsrParams.release = r; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setAttack(float a)
+{
+    adsrParams.attack = juce::jlimit(0.0f, 5.0f, a);
+    syncParameterToValue("attack", adsrParams.attack);
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setDecay(float d)
+{
+    adsrParams.decay = juce::jlimit(0.0f, 5.0f, d);
+    syncParameterToValue("decay", adsrParams.decay);
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setSustain(float s)
+{
+    adsrParams.sustain = juce::jlimit(0.0f, 1.0f, s);
+    syncParameterToValue("sustain", adsrParams.sustain);
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setRelease(float r)
+{
+    adsrParams.release = juce::jlimit(0.0f, 5.0f, r);
+    syncParameterToValue("release", adsrParams.release);
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setFilterCutoff(double hz)
+{
+    filterCutoffHz = juce::jlimit(20.0, 20000.0, hz);
+    syncParameterToValue("filter_cutoff", static_cast<float>(filterCutoffHz));
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setFilterResonance(double q)
+{
+    filterQ = juce::jlimit(0.1, 10.0, q);
+    syncParameterToValue("filter_q", static_cast<float>(filterQ));
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setFilterEnvAmount(double amt)
+{
+    filterEnvAmt = juce::jlimit(-1.0, 1.0, amt);
+    syncParameterToValue("filter_env_amt", static_cast<float>(filterEnvAmt));
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setFMAmount(float amount)
+{
+    fmAmount = juce::jlimit(-1.0f, 1.0f, amount);
+    syncParameterToValue("fm_amount", fmAmount);
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setLfoSpeed(float speed)
+{
+    lfoSpeedHz = juce::jlimit(0.1f, 30.0f, speed);
+    syncParameterToValue("lfo_speed_hz", lfoSpeedHz);
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setLfoAmount(float amount)
+{
+    lfoAmount = juce::jlimit(0.0f, 1.0f, amount);
+    syncParameterToValue("lfo_amount", lfoAmount);
+    updateAllVoices(false);
+}
 
 void NeuraSynthAudioProcessor::setGlide(float seconds)
 {
@@ -897,34 +1014,34 @@ juce::AudioProcessorValueTreeState::ParameterLayout NeuraSynthAudioProcessor::cr
     params.push_back(std::make_unique<juce::AudioParameterFloat>("decay", "Decay", 0.0f, 5.0f, 0.2f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("sustain", "Sustain", 0.0f, 1.0f, 0.8f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("release", "Release", 0.0f, 5.0f, 0.1f));
-    
+
     // --- OSCILLATORS ---
     // Usamos el helper que creamos en PluginProcessor.h para las opciones del ComboBox
     params.push_back(std::make_unique<juce::AudioParameterChoice>("osc1_wavetable", "OSC1 Wavetable", WavetableHelper::wavetableNames, 0));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("osc1_gain", "OSC1 Gain", 0.0f, 1.0f, 0.8f));
     params.push_back(std::make_unique<juce::AudioParameterInt>("osc1_unison_voices", "OSC1 Unison", 1, 16, 1));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("osc1_unison_detune", "OSC1 Detune", 0.0f, 1.0f, 0.1f));
-    
+
     params.push_back(std::make_unique<juce::AudioParameterChoice>("osc2_wavetable", "OSC2 Wavetable", WavetableHelper::wavetableNames, 1));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("osc2_gain", "OSC2 Gain", 0.0f, 1.0f, 0.0f));
     params.push_back(std::make_unique<juce::AudioParameterInt>("osc2_unison_voices", "OSC2 Unison", 1, 16, 1));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("osc2_unison_detune", "OSC2 Detune", 0.0f, 1.0f, 0.1f));
-    
+
     params.push_back(std::make_unique<juce::AudioParameterChoice>("osc3_wavetable", "OSC3 Wavetable", WavetableHelper::wavetableNames, 2));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("osc3_gain", "OSC3 Gain", 0.0f, 1.0f, 0.0f));
     params.push_back(std::make_unique<juce::AudioParameterInt>("osc3_unison_voices", "OSC3 Unison", 1, 16, 1));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("osc3_unison_detune", "OSC3 Detune", 0.0f, 1.0f, 0.1f));
-   
+
     // --- FILTER ---
     // Usamos un skew factor en el cutoff para que el recorrido del knob sea más musical (logarítmico)
     params.push_back(std::make_unique<juce::AudioParameterFloat>("filter_cutoff", "Filter Cutoff", juce::NormalisableRange<float>(20.0f, 20000.0f, 0.0f, 0.6f), 20000.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("filter_q", "Filter Q", 0.1f, 10.0f, 0.7f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("filter_env_amt", "Filter Env Amount", -1.0f, 1.0f, 0.0f));
-    
+
     // --- MODULATION ---
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("lfo_speed_hz", "LFO Speed", 0.1f, 30.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("lfo_speed_hz", "LFO Speed", 0.1f, 30.0f, 0.1f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("lfo_amount", "LFO Amount", 0.0f, 1.0f, 0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("fm_amount", "FM Amount", 0.0f, 1.0f, 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("fm_amount", "FM Amount", -1.0f, 1.0f, 0.0f));
 
     return { params.begin(), params.end() };
 }

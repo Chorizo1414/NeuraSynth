@@ -31,8 +31,8 @@ keyButton("KeyButton")
         };
 
     // Aplicamos la configuración a los knobs restantes
-    setupKnob(filterResonanceKnob, 0.1f, 1.0f, &NeuraSynthAudioProcessor::setFilterResonance);
-    setupKnob(filterEnvKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setFilterEnvAmount);
+    setupKnob(filterResonanceKnob, 0.1f, 10.0f, &NeuraSynthAudioProcessor::setFilterResonance);
+    setupKnob(filterEnvKnob, -1.0f, 1.0f, &NeuraSynthAudioProcessor::setFilterEnvAmount);
 
     // Valores iniciales
     filterResonanceKnob.setValue(0.1, juce::sendNotificationSync);

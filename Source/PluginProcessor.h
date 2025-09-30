@@ -275,15 +275,15 @@ public:
     void setRelease(float release);
 
     // --- Setters de filtro globales ---
-    void setFilterCutoff(double hz) { filterCutoffHz = juce::jlimit(0.0, 20000.0, hz); updateAllVoices(); }
-    void setFilterResonance(double q) { filterQ = juce::jlimit(0.0, 1.0, q);      updateAllVoices(); }
-    void setFilterEnvAmount(double amt) { filterEnvAmt = juce::jlimit(0.0, 1.0, amt);    updateAllVoices(); }
-    void setKeyTrack(bool enabled) { keyTrack = enabled;                          updateAllVoices(); }
-    void setFMAmount(float amount) { fmAmount = amount; updateAllVoices(); }
+    void setFilterCutoff(double hz);
+    void setFilterResonance(double q);
+    void setFilterEnvAmount(double amt);
+    void setKeyTrack(bool enabled) { keyTrack = enabled; updateAllVoices(false); }
+    void setFMAmount(float amount);
 
     // --- Setters de LFO ---
-    void setLfoSpeed(float speed) { lfoSpeedHz = speed; updateAllVoices(); }
-    void setLfoAmount(float amount) { lfoAmount = amount; updateAllVoices(); }
+    void setLfoSpeed(float speed);
+    void setLfoAmount(float amount);
 
     // --- Setters de la Sección Master ---
     void setGlide(float glideSeconds);
@@ -330,7 +330,8 @@ public:
 
 private:
     juce::MidiMessageCollector midiCollector;
-    void updateAllVoices(); // Nueva función para actualizar parámetros
+    void syncParameterToValue(const juce::String& paramID, float value, bool forceInteger = false);
+    void updateAllVoices(bool syncFromParameters = true);
 
     juce::String promptParaGenerar;
     juce::Synthesiser synth;
