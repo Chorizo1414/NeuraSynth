@@ -116,7 +116,7 @@ BASE_WAVETABLE_OPTIONS = {
 
 DEFAULT_PARAM_SPECS: Dict[str, Dict] = {
     # --- Master ---
-    "master_gain": float_range(0.55, 0.85, limits=(0.0, 1.0)),
+    "master_gain": constant(0.70),
     "master_glide": float_range(0.0, 0.25, limits=(0.0, 2.0)),
     "master_drive": float_range(0.0, 0.35, limits=(0.0, 1.0)),
     "master_dark": float_range(0.0, 0.5, limits=(0.0, 1.0)),
@@ -130,9 +130,9 @@ DEFAULT_PARAM_SPECS: Dict[str, Dict] = {
     "release": float_range(0.3, 1.2, limits=(0.0, 5.0)),
 
     # --- Oscillator Levels ---
-    "osc1_gain": float_range(0.6, 0.95, limits=(0.0, 1.0)),
-    "osc2_gain": float_range(0.3, 0.7, limits=(0.0, 1.0)),
-    "osc3_gain": float_range(0.1, 0.5, limits=(0.0, 1.0)),
+    "osc1_gain": float_range(0.6, 0.80, limits=(0.0, 0.80)),
+    "osc2_gain": float_range(0.3, 0.7, limits=(0.0, 0.80)),
+    "osc3_gain": float_range(0.1, 0.5, limits=(0.0, 0.80)),
 
     # --- Oscillator tuning & panorama ---
     "osc1_octave": int_range(-1, 1, limits=(-2, 2)),
@@ -205,7 +205,6 @@ DEFAULT_PARAM_SPECS: Dict[str, Dict] = {
 ARCHETYPES = {
     "lead": {
         "params": {
-            "master_gain": float_range(0.7, 0.9, limits=(0.0, 1.0)),
             "master_drive": float_range(0.3, 0.6, limits=(0.0, 1.0)),
             "master_bright": float_range(0.6, 1.0, limits=(0.0, 1.0)),
             "master_dark": float_range(0.0, 0.2, limits=(0.0, 1.0)),
@@ -216,9 +215,9 @@ ARCHETYPES = {
             "sustain": float_range(0.75, 1.0, limits=(0.0, 1.0)),
             "release": float_range(0.1, 0.3, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.8, 1.0, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.4, 0.7, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.0, 0.2, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.7, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.4, 0.7, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.0, 0.5, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(3, 6, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.15, 0.35, limits=(0.0, 1.0)),
@@ -256,7 +255,6 @@ ARCHETYPES = {
     },
     "pad": {
         "params": {
-            "master_gain": float_range(0.5, 0.75, limits=(0.0, 1.0)),
             "master_drive": float_range(0.0, 0.2, limits=(0.0, 1.0)),
             "master_dark": float_range(0.3, 0.6, limits=(0.0, 1.0)),
             "master_bright": float_range(0.4, 0.7, limits=(0.0, 1.0)),
@@ -267,9 +265,9 @@ ARCHETYPES = {
             "sustain": float_range(0.7, 0.9, limits=(0.0, 1.0)),
             "release": float_range(2.0, 5.0, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.6, 0.85, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.5, 0.8, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.4, 0.7, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.6, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.5, 0.7, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.4, 0.6, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(5, 8, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.12, 0.3, limits=(0.0, 1.0)),
@@ -310,7 +308,6 @@ ARCHETYPES = {
     },
     "bass": {
         "params": {
-            "master_gain": float_range(0.7, 0.95, limits=(0.0, 1.0)),
             "master_drive": float_range(0.4, 0.8, limits=(0.0, 1.0)),
             "master_dark": float_range(0.4, 0.8, limits=(0.0, 1.0)),
             "master_bright": float_range(0.0, 0.3, limits=(0.0, 1.0)),
@@ -321,9 +318,9 @@ ARCHETYPES = {
             "sustain": float_range(0.4, 0.7, limits=(0.0, 1.0)),
             "release": float_range(0.1, 0.25, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.9, 1.0, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.4, 0.8, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.0, 0.2, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.8, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.4, 0.75, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.0, 0.5, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(1, 3, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.05, 0.18, limits=(0.0, 1.0)),
@@ -363,7 +360,6 @@ ARCHETYPES = {
     },
     "pluck": {
         "params": {
-            "master_gain": float_range(0.6, 0.85, limits=(0.0, 1.0)),
             "master_drive": float_range(0.1, 0.4, limits=(0.0, 1.0)),
             "master_bright": float_range(0.5, 0.8, limits=(0.0, 1.0)),
             "master_dark": float_range(0.0, 0.3, limits=(0.0, 1.0)),
@@ -374,9 +370,9 @@ ARCHETYPES = {
             "sustain": float_range(0.0, 0.15, limits=(0.0, 1.0)),
             "release": float_range(0.15, 0.45, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.7, 0.95, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.4, 0.7, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.0, 0.3, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.7, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.4, 0.7, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.0, 0.3, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(2, 4, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.1, 0.3, limits=(0.0, 1.0)),
@@ -416,60 +412,43 @@ ARCHETYPES = {
     },
     "keys": {
         "params": {
-            "master_gain": float_range(0.55, 0.8, limits=(0.0, 1.0)),
-            "master_drive": float_range(0.05, 0.25, limits=(0.0, 1.0)),
-            "master_dark": float_range(0.2, 0.45, limits=(0.0, 1.0)),
-            "master_bright": float_range(0.3, 0.6, limits=(0.0, 1.0)),
-            "master_chorus_on": bool_prob(0.45),
+            "master_drive": float_range(0.05, 0.35, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.3, 0.7, limits=(0.0, 1.0)),
+            "master_chorus_on": bool_prob(0.55),
 
-            "attack": float_range(0.03, 0.15, limits=(0.0, 5.0)),
-            "decay": float_range(0.4, 1.0, limits=(0.0, 5.0)),
-            "sustain": float_range(0.25, 0.55, limits=(0.0, 1.0)),
-            "release": float_range(0.35, 0.9, limits=(0.0, 5.0)),
+            # Envolvente tipo "pluck": ataque rápido, sustain bajo.
+            "attack": float_range(0.0, 0.04, limits=(0.0, 5.0)),
+            "decay": float_range(0.3, 0.8, limits=(0.0, 5.0)),
+            "sustain": float_range(0.0, 0.4, limits=(0.0, 1.0)), # Sustain bajo es clave
+            "release": float_range(0.2, 0.6, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.65, 0.9, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.45, 0.75, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.2, 0.45, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.7, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.4, 0.75, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.0, 0.5, limits=(0.0, 0.80)),
 
-            "osc1_unison_voices": int_range(2, 3, limits=(1, 16)),
+            "osc1_unison_voices": int_range(1, 3, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.08, 0.2, limits=(0.0, 1.0)),
-            "osc1_unison_spread": float_range(0.4, 1.0, limits=(0.0, 2.5)),
 
-            "filter_cutoff_hz": float_range(900.0, 6000.0, limits=(20.0, 20000.0)),
-            "filter_q": float_range(0.2, 0.5, limits=(0.1, 10.0)),
-            "filter_env_amt": float_range(0.1, 0.35, limits=(-1.0, 1.0)),
-            "filter_keytrack": bool_prob(0.5),
+            "filter_cutoff_hz": float_range(800.0, 7000.0, limits=(20.0, 20000.0)),
+            
+            # ¡CLAVE! Mucha modulación de envolvente en el filtro para el "pluck"
+            "filter_env_amt": float_range(0.4, 0.85, limits=(-1.0, 1.0)),
+            "filter_keytrack": bool_prob(0.6),
 
-            "fm_amount": float_range(0.0, 0.25, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.1, 1.1, limits=(0.0, 30.0)),
-            "lfo_amount": float_range(0.02, 0.12, limits=(0.0, 1.0)),
+            "fm_amount": float_range(-0.1, 0.2, limits=(-1.0, 1.0)),
 
-            "reverb_dry_level": float_range(0.6, 0.85, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.15, 0.3, limits=(0.0, 1.0)),
-            "reverb_room_size": float_range(0.45, 0.75, limits=(0.0, 1.0)),
-            "reverb_decay": float_range(0.45, 0.75, limits=(0.0, 1.0)),
-            "reverb_pre_delay": float_range(0.05, 0.2, limits=(0.0, 1.0)),
-
-            "delay_dry_level": float_range(0.6, 0.85, limits=(0.0, 1.0)),
-            "delay_wet_level": float_range(0.15, 0.3, limits=(0.0, 1.0)),
-            "delay_side_level": float_range(0.1, 0.25, limits=(0.0, 1.0)),
-            "delay_hp_freq": float_range(0.05, 0.3, limits=(0.0, 1.0)),
-            "delay_lp_freq": float_range(0.6, 0.9, limits=(0.0, 1.0)),
-            "delay_time_left": float_range(0.22, 0.55, limits=(0.0, 1.0)),
-            "delay_time_center": float_range(0.28, 0.6, limits=(0.0, 1.0)),
-            "delay_time_right": float_range(0.32, 0.65, limits=(0.0, 1.0)),
-            "delay_feedback": float_range(0.25, 0.45, limits=(0.0, 0.98)),
-            "delay_wow_depth": float_range(0.1, 0.3, limits=(0.0, 1.0)),
+            "delay_wet_level": float_range(0.15, 0.35, limits=(0.0, 1.0)),
         },
         "wavetable_options": {
-            "osc1": ["sen.wav", "triangle.wav", "saw.wav"],
-            "osc2": ["sen.wav", "triangle.wav", "square.wav"],
-            "osc3": ["saw.wav", "senHarmonic.wav", "triangle.wav"],
+            # Ondas clásicas para sonidos de teclado de sinte
+            "osc1": ["square.wav", "saw.wav", "triangle.wav"],
+            "osc2": ["saw.wav", "square.wav", "sen.wav"],
+            "osc3": ["triangle.wav", "sen.wav"],
         },
     },
     "poly_synth": {
         "params": {
-            "master_gain": float_range(0.55, 0.8, limits=(0.0, 1.0)),
             "master_drive": float_range(0.05, 0.3, limits=(0.0, 1.0)),
             "master_dark": float_range(0.2, 0.5, limits=(0.0, 1.0)),
             "master_bright": float_range(0.35, 0.65, limits=(0.0, 1.0)),
@@ -480,9 +459,9 @@ ARCHETYPES = {
             "sustain": float_range(0.4, 0.7, limits=(0.0, 1.0)),
             "release": float_range(0.45, 1.2, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.7, 0.95, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.5, 0.8, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.35, 0.65, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.7, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.5, 0.7, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.35, 0.65, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(4, 6, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.12, 0.28, limits=(0.0, 1.0)),
@@ -523,7 +502,6 @@ ARCHETYPES = {
     },
     "string_brass": {
         "params": {
-            "master_gain": float_range(0.55, 0.78, limits=(0.0, 1.0)),
             "master_drive": float_range(0.1, 0.35, limits=(0.0, 1.0)),
             "master_dark": float_range(0.25, 0.55, limits=(0.0, 1.0)),
             "master_bright": float_range(0.35, 0.7, limits=(0.0, 1.0)),
@@ -534,9 +512,9 @@ ARCHETYPES = {
             "sustain": float_range(0.55, 0.85, limits=(0.0, 1.0)),
             "release": float_range(0.8, 1.8, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.75, 0.95, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.55, 0.85, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.25, 0.55, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.75, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.55, 0.70, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.25, 0.55, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(5, 7, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.12, 0.26, limits=(0.0, 1.0)),
@@ -577,7 +555,6 @@ ARCHETYPES = {
     },
     "kick": {
         "params": {
-            "master_gain": float_range(0.75, 0.95, limits=(0.0, 1.0)),
             "master_drive": float_range(0.3, 0.7, limits=(0.0, 1.0)),
             "master_dark": float_range(0.4, 0.75, limits=(0.0, 1.0)),
             "master_bright": float_range(0.1, 0.35, limits=(0.0, 1.0)),
@@ -588,9 +565,9 @@ ARCHETYPES = {
             "sustain": float_range(0.0, 0.05, limits=(0.0, 1.0)),
             "release": float_range(0.15, 0.35, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.85, 1.0, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.2, 0.45, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.0, 0.2, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.85, 1.0, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.2, 0.45, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.0, 0.2, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.02, 0.08, limits=(0.0, 1.0)),
@@ -629,7 +606,6 @@ ARCHETYPES = {
     },
     "snare": {
         "params": {
-            "master_gain": float_range(0.7, 0.9, limits=(0.0, 1.0)),
             "master_drive": float_range(0.3, 0.7, limits=(0.0, 1.0)),
             "master_dark": float_range(0.15, 0.4, limits=(0.0, 1.0)),
             "master_bright": float_range(0.45, 0.8, limits=(0.0, 1.0)),
@@ -640,9 +616,9 @@ ARCHETYPES = {
             "sustain": float_range(0.0, 0.15, limits=(0.0, 1.0)),
             "release": float_range(0.25, 0.6, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.55, 0.8, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.3, 0.6, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.5, 0.9, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.55, 0.7, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.3, 0.5, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.5, 0.8, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.05, 0.15, limits=(0.0, 1.0)),
@@ -681,7 +657,6 @@ ARCHETYPES = {
     },
     "hihat": {
         "params": {
-            "master_gain": float_range(0.6, 0.85, limits=(0.0, 1.0)),
             "master_drive": float_range(0.25, 0.6, limits=(0.0, 1.0)),
             "master_dark": float_range(0.0, 0.25, limits=(0.0, 1.0)),
             "master_bright": float_range(0.55, 0.85, limits=(0.0, 1.0)),
@@ -692,9 +667,9 @@ ARCHETYPES = {
             "sustain": float_range(0.0, 0.05, limits=(0.0, 1.0)),
             "release": float_range(0.05, 0.2, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.4, 0.7, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.2, 0.45, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.8, 1.0, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.4, 0.7, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.2, 0.45, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.8, 1.0, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.05, 0.15, limits=(0.0, 1.0)),
@@ -733,7 +708,6 @@ ARCHETYPES = {
     },
     "fx": {
         "params": {
-            "master_gain": float_range(0.5, 0.8, limits=(0.0, 1.0)),
             "master_drive": float_range(0.1, 0.5, limits=(0.0, 1.0)),
             "master_dark": float_range(0.1, 0.5, limits=(0.0, 1.0)),
             "master_bright": float_range(0.3, 0.7, limits=(0.0, 1.0)),
@@ -744,9 +718,9 @@ ARCHETYPES = {
             "sustain": float_range(0.1, 0.7, limits=(0.0, 1.0)),
             "release": float_range(0.3, 4.5, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.5, 0.85, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.3, 0.7, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.2, 0.6, limits=(0.0, 1.0)),
+            "osc1_gain": float_range(0.5, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.3, 0.7, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.2, 0.6, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(3, 6, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.15, 0.45, limits=(0.0, 1.0)),
@@ -787,59 +761,72 @@ ARCHETYPES = {
     },
     "bell": {
         "params": {
-            "master_gain": float_range(0.55, 0.8, limits=(0.0, 1.0)),
-            "master_drive": float_range(0.0, 0.25, limits=(0.0, 1.0)),
-            "master_dark": float_range(0.1, 0.35, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.0, 0.2, limits=(0.0, 1.0)),
             "master_bright": float_range(0.45, 0.75, limits=(0.0, 1.0)),
             "master_chorus_on": bool_prob(0.35),
 
-            "attack": float_range(0.0, 0.02, limits=(0.0, 5.0)),
-            "decay": float_range(0.35, 0.9, limits=(0.0, 5.0)),
-            "sustain": float_range(0.0, 0.2, limits=(0.0, 1.0)),
-            "release": float_range(0.6, 1.4, limits=(0.0, 5.0)),
+            # Envolvente de campana: ataque instantáneo, sin sustain, caída media.
+            "attack": float_range(0.0, 0.01, limits=(0.0, 5.0)),
+            "decay": float_range(0.8, 1.5, limits=(0.0, 5.0)),
+            "sustain": float_range(0.0, 0.0, limits=(0.0, 1.0)), # Sustain CERO es clave
+            "release": float_range(0.8, 2.0, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.6, 0.85, limits=(0.0, 1.0)),
-            "osc2_gain": float_range(0.45, 0.7, limits=(0.0, 1.0)),
-            "osc3_gain": float_range(0.25, 0.55, limits=(0.0, 1.0)),
+            # Ganancias limitadas
+            "osc1_gain": float_range(0.7, 0.80, limits=(0.0, 0.80)),
+            "osc2_gain": float_range(0.5, 0.7, limits=(0.0, 0.80)),
+            "osc3_gain": float_range(0.3, 0.5, limits=(0.0, 0.80)),
 
             "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.05, 0.15, limits=(0.0, 1.0)),
-            "osc1_unison_spread": float_range(0.3, 0.8, limits=(0.0, 2.5)),
 
-            "filter_cutoff_hz": float_range(2000.0, 12000.0, limits=(20.0, 20000.0)),
-            "filter_q": float_range(0.25, 0.55, limits=(0.1, 10.0)),
-            "filter_env_amt": float_range(0.0, 0.25, limits=(-1.0, 1.0)),
-            "filter_keytrack": bool_prob(0.45),
+            "filter_cutoff_hz": float_range(2000.0, 14000.0, limits=(20.0, 20000.0)),
 
-            "fm_amount": float_range(0.25, 0.6, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.1, 1.5, limits=(0.0, 30.0)),
-            "lfo_amount": float_range(0.02, 0.15, limits=(0.0, 1.0)),
+            # FM muy sutil para brillo, no para el tono metálico
+            "fm_amount": float_range(-0.15, 0.25, limits=(-1.0, 1.0)),
 
-            "reverb_dry_level": float_range(0.5, 0.75, limits=(0.0, 1.0)),
             "reverb_wet_level": float_range(0.2, 0.45, limits=(0.0, 1.0)),
-            "reverb_room_size": float_range(0.5, 0.8, limits=(0.0, 1.0)),
-            "reverb_decay": float_range(0.5, 0.85, limits=(0.0, 1.0)),
-            "reverb_pre_delay": float_range(0.05, 0.25, limits=(0.0, 1.0)),
-
-            "delay_dry_level": float_range(0.55, 0.85, limits=(0.0, 1.0)),
             "delay_wet_level": float_range(0.2, 0.4, limits=(0.0, 1.0)),
-            "delay_side_level": float_range(0.15, 0.35, limits=(0.0, 1.0)),
-            "delay_hp_freq": float_range(0.1, 0.35, limits=(0.0, 1.0)),
-            "delay_lp_freq": float_range(0.6, 0.95, limits=(0.0, 1.0)),
-            "delay_time_left": float_range(0.25, 0.6, limits=(0.0, 1.0)),
-            "delay_time_center": float_range(0.3, 0.65, limits=(0.0, 1.0)),
-            "delay_time_right": float_range(0.35, 0.7, limits=(0.0, 1.0)),
-            "delay_feedback": float_range(0.3, 0.55, limits=(0.0, 0.98)),
-            "delay_wow_depth": float_range(0.1, 0.3, limits=(0.0, 1.0)),
         },
         "wavetable_options": {
-            "osc1": ["sen.wav", "triangle.wav"],
+            # Base sinusoidal para un sonido limpio de campana
+            "osc1": ["sen.wav"],
             "osc2": ["senHarmonic.wav", "triangle.wav"],
-            "osc3": ["sen.wav", "saw.wav"],
+            "osc3": ["sen.wav"],
         },
     },
 }
 
+# Define la probabilidad de usar 1, 2 o 3 osciladores para cada arquetipo.
+# Formato: [prob_1_osc, prob_2_osc, prob_3_osc]
+OSCILLATOR_COUNT_PROFILES: Dict[str, List[float]] = {
+    # Bajos y Kicks: simples y potentes
+    "bass": [0.4, 0.5, 0.1],
+    "kick": [0.6, 0.3, 0.1],
+
+    # Sonidos percusivos y definidos
+    "pluck": [0.1, 0.7, 0.2],
+    "keys":  [0.0, 0.6, 0.4],
+    "bell":  [0.0, 0.5, 0.5],
+    "mallet": [0.1, 0.7, 0.2],
+    "snare": [0.0, 0.8, 0.2], # Generalmente 2 (tono + ruido)
+    "hihat": [0.0, 0.7, 0.3], # Tono + ruido
+
+    # Sonidos melódicos y principales
+    "lead": [0.1, 0.5, 0.4],
+
+    # Sonidos complejos y densos
+    "pad": [0.0, 0.3, 0.7],
+    "poly_synth": [0.0, 0.4, 0.6],
+    "string_brass": [0.0, 0.2, 0.8],
+    "string_synth": [0.0, 0.2, 0.8],
+    "brass_synth": [0.0, 0.3, 0.7],
+
+    # FX: puede ser cualquier cosa
+    "fx": [0.2, 0.4, 0.4],
+    
+    # Perfil por defecto si no se encuentra uno específico
+    "default": [0.1, 0.5, 0.4],
+}
 
 ARCHETYPES.update(
     {
@@ -1112,27 +1099,29 @@ INTERVAL_PROFILES: Dict[str, List[Tuple[int, float]]] = {
         (5, 0.08),
         (-5, 0.05),
         (3, 0.03),
+        (2, 0.05),
+        (6, 0.04),
     ],
 }
 
 
 FINE_SPAN_BY_ARCHETYPE: Dict[str, float] = {
-    "bass": 2.5,
-    "kick": 1.5,
-    "snare": 2.0,
-    "hihat": 2.0,
-    "lead": 4.0,
-    "pad": 5.0,
-    "poly_synth": 5.0,
-    "string_synth": 5.0,
-    "string_brass": 5.0,
-    "brass_synth": 4.5,
-    "poly": 4.5,
-    "keys": 4.0,
-    "pluck": 3.5,
-    "bell": 6.0,
-    "mallet": 4.5,
-    "fx": 9.0,
+    "bass": 1.8,
+    "kick": 1.0,
+    "snare": 1.5,
+    "hihat": 1.5,
+    "lead": 3.0,
+    "pad": 4.0,
+    "poly_synth": 3.8,
+    "string_synth": 4.2,
+    "string_brass": 4.0,
+    "brass_synth": 3.5,
+    "poly": 3.5,
+    "keys": 2.8,
+    "pluck": 2.5,
+    "bell": 4.5,
+    "mallet": 3.0,
+    "fx": 8.0,
 }
 
 
@@ -1160,18 +1149,33 @@ def _interval_allowed_for_osc(interval: int, osc_index: int, specs: Dict[str, Di
     return False
 
 
-def _choose_interval(archetype: str, osc_index: int, specs: Dict[str, Dict], used: List[int]) -> int:
+def _choose_interval(archetype: str, osc_index: int, specs: Dict[str, Dict], used: List[int], context_interval: int = None) -> int:
     profile = INTERVAL_PROFILES.get(archetype, DEFAULT_INTERVAL_PROFILE)
     candidates: List[int] = []
     weights: List[float] = []
+
+    # Diccionario de intervalos "sugeridos" para formar acordes
+    chord_tones = {
+        7: [3, 4],      # Si el contexto es una 5a, sugiere una 3a
+        5: [3, 4],      # Si el contexto es una 4a, sugiere una 3a
+        3: [7, -5],     # Si el contexto es una 3a menor, sugiere 5a o 4a
+        4: [7, -5],     # Si el contexto es una 3a Mayor, sugiere 5a o 4a
+    }
 
     for interval, weight in profile:
         if not _interval_allowed_for_osc(interval, osc_index, specs):
             continue
 
+        # Penalización si el intervalo ya se usó
         penalty = 0.4 if any(abs(interval - other) < 0.1 for other in used) else 1.0
+        
+        # Aumento de probabilidad si el intervalo forma un acorde con el contexto
+        boost = 1.0
+        if context_interval in chord_tones and interval in chord_tones[context_interval]:
+            boost = 2.5 # Hacemos que sea mucho más probable
+
         candidates.append(interval)
-        weights.append(weight * penalty)
+        weights.append(weight * penalty * boost)
 
     if not candidates:
         return 0
@@ -1219,58 +1223,182 @@ def _assign_interval_to_osc(result: Dict, specs: Dict[str, Dict], osc_index: int
     _set_numeric_param(result, specs, f"osc{osc_index}_pitch", best_pitch)
 
 
-def _shape_fine_offsets(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int], archetype: str):
+def _shape_fine_offsets(
+    result: Dict,
+    specs: Dict[str, Dict],
+    active_oscillators: List[int],
+    archetype: str,
+):
+    """
+    Modela la desafinación (fine) de forma inteligente, respetando el intervalo armónico
+    de cada oscilador para mantener la consonancia.
+    """
+    if not active_oscillators:
+        return
+
+    # 1. Obtenemos el "carácter" base de desafinación y el factor de unison
     base_span = FINE_SPAN_BY_ARCHETYPE.get(archetype, 4.0)
-    for osc_index in active_oscillators:
-        if osc_index == 1:
-            continue
+    unison_voices = result.get("osc1_unison_voices", 1)
+    unison_factor = 1.0 + ((unison_voices - 1) / 15.0) * 0.5
+    final_span = base_span * unison_factor
+
+    # 2. El oscilador raíz se mantiene relativamente estable
+    root_index = active_oscillators[0]
+    root_spec = specs.get(f"osc{root_index}_fine")
+    if root_spec:
+        center_variation = random.uniform(-final_span * 0.1, final_span * 0.1)
+        _set_numeric_param(result, specs, f"osc{root_index}_fine", center_variation)
+
+    if len(active_oscillators) == 1:
+        return
+
+    # 3. Para los demás osciladores, ajustamos la desafinación según su intervalo
+    for osc_index in active_oscillators[1:]:
         spec = specs.get(f"osc{osc_index}_fine")
         if not spec:
             continue
 
-        span = base_span
-        if osc_index == 3 and len(active_oscillators) >= 3:
-            span *= 1.2
+        intervalo_total = result.get(f"osc{osc_index}_octave", 0) * 12 + result.get(f"osc{osc_index}_pitch", 0)
+        
+        # Modificador basado en la consonancia del intervalo
+        consonance_factor = 1.0
+        abs_interval = abs(intervalo_total) % 12
+        
+        if abs_interval == 0: # Octava/Unísono
+            consonance_factor = 0.25 # Muy poca desafinación
+        elif abs_interval in [7, 5]: # Quinta/Cuarta
+            consonance_factor = 0.5  # Poca desafinación
+        # Para terceras, sextas, etc., se usa el factor completo (1.0)
 
-        fine_value = random.uniform(-span, span)
+        # Calculamos el rango de desafinación permitido para ESTE oscilador
+        allowed_span = final_span * consonance_factor
+        
+        # Asignamos un valor dentro de ese rango musicalmente seguro
+        fine_value = random.uniform(-allowed_span, allowed_span)
         _set_numeric_param(result, specs, f"osc{osc_index}_fine", fine_value)
 
 
-def _ensure_layered_gains(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int]):
-    active_count = len(active_oscillators)
-    if active_count <= 1:
+def _ensure_layered_gains(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int], archetype: str):
+    """
+    Modela la relación de ganancia entre los osciladores de forma inteligente,
+    basándose en su rol armónico y el arquetipo del sonido.
+    """
+    if len(active_oscillators) <= 1:
         return
 
-    for position, osc_index in enumerate(active_oscillators, start=1):
-        gain_key = f"osc{osc_index}_gain"
-        spec = specs.get(gain_key)
-        if not spec:
+    osc_data = {}
+    for i in active_oscillators:
+        osc_data[i] = {
+            "gain": result.get(f"osc{i}_gain", 0.0),
+            "semitones": result.get(f"osc{i}_octave", 0) * 12 + result.get(f"osc{i}_pitch", 0),
+            "wavetable": result.get(f"osc{i}_wavetable", "None"),
+        }
+    
+    # 1. Asegurar que el OSC1 (el principal) tenga una ganancia sólida.
+    primary_osc_index = active_oscillators[0]
+    primary_gain_spec = specs.get(f"osc{primary_osc_index}_gain")
+    if primary_gain_spec:
+        min_gain = primary_gain_spec["range"][0] + (primary_gain_spec["range"][1] - primary_gain_spec["range"][0]) * 0.6
+        if osc_data[primary_osc_index]["gain"] < min_gain:
+             osc_data[primary_osc_index]["gain"] = random.uniform(min_gain, primary_gain_spec["range"][1])
+    
+    primary_gain = osc_data[primary_osc_index]["gain"]
+    primary_semitones = osc_data[primary_osc_index].get("semitones", 0)
+
+    # 2. Ajustar los osciladores secundarios en base a su rol
+    for i in active_oscillators[1:]:
+        secondary_spec = specs.get(f"osc{i}_gain")
+        if not secondary_spec:
             continue
 
-        range_low, range_high = spec.get("range", (0.0, 1.0))
-        floor_factor = 0.55 if position == 1 else 0.3
-        if active_count >= 3 and position == 3:
-            floor_factor = 0.25
-        elif active_count == 2 and position == 2:
-            floor_factor = 0.35
+        target_ratio = 0.65  # Ratio de volumen por defecto para un oscilador de acompañamiento
 
-        minimum = range_low + (range_high - range_low) * floor_factor
-        minimum = max(range_low, min(minimum, range_high))
+        # Lógica para SUB-BAJOS
+        if osc_data[i]["semitones"] <= primary_semitones - 12:
+            target_ratio = random.uniform(0.55, 0.75) # Los subs son potentes pero no deben opacar
+            if archetype == "bass":
+                target_ratio *= 1.1 # En un bajo, el sub es más importante
 
-        if result.get(gain_key, 0.0) < minimum:
-            result[gain_key] = random.uniform(minimum, range_high)
+        # Lógica para ARMÓNICOS SUPERIORES
+        elif osc_data[i]["semitones"] > primary_semitones + 7:
+            target_ratio = random.uniform(0.45, 0.6) # Los armónicos altos son más sutiles
 
-    primary_gain_key = f"osc{active_oscillators[0]}_gain"
-    primary_gain = result.get(primary_gain_key, 0.0)
-    for osc_index in active_oscillators[1:]:
-        gain_key = f"osc{osc_index}_gain"
-        spec = specs.get(gain_key)
-        if not spec:
-            continue
-        range_low, range_high = spec.get("range", (0.0, 1.0))
-        if result[gain_key] >= primary_gain:
-            result[gain_key] = max(range_low, min(primary_gain - 0.05, range_high))
+        # Lógica para TEXTURA / RUIDO
+        if osc_data[i]["wavetable"] == "whitenoise.wav":
+            target_ratio = random.uniform(0.05, 0.25) # El ruido es solo para añadir textura
 
+        # Para PADS, los osciladores pueden tener volúmenes más parecidos
+        if archetype in ["pad", "string_synth"]:
+            target_ratio *= 1.2
+
+        # Calculamos la ganancia final y la aplicamos
+        max_gain = primary_gain * target_ratio
+        
+        # Le damos un poco de aleatoriedad para que no suene siempre igual
+        final_gain = random.uniform(max_gain * 0.8, max_gain)
+        
+        # Nos aseguramos de no salirnos de los límites definidos en el arquetipo
+        osc_data[i]["gain"] = max(secondary_spec["range"][0], min(final_gain, secondary_spec["range"][1]))
+
+    # 3. Finalmente, actualizamos el diccionario 'result' con las nuevas ganancias calculadas
+    for i in active_oscillators:
+        result[f"osc{i}_gain"] = osc_data[i]["gain"]
+
+
+def _tame_master_drive(result: Dict, specs: Dict[str, Dict]):
+    key = "master_drive"
+    if key not in result or key not in specs:
+        return
+
+    spec = specs[key]
+    drive = result.get(key, 0.0)
+    low, _ = _effective_bounds(spec)
+    subtle_drive = low + (drive - low) * 0.45
+    _set_numeric_param(result, specs, key, subtle_drive)
+
+def _apply_modulation_scenario(result: Dict, specs: Dict[str, Dict], archetype: str):
+    """
+    Elige y aplica un "escenario de modulación" para dar vida y movimiento al sonido.
+    """
+    # Escenarios posibles y sus probabilidades
+    scenarios = ["static", "slow_sweep", "classic_vibrato", "rhythmic_pulse"]
+    weights = [0.35, 0.30, 0.20, 0.15] # 35% de chance de no tener modulación
+
+    # Los bajos y sonidos percusivos a menudo no necesitan LFOs complejos
+    if archetype in ["bass", "kick", "pluck", "keys", "snare"]:
+        weights = [0.6, 0.1, 0.2, 0.1] # Más chance de ser estático
+
+    chosen_scenario = random.choices(scenarios, weights=weights, k=1)[0]
+
+    # --- Aplicamos la receta del escenario elegido ---
+
+    if chosen_scenario == "static":
+        result["lfo_amount"] = 0.0
+        result["lfo_speed_hz"] = 0.0
+        # También podemos reducir la modulación de la envolvente del filtro para un sonido más plano
+        if "filter_env_amt" in result and random.random() < 0.5:
+            result["filter_env_amt"] *= 0.3
+
+    elif chosen_scenario == "slow_sweep":
+        # LFO lento y profundo para pads y atmósferas
+        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(0.08, 0.3))
+        _set_numeric_param(result, specs, "lfo_amount", random.uniform(0.3, 0.7))
+        # Aseguramos que el filtro no esté completamente abierto para que el LFO tenga espacio para actuar
+        if "filter_cutoff_hz" in result and result["filter_cutoff_hz"] > 10000:
+             _set_numeric_param(result, specs, "filter_cutoff_hz", random.uniform(4000, 9000))
+
+    elif chosen_scenario == "classic_vibrato":
+        # LFO rápido y sutil para un vibrato musical
+        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(4.5, 7.0))
+        _set_numeric_param(result, specs, "lfo_amount", random.uniform(0.02, 0.08))
+
+    elif chosen_scenario == "rhythmic_pulse":
+        # LFO a velocidad media para crear wobbles o pulsos
+        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(0.5, 4.0))
+        _set_numeric_param(result, specs, "lfo_amount", random.uniform(0.4, 0.85))
+        # Este efecto necesita que la envolvente del filtro no sea demasiado agresiva
+        if "filter_env_amt" in result:
+            result["filter_env_amt"] *= 0.5
 
 def _shape_panorama(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int], archetype: str):
     if not active_oscillators:
@@ -1363,15 +1491,38 @@ def _harmonize_oscillators(result: Dict, specs: Dict[str, Dict], archetype: str)
 
     if len(active_oscillators) >= 2:
         used_intervals = [0]
-        for osc_index in active_oscillators[1:]:
-            interval = _choose_interval(archetype, osc_index, specs, used_intervals)
-            used_intervals.append(interval)
-            _assign_interval_to_osc(result, specs, osc_index, interval)
+        STABILITY_CHANCE = 0.25  # 25% de probabilidad de elegir un intervalo perfectamente estable
+
+        # --- Lógica para OSC2 ---
+        osc2_index = active_oscillators[1]
+        if random.random() < STABILITY_CHANCE and archetype not in ["fx", "bell"]:
+            # FORZAMOS ESTABILIDAD: Octava o unísono, sin desafinación.
+            stable_interval = random.choice([0, 12, -12])
+            _assign_interval_to_osc(result, specs, osc2_index, stable_interval)
+            _set_numeric_param(result, specs, f"osc{osc2_index}_fine", 0.0)
+            interval_osc2 = stable_interval
+        else:
+            # Comportamiento normal: buscar armonía.
+            interval_osc2 = _choose_interval(archetype, osc2_index, specs, used_intervals)
+            _assign_interval_to_osc(result, specs, osc2_index, interval_osc2)
+        used_intervals.append(interval_osc2)
+
+        # --- Lógica para OSC3 (y siguientes, si los hubiera) ---
+        if len(active_oscillators) >= 3:
+            context_interval = interval_osc2
+            for osc_index in active_oscillators[2:]:
+                if random.random() < STABILITY_CHANCE and archetype not in ["fx"]:
+                    stable_interval = random.choice([-12, -24, 0, 12]) # Priorizamos subs estables
+                    _assign_interval_to_osc(result, specs, osc_index, stable_interval)
+                    _set_numeric_param(result, specs, f"osc{osc_index}_fine", 0.0)
+                else:
+                    interval = _choose_interval(archetype, osc_index, specs, used_intervals, context_interval=context_interval)
+                    used_intervals.append(interval)
+                    _assign_interval_to_osc(result, specs, osc_index, interval)
 
     _shape_fine_offsets(result, specs, active_oscillators, archetype)
-    _ensure_layered_gains(result, specs, active_oscillators)
+    _ensure_layered_gains(result, specs, active_oscillators, archetype)
     _shape_panorama(result, specs, active_oscillators, archetype)
-
 
 def generate_synth_patch(tags: List[str]) -> Dict:
     archetype_name = None
@@ -1396,6 +1547,21 @@ def generate_synth_patch(tags: List[str]) -> Dict:
     for param, spec in specs.items():
         result[param] = _generate_value(param, spec)
 
+    # --- Decisión de complejidad: ¿Cuántos osciladores usar? ---
+    profile = OSCILLATOR_COUNT_PROFILES.get(archetype_name, OSCILLATOR_COUNT_PROFILES["default"])
+    num_oscillators = random.choices([1, 2, 3], weights=profile, k=1)[0]
+
+    # Apagamos los osciladores no deseados poniendo su ganancia a 0 Y su wavetable a "None".
+    if num_oscillators == 1:
+        result["osc2_gain"] = 0.0
+        result["osc3_gain"] = 0.0
+        result["osc2_wavetable"] = "None"
+        result["osc3_wavetable"] = "None"
+    elif num_oscillators == 2:
+        result["osc3_gain"] = 0.0
+        result["osc3_wavetable"] = "None"
+    # Si son 3, no hacemos nada y dejamos que la IA los use todos.
+
     wavetable_choices = archetype.get("wavetable_options", BASE_WAVETABLE_OPTIONS)
     for osc_name in ("osc1", "osc2", "osc3"):
         options = wavetable_choices.get(osc_name, BASE_WAVETABLE_OPTIONS.get(osc_name, []))
@@ -1403,29 +1569,12 @@ def generate_synth_patch(tags: List[str]) -> Dict:
             result[f"{osc_name}_wavetable"] = random.choice(options)
         else:
             result[f"{osc_name}_wavetable"] = "None"
+        
+        # Armonizar los osciladores para que suenen bien juntos
+        _harmonize_oscillators(result, specs, archetype_name)
 
-    _harmonize_oscillators(result, specs, archetype_name)
-
-    if (
-        archetype_name != "fx"
-        and "lfo_amount" in result
-        and "lfo_speed_hz" in result
-    ):
-        if random.random() < 0.8:
-            result["lfo_amount"] = 0.0
-            result["lfo_speed_hz"] = 0.0
-        else:
-            subtle_amount_cap = random.uniform(0.02, 0.12)
-            result["lfo_amount"] = max(0.0, min(result["lfo_amount"], subtle_amount_cap))
-            if result["lfo_amount"] <= 0.0:
-                result["lfo_speed_hz"] = 0.0
-            else:
-                subtle_speed_cap = random.uniform(0.2, 1.5)
-                current_speed = result["lfo_speed_hz"]
-                if current_speed <= 0.0 or current_speed > subtle_speed_cap:
-                    result["lfo_speed_hz"] = subtle_speed_cap
-                else:
-                    result["lfo_speed_hz"] = current_speed
+        _tame_master_drive(result, specs)
+        _apply_modulation_scenario(result, specs, archetype_name)
 
     # Alias para compatibilidad con el procesador en C++
     if "filter_cutoff_hz" in result:

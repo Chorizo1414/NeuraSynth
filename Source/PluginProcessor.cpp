@@ -414,15 +414,29 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // --- 1. EFECTO DRIVE ---
     if (driveAmount > 0.0f)
     {
-        float driveGain = juce::jmap(driveAmount, 0.0f, 1.0f, 1.0f, 3.0f);
+        // 1. Aplicamos una curva cúbica para un control suave y progresivo.
+        //    El efecto será muy sutil al principio y más notorio al final.
+        float curvedAmount = driveAmount * driveAmount * driveAmount;
+
+        // 2. Mapeamos el valor a un rango de ganancia más musical.
+        //    Aquí, el máximo es 3.5. Si aún es mucho, puedes bajarlo a 2.5 o 3.0.
+        float driveGain = juce::jmap(curvedAmount, 0.0f, 0.3f, 0.5f, 1.0f);
+
+        // Compensación de volumen para que el sonido no se dispare
+        float makeupGain = 1.0f / (1.0f + (driveGain - 1.0f) * 0.5f);
+
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
             auto* channelData = buffer.getWritePointer(channel);
             for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
             {
                 float inputSample = channelData[sample] * driveGain;
+
+                // Usamos tanh para una saturación suave tipo cinta
                 float distortedSample = std::tanh(inputSample);
-                channelData[sample] = distortedSample * (1.0f / driveGain);
+
+                // Aplicamos la compensación de volumen
+                channelData[sample] = distortedSample * makeupGain;
             }
         }
     }
