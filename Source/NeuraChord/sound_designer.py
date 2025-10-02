@@ -898,6 +898,36 @@ MODIFIERS = {
         "fm_amount": float_range(0.2, 0.6, limits=(-1.0, 1.0)),
         "filter_q": (1.1, 1.6),
     },
+    "vintage": {
+        # Sonido más oscuro y cálido
+        "master_bright": (0.6, 0.8),
+        "master_dark": (1.1, 1.4),
+        "master_drive": (1.2, 1.6),
+        # Simula la inestabilidad de tono de los circuitos analógicos
+        "lfo_speed_hz": float_range(4.5, 6.5, limits=(0.0, 30.0)),
+        "lfo_amount": float_range(0.01, 0.05, limits=(0.0, 1.0)),
+    },
+    "modern": {
+        # Sonido nítido y brillante
+        "master_bright": (1.2, 1.5),
+        "master_dark": (0.7, 0.9),
+        # Promueve el uso de armónicos complejos y digitales
+        "fm_amount": (1.5, 2.5),
+        # Envolvente más rápida y "punchy"
+        "attack": (0.5, 0.8),
+    },
+    "lofi": {
+        # Recorta drásticamente los agudos y graves
+        "filter_cutoff_hz": (0.2, 0.5),
+        "master_bright": float_range(0.0, 0.2, limits=(0.0, 1.0)),
+        "master_dark": float_range(0.7, 1.0, limits=(0.0, 1.0)),
+        # Simula el "wow & flutter" de una cinta gastada
+        "lfo_speed_hz": float_range(0.1, 0.8, limits=(0.0, 30.0)),
+        "lfo_amount": float_range(0.03, 0.09, limits=(0.0, 1.0)),
+        # Un toque de ruido de fondo
+        "osc3_wavetable": choice(["whitenoise.wav"]),
+        "osc3_gain": float_range(0.01, 0.08, limits=(0.0, 0.85)),
+    }
 }
 
 # ==============================================================================
@@ -1453,6 +1483,80 @@ def _shape_unison(result: Dict, specs: Dict[str, Dict], archetype: str):
     final_detune = random.uniform(new_low, new_high)
     _set_numeric_param(result, specs, "osc1_unison_detune", final_detune)
 
+def _shape_effects(result: Dict, specs: Dict[str, Dict], archetype: str):
+    """
+    Ajusta los efectos (Reverb y Delay) de forma inteligente basándose en el
+    arquetipo del sonido para darle el espacio y la dimensión correctos.
+    """
+    # Perfil de efectos por defecto
+    delay_wet = random.uniform(0.15, 0.35)
+    reverb_wet = random.uniform(0.1, 0.3)
+    reverb_decay = random.uniform(0.4, 0.8)
+    reverb_size = random.uniform(0.5, 0.8)
+    delay_hp = random.uniform(0.05, 0.35)
+
+    # --- Recetas de Efectos por Arquetipo ---
+
+    if archetype in ["pluck", "keys", "bell", "mallet"]:
+        # Sonidos percusivos: Delay protagonista, Reverb corta para dar espacio.
+        delay_wet = random.uniform(0.25, 0.45)
+        reverb_wet = random.uniform(0.15, 0.30)
+        reverb_decay = random.uniform(0.2, 0.5)
+        reverb_size = random.uniform(0.3, 0.6)
+        # Filtramos los graves del delay para no enturbiar la mezcla
+        delay_hp = random.uniform(0.2, 0.5)
+
+    elif archetype in ["pad", "string_synth", "string_brass"]:
+        # Sonidos atmosféricos: Reverb enorme, Delay como una sombra sutil.
+        reverb_wet = random.uniform(0.3, 0.55)
+        reverb_decay = random.uniform(0.7, 0.95)
+        reverb_size = random.uniform(0.75, 1.0)
+        delay_wet = random.uniform(0.1, 0.25)
+        # Filtramos los agudos del delay para que no distraiga
+        _set_numeric_param(result, specs, "delay_lp_freq", random.uniform(0.4, 0.7))
+
+    elif archetype in ["bass", "kick"]:
+        # Sonidos graves: Prácticamente sin efectos para mantener la pegada y claridad.
+        delay_wet = random.uniform(0.0, 0.05)
+        reverb_wet = random.uniform(0.0, 0.1)
+
+    # Aplicamos los valores calculados a los parámetros del resultado
+    _set_numeric_param(result, specs, "delay_wet_level", delay_wet)
+    _set_numeric_param(result, specs, "reverb_wet_level", reverb_wet)
+    _set_numeric_param(result, specs, "reverb_decay", reverb_decay)
+    _set_numeric_param(result, specs, "reverb_room_size", reverb_size)
+    _set_numeric_param(result, specs, "delay_hp_freq", delay_hp)
+
+def _apply_expert_correlations(result: Dict, specs: Dict[str, Dict], archetype: str):
+    """
+    Aplica reglas de experto finales para asegurar la coherencia entre parámetros,
+    imitando las decisiones de un diseñador de sonido humano.
+    """
+    # --- 1. Correlación Envolvente-Filtro (Sonidos Plucky) ---
+    filter_env = result.get("filter_env_amt", 0.0)
+    if filter_env > 0.6 and "release" in result: # Si el filtro es muy percusivo...
+        # ...acortamos la cola del sonido para que sea más definido.
+        current_release = result["release"]
+        result["release"] = max(0.05, min(current_release, random.uniform(0.1, 0.5)))
+
+    # --- 2. Correlación Filtro-Resonancia (Evitar Picos Agresivos) ---
+    filter_q = result.get("filter_q", 0.1)
+    if filter_q > 0.7: # Si la resonancia es alta...
+        # ...reducimos el drive y la ganancia para no distorsionar.
+        if "master_drive" in result:
+            result["master_drive"] *= 0.5
+        if "osc1_gain" in result:
+            result["osc1_gain"] *= 0.85
+
+    # --- 3. Correlación Complejidad-Unísono (Evitar Sonidos "Fangosos") ---
+    active_oscillators = [
+        i for i in (1, 2, 3) if result.get(f"osc{i}_gain", 0.0) > 0.0 and result.get(f"osc{i}_wavetable") != "None"
+    ]
+    if len(active_oscillators) == 3 and "osc1_unison_voices" in result: # Si los 3 osciladores están activos...
+        # ...reducimos un poco las voces del unísono para mantener la claridad.
+        current_voices = result["osc1_unison_voices"]
+        result["osc1_unison_voices"] = max(1, int(current_voices * 0.7))
+
 def _shape_panorama(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int], archetype: str):
     if not active_oscillators:
         return
@@ -1524,7 +1628,7 @@ def _harmonize_oscillators(result: Dict, specs: Dict[str, Dict], archetype: str)
     # Root oscillator: mantenerlo estable y bien centrado
     root_pitch_spec = specs.get("osc1_pitch")
     if root_pitch_spec:
-        preferred = [0, 0, 0, 2, -2, 1, -1]
+        preferred = [0, 0, 0, 0, 0, 0, 0, 0, 12, -12, 7]
         preferred = [
             val
             for val in preferred
@@ -1628,6 +1732,8 @@ def generate_synth_patch(tags: List[str]) -> Dict:
         _shape_unison(result, specs, archetype_name)
         _tame_master_drive(result, specs)
         _apply_modulation_scenario(result, specs, archetype_name)
+        _shape_effects(result, specs, archetype_name)
+        _apply_expert_correlations(result, specs, archetype_name)
 
     # Alias para compatibilidad con el procesador en C++
     if "filter_cutoff_hz" in result:
