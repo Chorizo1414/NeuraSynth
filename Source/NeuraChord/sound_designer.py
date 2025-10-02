@@ -101,6 +101,26 @@ AVAILABLE_WAVETABLES = [
     "sen.wav",
     "senHarmonic.wav",
     "whitenoise.wav",
+    "slope.wav",
+    "pwm.wav",
+    "layered.wav",
+    "pendulumphase.wav",
+    "squeezy_keys.wav",
+    "rmi_piano.wav",
+    "zionoid_pad.wav",
+    "marbles_bell.wav",
+    "bells_and_crickets.wav",
+    "bass_mix_destroyer.wav",
+    "bass_sin_er.wav",
+    "bass_sine_additive_fold.wav",
+    "bass_yab.wav",
+    "simple_bass.wav",
+    "lead_voice.wav",
+    "bell_picking_a_string.wav",
+    "analog_substation_harmony_ak.wav",
+    "analog_mix_destroyer_ak.wav",
+    "analog_wave_bass.wav",
+    "analog_stacked_saws_pad.wav",
 ]
 
 BASE_WAVETABLE_OPTIONS = {
@@ -248,62 +268,54 @@ ARCHETYPES = {
             "delay_wow_depth": float_range(0.2, 0.5, limits=(0.0, 1.0)),
         },
         "wavetable_options": {
-            "osc1": ["saw.wav", "square.wav"],
-            "osc2": ["saw.wav", "square.wav", "pulse.wav"],
-            "osc3": ["senHarmonic.wav", "triangle.wav"],
+            "osc1": ["saw.wav", "square.wav", "slope.wav", "squeezy_keys.wav", "lead_voice.wav"],
+            "osc2": ["saw.wav", "square.wav", "pulse.wav", "slope.wav", "keys_saw.wav", "lead_voice.wav", "pwm.wav"],
+            "osc3": ["senHarmonic.wav", "triangle.wav", "slope.wav"],
         },
     },
     "pad": {
         "params": {
-            "master_drive": float_range(0.0, 0.2, limits=(0.0, 1.0)),
-            "master_dark": float_range(0.3, 0.6, limits=(0.0, 1.0)),
-            "master_bright": float_range(0.4, 0.7, limits=(0.0, 1.0)),
+            "master_drive": float_range(0.0, 0.25, limits=(0.0, 1.0)),
+            "master_dark": float_range(0.1, 0.4, limits=(0.0, 1.0)),
+            "master_bright": float_range(0.2, 0.5, limits=(0.0, 1.0)),
             "master_chorus_on": bool_prob(0.75),
 
-            "attack": float_range(0.8, 3.0, limits=(0.0, 5.0)),
-            "decay": float_range(1.5, 3.5, limits=(0.0, 5.0)),
-            "sustain": float_range(0.7, 0.9, limits=(0.0, 1.0)),
-            "release": float_range(2.0, 5.0, limits=(0.0, 5.0)),
+            # Envolvente más controlada: sigue siendo suave, pero más musical.
+            "attack": float_range(0.5, 2.0, limits=(0.0, 5.0)),
+            "decay": float_range(1.0, 3.0, limits=(0.0, 5.0)),
+            "sustain": float_range(0.6, 0.9, limits=(0.0, 1.0)),
+            "release": float_range(1.5, 3.5, limits=(0.0, 5.0)),
 
-            "osc1_gain": float_range(0.6, 0.80, limits=(0.0, 0.80)),
-            "osc2_gain": float_range(0.5, 0.7, limits=(0.0, 0.80)),
-            "osc3_gain": float_range(0.4, 0.6, limits=(0.0, 0.80)),
+            # Ganancias limitadas y equilibradas
+            "osc1_gain": float_range(0.7, 0.85, limits=(0.0, 0.85)),
+            "osc2_gain": float_range(0.6, 0.8, limits=(0.0, 0.85)),
+            "osc3_gain": float_range(0.5, 0.75, limits=(0.0, 0.85)),
 
-            "osc1_unison_voices": int_range(5, 8, limits=(1, 16)),
-            "osc1_unison_detune": float_range(0.12, 0.3, limits=(0.0, 1.0)),
+            # Unísono rico pero estable
+            "osc1_unison_voices": int_range(4, 9, limits=(1, 16)),
+            "osc1_unison_detune": float_range(0.08, 0.2, limits=(0.0, 1.0)), # Detune reducido
             "osc1_unison_spread": float_range(1.0, 2.0, limits=(0.0, 2.5)),
 
-            "filter_cutoff_hz": float_range(300.0, 4000.0, limits=(20.0, 20000.0)),
-            "filter_q": float_range(0.2, 0.5, limits=(0.1, 10.0)),
-            "filter_env_amt": float_range(0.1, 0.4, limits=(-1.0, 1.0)),
+            # Filtro más brillante y con menos resonancia para evitar sonidos "inquietantes"
+            "filter_cutoff_hz": float_range(1500.0, 8000.0, limits=(20.0, 20000.0)),
+            "filter_q": float_range(0.2, 0.45, limits=(0.1, 10.0)),
+            "filter_env_amt": float_range(0.1, 0.35, limits=(-1.0, 1.0)),
             "filter_keytrack": bool_prob(0.7),
 
+            # La modulación será controlada por la función _apply_modulation_scenario
+            # para priorizar barridos lentos y sutiles.
             "fm_amount": float_range(-0.1, 0.1, limits=(-1.0, 1.0)),
-            "lfo_speed_hz": float_range(0.0, 0.8, limits=(0.0, 30.0)),
-            "lfo_amount": float_range(0.0, 0.15, limits=(0.0, 1.0)),
-
-            "reverb_dry_level": float_range(0.5, 0.7, limits=(0.0, 1.0)),
-            "reverb_wet_level": float_range(0.2, 0.4, limits=(0.0, 1.0)),
-            "reverb_room_size": float_range(0.6, 0.9, limits=(0.0, 1.0)),
-            "reverb_decay": float_range(0.6, 0.95, limits=(0.0, 1.0)),
-            "reverb_pre_delay": float_range(0.1, 0.3, limits=(0.0, 1.0)),
-            "reverb_diffusion": float_range(0.6, 0.9, limits=(0.0, 1.0)),
-
-            "delay_dry_level": float_range(0.5, 0.8, limits=(0.0, 1.0)),
+            
+            # Efectos generosos para un sonido espacioso
+            "reverb_wet_level": float_range(0.25, 0.5, limits=(0.0, 1.0)),
+            "reverb_room_size": float_range(0.7, 0.95, limits=(0.0, 1.0)),
             "delay_wet_level": float_range(0.2, 0.4, limits=(0.0, 1.0)),
-            "delay_side_level": float_range(0.15, 0.35, limits=(0.0, 1.0)),
-            "delay_hp_freq": float_range(0.0, 0.2, limits=(0.0, 1.0)),
-            "delay_lp_freq": float_range(0.7, 1.0, limits=(0.0, 1.0)),
-            "delay_time_left": float_range(0.3, 0.7, limits=(0.0, 1.0)),
-            "delay_time_center": float_range(0.35, 0.75, limits=(0.0, 1.0)),
-            "delay_time_right": float_range(0.4, 0.8, limits=(0.0, 1.0)),
-            "delay_feedback": float_range(0.35, 0.65, limits=(0.0, 0.98)),
-            "delay_wow_depth": float_range(0.2, 0.5, limits=(0.0, 1.0)),
         },
         "wavetable_options": {
-            "osc1": ["sen.wav", "triangle.wav"],
-            "osc2": ["sen.wav", "triangle.wav", "saw.wav"],
-            "osc3": ["saw.wav", "senHarmonic.wav", "triangle.wav"],
+            # Ondas ricas en armónicos pero suaves
+            "osc1": ["layered.wav", "saw.wav", "senHarmonic.wav", "zionoid_pad.wav", "pwm.wav", "analog_stacked_saws_pad.wav",],
+            "osc2": ["pendulumphase.wav", "triangle.wav", "keys_organ.wav", "lead_voice.wav", "pwm.wav", "analog_stacked_saws_pad.wav",],
+            "osc3": ["saw.wav", "sen.wav", "layered.wav", "pwm.wav"],
         },
     },
     "bass": {
@@ -322,7 +334,7 @@ ARCHETYPES = {
             "osc2_gain": float_range(0.4, 0.75, limits=(0.0, 0.80)),
             "osc3_gain": float_range(0.0, 0.5, limits=(0.0, 0.80)),
 
-            "osc1_unison_voices": int_range(1, 3, limits=(1, 16)),
+            "osc1_unison_voices": int_range(1, 2, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.05, 0.18, limits=(0.0, 1.0)),
             "osc1_unison_spread": float_range(0.1, 0.6, limits=(0.0, 2.5)),
 
@@ -353,9 +365,15 @@ ARCHETYPES = {
             "delay_wow_depth": float_range(0.0, 0.2, limits=(0.0, 1.0)),
         },
         "wavetable_options": {
-            "osc1": ["sen.wav", "square.wav"],
-            "osc2": ["saw.wav", "square.wav"],
-            "osc3": [],
+            "osc1": ["sen.wav", "square.wav", "slope.wav", "bass_mix_destroyer.wav", 
+                     "bass_sin_er.wav", "bass_sine_additive_fold.wav", "simple_bass.wav",
+                     "bass_yab.wav", "pwm.wav", "analog_wave_bass.wav",],
+
+            "osc2": ["saw.wav", "square.wav", "slope.wav", "bass_mix_destroyer.wav", 
+                     "bass_sin_er.wav", "bass_sine_additive_fold.wav", "simple_bass.wav",
+                     "bass_yab.wav", "pwm.wav", "analog_wave_bass.wav",],
+
+            "osc3": ["saw.wav", "square.wav", "slope.wav" "pwm.wav"],
         },
     },
     "pluck": {
@@ -374,7 +392,7 @@ ARCHETYPES = {
             "osc2_gain": float_range(0.4, 0.7, limits=(0.0, 0.80)),
             "osc3_gain": float_range(0.0, 0.3, limits=(0.0, 0.80)),
 
-            "osc1_unison_voices": int_range(2, 4, limits=(1, 16)),
+            "osc1_unison_voices": int_range(1, 3, limits=(1, 16)),
             "osc1_unison_detune": float_range(0.1, 0.3, limits=(0.0, 1.0)),
             "osc1_unison_spread": float_range(0.5, 1.4, limits=(0.0, 2.5)),
 
@@ -405,9 +423,10 @@ ARCHETYPES = {
             "delay_wow_depth": float_range(0.2, 0.5, limits=(0.0, 1.0)),
         },
         "wavetable_options": {
-            "osc1": ["sen.wav", "square.wav"],
-            "osc2": ["saw.wav", "square.wav", "triangle.wav"],
-            "osc3": ["triangle.wav", "senHarmonic.wav"],
+           "osc1": ["sen.wav", "square.wav", "rmi_piano.wav", "marbles_bell.wav", 
+                    "bells_and_crickets.wav", "bell_picking_a_string.wav"],
+            "osc2": ["saw.wav", "square.wav", "triangle.wav", "keys_saw.wav", "bell_picking_a_string.wav", "pwm.wav"],
+            "osc3": ["triangle.wav", "senHarmonic.wav", "pwm.wav"],
         },
     },
     "keys": {
@@ -442,9 +461,9 @@ ARCHETYPES = {
         },
         "wavetable_options": {
             # Ondas clásicas para sonidos de teclado de sinte
-            "osc1": ["square.wav", "saw.wav", "triangle.wav"],
-            "osc2": ["saw.wav", "square.wav", "sen.wav"],
-            "osc3": ["triangle.wav", "sen.wav"],
+            "osc1": ["rmi_piano.wav", "squeezy_keys.wav", "keys_saw.wav"],
+            "osc2": ["squeezy_keys.wav", "sen.wav", "saw.wav", "rmi_piano.wav", "pwm.wav"],
+            "osc3": ["triangle.wav", "sen.wav", "pwm.wav"],
         },
     },
     "poly_synth": {
@@ -495,9 +514,11 @@ ARCHETYPES = {
             "delay_wow_depth": float_range(0.15, 0.4, limits=(0.0, 1.0)),
         },
         "wavetable_options": {
-            "osc1": ["saw.wav", "square.wav", "triangle.wav"],
-            "osc2": ["saw.wav", "triangle.wav", "pulse.wav"],
-            "osc3": ["triangle.wav", "sen.wav", "senHarmonic.wav"],
+            "osc1": ["saw.wav", "square.wav", "triangle.wav", "pwm.wav", "analog_substation_harmony_ak.wav",
+                     "analog_mix_destroyer_ak.wav", "analog_wave_bass.wav", "analog_stacked_saws_pad.wav"],
+            "osc2": ["saw.wav", "triangle.wav", "pulse.wav", "lead_voice.wav", "pwm.wav", "analog_substation_harmony_ak.wav",
+                     "analog_mix_destroyer_ak.wav", "analog_wave_bass.wav", "analog_stacked_saws_pad.wav"],
+            "osc3": ["triangle.wav", "sen.wav", "senHarmonic.wav", "pwm.wav"],
         },
     },
     "string_brass": {
@@ -789,8 +810,9 @@ ARCHETYPES = {
         },
         "wavetable_options": {
             # Base sinusoidal para un sonido limpio de campana
-            "osc1": ["sen.wav"],
-            "osc2": ["senHarmonic.wav", "triangle.wav"],
+            "osc1": ["sen.wav", "marbles_bell.wav",
+                     "bells_and_crickets.wav", "bell_picking_a_string.wav"],
+            "osc2": ["senHarmonic.wav", "triangle.wav", "bell_picking_a_string.wav"],
             "osc3": ["sen.wav"],
         },
     },
@@ -1400,6 +1422,37 @@ def _apply_modulation_scenario(result: Dict, specs: Dict[str, Dict], archetype: 
         if "filter_env_amt" in result:
             result["filter_env_amt"] *= 0.5
 
+def _shape_unison(result: Dict, specs: Dict[str, Dict], archetype: str):
+    """
+    Ajusta inteligentemente el detune del unísono basándose en el número de voces
+    para mantener la estabilidad y el carácter musical del sonido.
+    """
+    if "osc1_unison_voices" not in result or "osc1_unison_detune" not in specs:
+        return
+
+    num_voices = result["osc1_unison_voices"]
+    spec = specs["osc1_unison_detune"]
+
+    if num_voices <= 1:
+        # Si no hay unísono, no hay detune.
+        result["osc1_unison_detune"] = 0.0
+        return
+
+    # A mayor número de voces, menor debe ser el detune para evitar disonancia.
+    # Esta fórmula reduce progresivamente el detune máximo permitido.
+    max_detune_factor = 1.0 / (1.0 + (num_voices - 2) * 0.25)
+    
+    # El rango original del arquetipo
+    low, high = spec.get("range", (0.0, 1.0))
+    
+    # Calculamos el nuevo rango "inteligente"
+    new_high = low + (high - low) * max_detune_factor
+    new_low = low * max_detune_factor # También reducimos el mínimo
+
+    # Generamos un valor final dentro de este rango seguro y musical
+    final_detune = random.uniform(new_low, new_high)
+    _set_numeric_param(result, specs, "osc1_unison_detune", final_detune)
+
 def _shape_panorama(result: Dict, specs: Dict[str, Dict], active_oscillators: List[int], archetype: str):
     if not active_oscillators:
         return
@@ -1572,7 +1625,7 @@ def generate_synth_patch(tags: List[str]) -> Dict:
         
         # Armonizar los osciladores para que suenen bien juntos
         _harmonize_oscillators(result, specs, archetype_name)
-
+        _shape_unison(result, specs, archetype_name)
         _tame_master_drive(result, specs)
         _apply_modulation_scenario(result, specs, archetype_name)
 

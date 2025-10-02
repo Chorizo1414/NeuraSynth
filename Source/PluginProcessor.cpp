@@ -414,29 +414,28 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // --- 1. EFECTO DRIVE ---
     if (driveAmount > 0.0f)
     {
-        // 1. Aplicamos una curva cúbica para un control suave y progresivo.
-        //    El efecto será muy sutil al principio y más notorio al final.
-        float curvedAmount = driveAmount * driveAmount * driveAmount;
+        // 1. Usamos una curva cuadrática. Esto hace que el efecto sea aún más
+        //    suave al principio del recorrido del knob.
+        float curvedAmount = driveAmount * driveAmount;
 
-        // 2. Mapeamos el valor a un rango de ganancia más musical.
-        //    Aquí, el máximo es 3.5. Si aún es mucho, puedes bajarlo a 2.5 o 3.0.
-        float driveGain = juce::jmap(curvedAmount, 0.0f, 0.3f, 0.5f, 1.0f);
-
-        // Compensación de volumen para que el sonido no se dispare
-        float makeupGain = 1.0f / (1.0f + (driveGain - 1.0f) * 0.5f);
+        // 2. La ganancia interna que genera la saturación es ahora muy baja (máximo 2.0).
+        //    Ya no buscamos distorsión, sino solo generar "color" armónico.
+        float driveGain = juce::jmap(curvedAmount, 0.0f, 1.0f, 1.0f, 2.0f);
 
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
             auto* channelData = buffer.getWritePointer(channel);
             for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
             {
-                float inputSample = channelData[sample] * driveGain;
+                float originalSample = channelData[sample];
 
-                // Usamos tanh para una saturación suave tipo cinta
-                float distortedSample = std::tanh(inputSample);
+                // Calculamos la señal "húmeda" (la textura de saturación)
+                float wetSample = std::tanh(originalSample * driveGain);
 
-                // Aplicamos la compensación de volumen
-                channelData[sample] = distortedSample * makeupGain;
+                // 3. LA CLAVE: Mezclamos la señal original (dry) con la saturada (wet).
+                //    'curvedAmount' actúa como el control de mezcla, asegurando que
+                //    a niveles bajos, el efecto sea casi imperceptible.
+                channelData[sample] = (1.0f - curvedAmount) * originalSample + curvedAmount * wetSample;
             }
         }
     }
