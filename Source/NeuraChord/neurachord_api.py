@@ -22,6 +22,7 @@ from generador_acordes import (
 )
 from generador_melodia import generar_melodia_sobre_acordes
 from procesador_sentimientos import detectar_sentimiento_en_prompt, inferir_parametros_desde_sentimiento
+from sound_prompt_processor import parse_sound_prompt
 
 def generar_progresion(prompt: str, num_acordes: int = -1):
     """
@@ -248,8 +249,9 @@ def generar_sonido(prompt: str):
     try:
         print(f">>> Python API: Recibido prompt de sonido: '{prompt}'")
         
+        parse_result = parse_sound_prompt(prompt)
         # Lógica simple de parsing: separamos el prompt por espacios o comas
-        tags = [tag.strip().lower() for tag in prompt.replace(",", " ").split()]
+        tags = parse_result["tags"]
         
         patch = generate_synth_patch(tags)
         
