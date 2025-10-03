@@ -217,6 +217,24 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     addAndMakeVisible(delaySection);
 
     addAndMakeVisible(soundPromptEditor);
+
+    // --- Inicialización de los nuevos botones de historial ---
+    generateButton.setButtonText("Generate");
+    addAndMakeVisible(generateButton);
+    // Asignamos la misma función que presionar Enter en el editor de texto
+    generateButton.onClick = [this] { textEditorReturnKeyPressed(soundPromptEditor); };
+
+    undoButton.setButtonText("Undo");
+    addAndMakeVisible(undoButton);
+    undoButton.onClick = [this] { undoButtonClicked(); };
+
+    redoButton.setButtonText("Redo");
+    addAndMakeVisible(redoButton);
+    redoButton.onClick = [this] { redoButtonClicked(); };
+
+    // Establecemos el estado inicial de los botones (deshabilitados)
+    updateUndoRedoButtonStates();
+
     soundPromptEditor.setMultiLine(false);
     soundPromptEditor.setReturnKeyStartsNewLine(false);
     soundPromptEditor.setReadOnly(false);
@@ -343,6 +361,16 @@ void SynthTabComponent::resized()
     scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
     scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);
     scaleAndSet(soundPromptEditor, LayoutConstants::PROMPT_SECTION);
+
+    auto promptBounds = soundPromptEditor.getBounds();
+    const int buttonWidth = 80 * scale; // Escalamos el tamaño de los botones también
+    const int buttonHeight = 25 * scale;
+    const int padding = 10 * scale;
+
+    generateButton.setBounds(promptBounds.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
+    undoButton.setBounds(generateButton.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
+    redoButton.setBounds(undoButton.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
+
     scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);
     scaleAndSet(osc2, LayoutConstants::OSC_2_SECTION);
     scaleAndSet(osc3, LayoutConstants::OSC_3_SECTION);
@@ -389,6 +417,8 @@ void SynthTabComponent::textEditorReturnKeyPressed(juce::TextEditor& editor)
                 DBG("Patch generado con éxito desde Python!");
                 applyPatchFromPython(patchData);
                 audioProcessor.applyPatchFromPython(patchData);
+
+                addToHistory(patchData);
             }
         }
     }
@@ -512,4 +542,67 @@ void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
     applyFloat("delay_time_right", [&](float value) { delaySection.setTimeRight(value); });
     applyFloat("delay_wow_depth", [&](float value) { delaySection.setWowDepth(value); });
     applyFloat("delay_feedback", [&](float value) { delaySection.setFeedback(value); });
+}
+
+// --- IMPLEMENTACIÓN DE LAS NUEVAS FUNCIONES DE HISTORIAL ---
+
+void SynthTabComponent::addToHistory(const pybind11::dict& newPatch)
+{
+    // Si hemos hecho "undo" y generamos un nuevo sonido,
+    // borramos el historial "futuro" que ya no es válido.
+    if (currentHistoryIndex < (int)patchHistory.size() - 1)
+    {
+        patchHistory.erase(patchHistory.begin() + currentHistoryIndex + 1, patchHistory.end());
+    }
+
+    // Añadimos el nuevo patch al final del vector
+    patchHistory.push_back(newPatch);
+
+    // Limitamos el historial a 50 pasos para no consumir memoria infinita
+    const int maxHistorySize = 50;
+    if (patchHistory.size() > maxHistorySize)
+    {
+        patchHistory.erase(patchHistory.begin()); // Borra el más antiguo
+    }
+
+    // El puntero del historial ahora apunta al último elemento, el que acabamos de añadir
+    currentHistoryIndex = (int)patchHistory.size() - 1;
+
+    // Finalmente, actualizamos el estado de los botones
+    updateUndoRedoButtonStates();
+}
+
+void SynthTabComponent::undoButtonClicked()
+{
+    // Solo hacemos "undo" si no estamos ya en el primer elemento del historial
+    if (currentHistoryIndex > 0)
+    {
+        currentHistoryIndex--;
+        applyPatchFromPython(patchHistory[currentHistoryIndex]);
+        // También aplicamos el patch al procesador de audio
+        audioProcessor.applyPatchFromPython(patchHistory[currentHistoryIndex]);
+        updateUndoRedoButtonStates();
+    }
+}
+
+void SynthTabComponent::redoButtonClicked()
+{
+    // Solo hacemos "redo" si no estamos en el último elemento del historial
+    if (currentHistoryIndex < (int)patchHistory.size() - 1)
+    {
+        currentHistoryIndex++;
+        applyPatchFromPython(patchHistory[currentHistoryIndex]);
+        // También aplicamos el patch al procesador de audio
+        audioProcessor.applyPatchFromPython(patchHistory[currentHistoryIndex]);
+        updateUndoRedoButtonStates();
+    }
+}
+
+void SynthTabComponent::updateUndoRedoButtonStates()
+{
+    // Habilitar "Undo" si hay elementos anteriores en el historial
+    undoButton.setEnabled(currentHistoryIndex > 0);
+
+    // Habilitar "Redo" si hay elementos posteriores en el historial
+    redoButton.setEnabled(currentHistoryIndex < (int)patchHistory.size() - 1);
 }

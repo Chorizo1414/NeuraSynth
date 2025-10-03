@@ -58,6 +58,21 @@ private:
     juce::TextEditor soundPromptEditor;
     juce::Label soundPromptLabel;
 
+    // --- NUEVOS COMPONENTES Y FUNCIONES ---
+    juce::TextButton generateButton; // Ya que no estaba declarada, la añadimos aquí.
+    juce::TextButton undoButton;
+    juce::TextButton redoButton;
+
+    // --- Funciones para gestionar el historial ---
+    void undoButtonClicked();
+    void redoButtonClicked();
+    void updateUndoRedoButtonStates();
+    void addToHistory(const pybind11::dict& newPatch);
+
+    // --- Variables para almacenar el historial de patches ---
+    std::vector<pybind11::dict> patchHistory;
+    int currentHistoryIndex = -1; // -1 indica que el historial está vacío
+
     juce::ComponentDragger componentDragger;
 
     class DesignMouseListener : public juce::MouseListener
