@@ -335,33 +335,26 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     sizeLabel.setJustificationType(juce::Justification::centredRight);
 
     addAndMakeVisible(sizeComboBox);
-    sizeComboBox.addItem("50%", 1);
-    sizeComboBox.addItem("75%", 2);
-    sizeComboBox.addItem("100%", 3);
-    sizeComboBox.setSelectedId(2); // Empezamos al 75%
+    sizeComboBox.addItem("75%", 1);
+    sizeComboBox.addItem("100%", 2);
+    sizeComboBox.setSelectedId(2);
 
     sizeComboBox.onChange = [this]
-        {
-            float finalScale = 0.5f; // El 100% ser  la mitad del tama o del dise o
-            int choice = sizeComboBox.getSelectedId();
-            if (choice == 1) finalScale = 0.25f;  // El 50% ser  un cuarto del dise o
-            if (choice == 2) finalScale = 0.375f; // El 75% ser  3/8 del dise o
-            if (choice == 3) finalScale = 0.5f;   // El 100% ser  la mitad del dise o
-
-            // Usamos la funci n correcta para obtener la ventana principal del plugin
+    {
+            // Usamos la función correcta para obtener la ventana principal del plugin
             if (auto* parent = findParentComponentOfClass<juce::TopLevelWindow>())
             {
+                float finalScale = 0.5f; // Valor por defecto para 100%
+                int choice = sizeComboBox.getSelectedId();
+                if (choice == 1) finalScale = 0.375f; // 75%
+                if (choice == 2) finalScale = 0.5f;   // 100%
+
                 const int newWidth = LayoutConstants::DESIGN_WIDTH * finalScale;
                 const int newHeight = LayoutConstants::DESIGN_HEIGHT * finalScale;
                 parent->setSize(newWidth, newHeight);
             }
-        };
+    };
 
-    // Tama o inicial
-    const float initialScale = 0.75f;
-    const int initialWidth = LayoutConstants::DESIGN_WIDTH * initialScale;
-    const int initialHeight = LayoutConstants::DESIGN_HEIGHT * initialScale;
-    setSize(initialWidth, initialHeight);
 }
 
 SynthTabComponent::~SynthTabComponent()
@@ -438,7 +431,7 @@ void SynthTabComponent::resized()
     const int presetControlHeight = 25;
     const int sectionGap = 30 * scale;
 
-    // ¡AQUÍ ESTÁ EL CAMBIO! Aumentamos el ancho de cada control.
+    //Aumentamos el ancho de cada control.
     const int refreshBtnWidth = 140 * scale;    
     const int presetSelectorWidth = 260 * scale; 
     const int presetLabelWidth = 900 * scale;     
