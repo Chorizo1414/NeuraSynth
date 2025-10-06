@@ -64,6 +64,13 @@ private:
     juce::TextButton redoButton;
     juce::TextButton likeButton;
     juce::TextButton dislikeButton;
+    // --- NUEVOS COMPONENTES PARA PRESETS ---
+    juce::ComboBox presetSelector;
+    juce::TextButton refreshPresetsButton;
+    juce::Label presetLabel;
+
+    void populatePresets(); // Función para llenar el ComboBox
+    pybind11::dict currentPresets; // Para guardar los datos de los presets
 
     // --- Funciones para gestionar el historial ---
     void undoButtonClicked();

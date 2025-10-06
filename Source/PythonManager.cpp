@@ -283,3 +283,26 @@ bool PythonManager::likeLastSound()
     // Si algo falla, retornamos falso
     return false;
 }
+
+pybind11::dict PythonManager::getLearnedSounds()
+{
+    pybind11::dict result;
+    if (!neuraChordApi)
+    {
+        DBG("ERROR: Modulo neurachord_api no cargado, no se pueden obtener los presets.");
+        result["error"] = "Modulo neurachord_api no cargado.";
+        return result;
+    }
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        result = neuraChordApi.attr("get_learned_sounds")();
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("!!! Error de Python en getLearnedSounds(): " << e.what());
+        result["error"] = "Error de Python al obtener presets.";
+    }
+    return result;
+}

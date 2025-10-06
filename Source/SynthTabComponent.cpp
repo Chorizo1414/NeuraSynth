@@ -264,6 +264,33 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
         textEditorReturnKeyPressed(soundPromptEditor);
     };
 
+    // --- Inicializaci?n de los componentes de presets ---
+    addAndMakeVisible(presetLabel);
+    presetLabel.setText("Presets:", juce::dontSendNotification);
+    presetLabel.setJustificationType(juce::Justification::centredRight);
+
+    addAndMakeVisible(presetSelector);
+    presetSelector.setTextWhenNoChoicesAvailable("No hay presets guardados");
+    presetSelector.onChange = [this] {
+        int selectedId = presetSelector.getSelectedId();
+        if (selectedId > 0) // ID 0 es "ninguno seleccionado"
+        {
+            juce::String presetName = presetSelector.getItemText(selectedId - 1);
+            if (currentPresets.contains(presetName.toStdString().c_str()))
+            {
+                pybind11::dict patch = currentPresets[presetName.toStdString().c_str()].cast<pybind11::dict>();
+                applyPatchFromPython(patch);
+                audioProcessor.applyPatchFromPython(patch);
+            }
+        }
+        };
+
+    addAndMakeVisible(refreshPresetsButton);
+    refreshPresetsButton.setButtonText("Refrescar");
+    refreshPresetsButton.onClick = [this] { populatePresets(); };
+
+    populatePresets(); // Llenamos los presets al iniciar
+
     soundPromptEditor.setMultiLine(false);
     soundPromptEditor.setReturnKeyStartsNewLine(false);
     soundPromptEditor.setReadOnly(false);
@@ -403,6 +430,12 @@ void SynthTabComponent::resized()
     const int feedbackButtonWidth = 40 * scale; // Hacemos los botones de emoji m?s peque?os
     likeButton.setBounds(redoButton.getRight() + padding, promptBounds.getY(), feedbackButtonWidth, buttonHeight);
     dislikeButton.setBounds(likeButton.getRight() + padding, promptBounds.getY(), feedbackButtonWidth, buttonHeight);
+
+    // --- Posicionamos los componentes de presets debajo del prompt ---
+    auto feedbackBounds = dislikeButton.getBounds();
+    presetLabel.setBounds(promptBounds.getX() - (100 * scale), promptBounds.getBottom() + padding, 100 * scale, buttonHeight);
+    presetSelector.setBounds(promptBounds.getX(), promptBounds.getBottom() + padding, 300 * scale, buttonHeight);
+    refreshPresetsButton.setBounds(presetSelector.getRight() + padding, promptBounds.getBottom() + padding, buttonWidth, buttonHeight);
 
     scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);
     scaleAndSet(osc2, LayoutConstants::OSC_2_SECTION);
@@ -638,4 +671,25 @@ void SynthTabComponent::updateUndoRedoButtonStates()
 
     // Habilitar "Redo" si hay elementos posteriores en el historial
     redoButton.setEnabled(currentHistoryIndex < (int)patchHistory.size() - 1);
+}
+
+void SynthTabComponent::populatePresets()
+{
+    currentPresets = audioProcessor.pythonManager->getLearnedSounds();
+    presetSelector.clear();
+
+    if (currentPresets.contains("error"))
+    {
+        DBG("No se pudieron cargar los presets desde Python.");
+        return;
+    }
+
+    int id = 1;
+    for (auto item : currentPresets)
+    {
+        juce::String presetName = item.first.cast<std::string>();
+        presetSelector.addItem(presetName, id++);
+    }
+
+    presetSelector.setSelectedId(0, juce::dontSendNotification); // Limpiamos la selecci?n
 }

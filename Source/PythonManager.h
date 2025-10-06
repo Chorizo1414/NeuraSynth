@@ -26,6 +26,7 @@ public:
     py::dict generateSynthSound(const juce::String& prompt);
 
     bool likeLastSound();
+    pybind11::dict getLearnedSounds();
 
 private:
     py::module neuraChordApi;

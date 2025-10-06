@@ -309,3 +309,43 @@ def like_last_sound():
         error_message = f"Error al guardar el sonido aprendido: {str(e)}"
         print(f"!!! Python API Error: {error_message}")
         return {"status": "error", "message": error_message}
+    
+def get_learned_sounds():
+    """
+    Lee el archivo 'learned_sounds.json' y devuelve una lista de los presets guardados.
+    Cada preset tendrá un nombre único y su correspondiente patch de parámetros.
+    """
+    file_path = os.path.join(RUTA_BASE_PLUGIN, 'learned_sounds.json')
+    
+    if not os.path.exists(file_path):
+        return {"error": "El archivo de sonidos aprendidos no existe."}
+    
+    try:
+        with open(file_path, 'r') as f:
+            learned_data = json.load(f)
+
+        presets = {}
+        name_counts = {}
+        # Procesamos cada sonido para darle un nombre legible y único
+        for sound in learned_data:
+            # Creamos un nombre base a partir de los tags (ej: "pad_warm_bright")
+            base_name = "_".join(sound.get("tags", ["preset"]))
+            
+            # Gestionamos nombres duplicados añadiendo un número (ej: "pad_warm_2")
+            if base_name in name_counts:
+                name_counts[base_name] += 1
+                display_name = f"{base_name}_{name_counts[base_name]}"
+            else:
+                name_counts[base_name] = 1
+                display_name = base_name
+
+            # Guardamos el patch completo bajo su nuevo nombre
+            presets[display_name] = sound.get("patch", {})
+            
+        print(f">>> Python API: Devolviendo {len(presets)} presets aprendidos.")
+        return presets
+
+    except Exception as e:
+        error_message = f"Error al leer los sonidos aprendidos: {str(e)}"
+        print(f"!!! Python API Error: {error_message}")
+        return {"error": error_message}
