@@ -1,4 +1,6 @@
 import random
+import json
+import os
 from copy import deepcopy
 from typing import Dict, List, Tuple, Union
 
@@ -934,6 +936,74 @@ MODIFIERS = {
 # ==                                  LÓGICA                                  ==
 # ==============================================================================
 
+# --- NUEVAS CONSTANTES Y FUNCIONES DE APRENDIZAJE ---
+LEARNED_SOUNDS_PATH = os.path.join(os.path.dirname(__file__), 'learned_sounds.json')
+PROB_USE_LEARNED = 0.5 # 50% de probabilidad de usar un sonido aprendido como base
+
+def load_learned_sounds():
+    """Carga los ejemplares guardados desde el archivo JSON."""
+    if not os.path.exists(LEARNED_SOUNDS_PATH):
+        return []
+    try:
+        with open(LEARNED_SOUNDS_PATH, 'r') as f:
+            # Añadimos una comprobación para evitar errores con archivos vacíos
+            content = f.read()
+            if not content:
+                return []
+            return json.loads(content)
+    except (json.JSONDecodeError, IOError):
+        return []
+
+def find_matching_exemplar(tags: list, learned_sounds: list):
+    """
+    Encuentra el mejor "ejemplar" (sonido guardado) que coincida con los tags del prompt.
+    """
+    best_match = None
+    highest_score = -1  # Empezamos en -1 para que cualquier coincidencia sea mejor
+    
+    if not tags:
+        return None
+        
+    archetype = tags[0]
+    modifiers = set(tags[1:])
+
+    for exemplar in learned_sounds:
+        # El arquetipo (lead, pad, etc.) debe coincidir perfectamente
+        if not exemplar['tags'] or exemplar['tags'][0] != archetype:
+            continue
+
+        exemplar_modifiers = set(exemplar['tags'][1:])
+        
+        # Puntuación: Damos 2 puntos por cada modificador que coincide
+        # y restamos 1 por cada modificador que no coincide.
+        # Esto prefiere ejemplares que son más específicos.
+        score = len(modifiers.intersection(exemplar_modifiers)) * 2
+        score -= len(modifiers.symmetric_difference(exemplar_modifiers))
+        
+        if score > highest_score:
+            highest_score = score
+            best_match = exemplar
+            
+    return best_match
+
+def mutate_patch(patch: dict):
+    """
+    Toma un patch existente y aplica pequeñas variaciones aleatorias a sus valores
+    para crear un sonido similar pero no idéntico.
+    """
+    mutated = patch.copy()
+    for param, value in mutated.items():
+        if isinstance(value, float):
+            # Aplica una variación de hasta +/- 15% al valor actual
+            mutation_factor = 1.0 + random.uniform(-0.15, 0.15)
+            mutated[param] = value * mutation_factor
+        elif isinstance(value, int) and param != "osc1_unison_voices": # No mutamos las voces
+             # Para enteros, la variación es más pequeña
+             mutation_factor = 1.0 + random.uniform(-0.10, 0.10)
+             mutated[param] = int(round(value * mutation_factor))
+
+    return mutated
+
 ParameterSpec = Dict[str, Union[str, Tuple[Number, Number], List, Number]]
 
 
@@ -1682,6 +1752,37 @@ def _harmonize_oscillators(result: Dict, specs: Dict[str, Dict], archetype: str)
     _shape_panorama(result, specs, active_oscillators, archetype)
 
 def generate_synth_patch(tags: List[str]) -> Dict:
+    # --- 1. LÓGICA DE APRENDIZAJE ---
+    # Con una probabilidad definida, intentamos usar un sonido aprendido
+    if random.random() < PROB_USE_LEARNED:
+        learned_sounds = load_learned_sounds()
+        if learned_sounds:
+            exemplar = find_matching_exemplar(tags, learned_sounds)
+            if exemplar:
+                print("INFO (Sound Designer): Usando ejemplar aprendido como base para generar un nuevo sonido.")
+                # Creamos una 'mutación' del ejemplar para generar variedad
+                mutated_patch = mutate_patch(exemplar['patch'])
+                
+                # Nos aseguramos de que el patch mutado siga respetando los límites
+                # definidos en los arquetipos para no generar valores inválidos.
+                archetype_name_from_tags = tags[0]
+                base_archetype = ARCHETYPES.get(archetype_name_from_tags, {})
+                specs_for_clamping = _merge_param_specs(DEFAULT_PARAM_SPECS, base_archetype.get('params', {}))
+                
+                final_patch = {}
+                for param, value in mutated_patch.items():
+                    if param in specs_for_clamping and isinstance(value, (int, float)):
+                        spec = specs_for_clamping[param]
+                        final_patch[param] = _clamp_to_spec(value, spec)
+                    else:
+                        # Si no es numérico (ej. wavetable), lo pasamos tal cual
+                        final_patch[param] = value
+                
+                return final_patch
+
+    # --- 2. GENERACIÓN NORMAL (si no se usó un ejemplar) ---
+    print("INFO (Sound Designer): Generando nuevo sonido desde cero usando las reglas base.")
+    
     archetype_name = None
     modifier_names: List[str] = []
 

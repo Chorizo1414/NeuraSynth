@@ -25,6 +25,8 @@ public:
     // --- Función del Generador de Sonido ---
     py::dict generateSynthSound(const juce::String& prompt);
 
+    bool likeLastSound();
+
 private:
     py::module neuraChordApi;
 };

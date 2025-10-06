@@ -62,6 +62,8 @@ private:
     juce::TextButton generateButton; // Ya que no estaba declarada, la añadimos aquí.
     juce::TextButton undoButton;
     juce::TextButton redoButton;
+    juce::TextButton likeButton;
+    juce::TextButton dislikeButton;
 
     // --- Funciones para gestionar el historial ---
     void undoButtonClicked();

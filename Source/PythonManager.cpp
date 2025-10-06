@@ -253,3 +253,33 @@ py::dict PythonManager::generateSynthSound(const juce::String& prompt)
     }
     return result;
 }
+
+bool PythonManager::likeLastSound()
+{
+    if (!neuraChordApi)
+    {
+        DBG("ERROR: Modulo neurachord_api no cargado, no se puede dar like.");
+        return false; // Retornamos falso si no hay módulo
+    }
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        // 1. Llamamos a la función de Python y guardamos el resultado
+        py::dict result = neuraChordApi.attr("like_last_sound")();
+
+        // 2. Comprobamos si el resultado fue exitoso
+        if (result.contains("status") && result["status"].cast<std::string>() == "ok")
+        {
+            DBG("PythonManager: 'Like Sound' action sent successfully.");
+            return true; // Éxito
+        }
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("!!! Error de Python en likeLastSound(): " << e.what());
+    }
+
+    // Si algo falla, retornamos falso
+    return false;
+}

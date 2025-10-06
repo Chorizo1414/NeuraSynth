@@ -184,7 +184,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     }
     else
     {
-        DBG("No se encontró la carpeta de wavetables en las rutas esperadas.");
+        DBG("No se encontrEla carpeta de wavetables en las rutas esperadas.");
     }
 
     // --- SECCI N UNISON ---
@@ -234,6 +234,35 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     // Establecemos el estado inicial de los botones (deshabilitados)
     updateUndoRedoButtonStates();
+
+    // --- Inicializaci?n de los botones de feedback ---
+    likeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8d")); // Emoji ??
+    addAndMakeVisible(likeButton);
+    likeButton.onClick = [this] {
+        // Llamamos a la funci?n y guardamos el resultado
+        bool success = audioProcessor.pythonManager->likeLastSound();
+
+        // Mostramos un mensaje dependiendo del resultado
+        if (success)
+        {
+            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon,
+                "Preset Guardado",
+                "Preset guardado en favoritos");
+        }
+        else
+        {
+            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
+                "Error",
+                "No se pudo guardar. Genera un sonido nuevo antes de darle 'Like'.");
+        }
+        };
+
+    dislikeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8e")); // Emoji ??
+    addAndMakeVisible(dislikeButton);
+    dislikeButton.onClick = [this] {
+        // La acci?n de "dislike" simplemente genera un nuevo sonido
+        textEditorReturnKeyPressed(soundPromptEditor);
+    };
 
     soundPromptEditor.setMultiLine(false);
     soundPromptEditor.setReturnKeyStartsNewLine(false);
@@ -370,6 +399,10 @@ void SynthTabComponent::resized()
     generateButton.setBounds(promptBounds.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
     undoButton.setBounds(generateButton.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
     redoButton.setBounds(undoButton.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
+    // --- Posicionamos los botones de feedback al final de la fila ---
+    const int feedbackButtonWidth = 40 * scale; // Hacemos los botones de emoji m?s peque?os
+    likeButton.setBounds(redoButton.getRight() + padding, promptBounds.getY(), feedbackButtonWidth, buttonHeight);
+    dislikeButton.setBounds(likeButton.getRight() + padding, promptBounds.getY(), feedbackButtonWidth, buttonHeight);
 
     scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);
     scaleAndSet(osc2, LayoutConstants::OSC_2_SECTION);
@@ -515,7 +548,7 @@ void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
                 return;
 
             if (!osc.oscSection.selectWaveByFilename(waveName.c_str()))
-                DBG("No se encontró el wavetable solicitado: " << waveName);
+                DBG("No se encontrEel wavetable solicitado: " << waveName);
         };
 
     selectWave(osc1, "osc1_wavetable");

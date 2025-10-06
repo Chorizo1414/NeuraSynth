@@ -1,13 +1,17 @@
 # neurachord_api.py (VERSIÓN FUNCIONAL)
 import traceback
 import os
+import json
 from music21 import stream, note, chord, instrument, tempo, midi
 from generador_acordes import transponer_progresion
 from sound_designer import generate_synth_patch
+from sound_prompt_processor import parse_sound_prompt
 
 # Definimos una ruta de exportación fija para el plugin
 RUTA_BASE_PLUGIN = os.path.dirname(os.path.abspath(__file__))
 CARPETA_MIDI_EXPORTADO_PLUGIN = os.path.join(RUTA_BASE_PLUGIN, "MIDI_EXPORTADO_PLUGIN")
+
+last_generated_patch = None
 
 # Importamos las funciones clave de tus otros módulos
 from generos import detectar_estilo
@@ -246,6 +250,8 @@ def generar_sonido(prompt: str):
     """
     Función principal para generar un patch de sintetizador desde JUCE.
     """
+    global last_generated_patch
+
     try:
         print(f">>> Python API: Recibido prompt de sonido: '{prompt}'")
         
@@ -257,12 +263,49 @@ def generar_sonido(prompt: str):
         
         if "error" in patch:
             print(f"!!! Python API Error: {patch['error']}")
+            last_generated_patch = None
             return patch
 
         print(f">>> Python API: Patch generado con éxito: {patch}")
+        last_generated_patch = {"tags": tags, "patch": patch.copy()}
         return patch
 
     except Exception as e:
+        last_generated_patch = None
         error_message = f"Error en generar_sonido: {str(e)}"
         print(error_message)
         return {"error": error_message}
+
+# --- NUEVA FUNCIÓN PARA GUARDAR EL SONIDO APRENDIDO ---
+def like_last_sound():
+    """
+    Toma el último sonido generado que se guardó en 'last_generated_patch',
+    y lo añade al archivo 'learned_sounds.json' para el aprendizaje.
+    """
+    global last_generated_patch
+    if not last_generated_patch:
+        print("!!! Python API Warning: No hay un sonido reciente para guardar.")
+        return {"status": "error", "message": "No hay un sonido reciente para guardar."}
+
+    file_path = os.path.join(RUTA_BASE_PLUGIN, 'learned_sounds.json')
+    
+    try:
+        # 1. Cargar los sonidos que ya hemos aprendido
+        learned_data = []
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            with open(file_path, 'r') as f:
+                learned_data = json.load(f)
+
+        # 2. Añadir el nuevo sonido a la lista
+        learned_data.append(last_generated_patch)
+
+        # 3. Guardar la lista completa de nuevo en el archivo
+        with open(file_path, 'w') as f:
+            json.dump(learned_data, f, indent=4) # indent=4 lo hace legible
+        
+        print(">>> Python API: Sonido guardado en la base de conocimiento.")
+        return {"status": "ok"}
+    except Exception as e:
+        error_message = f"Error al guardar el sonido aprendido: {str(e)}"
+        print(f"!!! Python API Error: {error_message}")
+        return {"status": "error", "message": error_message}
