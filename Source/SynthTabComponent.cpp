@@ -1,4 +1,4 @@
-#include "SynthTabComponent.h"
+Ôªø#include "SynthTabComponent.h"
 #include "BinaryData.h"
 #include "LayoutConstants.h"
 
@@ -184,7 +184,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     }
     else
     {
-        DBG("No se encontrÅEla carpeta de wavetables en las rutas esperadas.");
+        DBG("No se encontr„Éªla carpeta de wavetables en las rutas esperadas.");
     }
 
     // --- SECCI N UNISON ---
@@ -218,10 +218,10 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     addAndMakeVisible(soundPromptEditor);
 
-    // --- InicializaciÛn de los nuevos botones de historial ---
+    // --- InicializaciÓâ¢ de los nuevos botones de historial ---
     generateButton.setButtonText("Generate");
     addAndMakeVisible(generateButton);
-    // Asignamos la misma funciÛn que presionar Enter en el editor de texto
+    // Asignamos la misma funciÓâ¢ que presionar Enter en el editor de texto
     generateButton.onClick = [this] { textEditorReturnKeyPressed(soundPromptEditor); };
 
     undoButton.setButtonText("Undo");
@@ -235,11 +235,11 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     // Establecemos el estado inicial de los botones (deshabilitados)
     updateUndoRedoButtonStates();
 
-    // --- Inicializaci?n de los botones de feedback ---
-    likeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8d")); // Emoji ??
+    // --- Inicializaci√≥n de los botones de feedback ---
+    likeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8d")); // Emoji üëç
     addAndMakeVisible(likeButton);
     likeButton.onClick = [this] {
-        // Llamamos a la funci?n y guardamos el resultado
+        // Llamamos a la funci√≥n y guardamos el resultado
         bool success = audioProcessor.pythonManager->likeLastSound();
 
         // Mostramos un mensaje dependiendo del resultado
@@ -257,14 +257,14 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
         }
         };
 
-    dislikeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8e")); // Emoji ??
+    dislikeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8e")); // Emoji üëé
     addAndMakeVisible(dislikeButton);
     dislikeButton.onClick = [this] {
-        // La acci?n de "dislike" simplemente genera un nuevo sonido
+        // La acci√≥n de "dislike" simplemente genera un nuevo sonido
         textEditorReturnKeyPressed(soundPromptEditor);
     };
 
-    // --- Inicializaci?n de los componentes de presets ---
+    // --- Inicializaci√≥n de los componentes de presets ---
     addAndMakeVisible(presetLabel);
     presetLabel.setText("Presets:", juce::dontSendNotification);
     presetLabel.setJustificationType(juce::Justification::centredRight);
@@ -389,23 +389,20 @@ void SynthTabComponent::paint(juce::Graphics& g)
 
 void SynthTabComponent::resized()
 {
-    // --- 1. Define el  rea para el teclado (Esto no cambia) ---
+    // --- 1. Define el √°rea para el teclado (Esto no cambia) ---
     const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
     int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
     if (keyboardHeight < 0) keyboardHeight = 0;
 
-    // --- 2. Define el  rea para la GUI (Esto no cambia) ---
+    // --- 2. Define el √°rea para la GUI (Esto no cambia) ---
     guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
 
-    // --- 3. L GICA DE ESCALADO SIMPLIFICADA ---
-    // Como tu ComboBox asegura que la proporci n es siempre correcta, no necesitamos
-    // el c lculo complejo de antes. El  rea de la GUI ya es perfecta.
+    // --- 3. LOGICA DE ESCALADO SIMPLIFICADA (Esto no cambia) ---
     const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
 
-    // La funci n para posicionar ahora es m s directa.
+    // La funci√≥n para posicionar ahora es m√°s directa.
     auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
         {
-            // Posiciona los componentes relativo al inicio del guiArea (que es 0,0).
             comp.setBounds(guiArea.getX() + designRect.getX() * scale,
                 guiArea.getY() + designRect.getY() * scale,
                 designRect.getWidth() * scale,
@@ -419,24 +416,44 @@ void SynthTabComponent::resized()
     scaleAndSet(soundPromptEditor, LayoutConstants::PROMPT_SECTION);
 
     auto promptBounds = soundPromptEditor.getBounds();
-    const int buttonWidth = 80 * scale; // Escalamos el tamaÒo de los botones tambiÈn
-    const int buttonHeight = 25 * scale;
+    const int buttonHeight = 40 * scale;
     const int padding = 10 * scale;
 
-    generateButton.setBounds(promptBounds.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
-    undoButton.setBounds(generateButton.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
-    redoButton.setBounds(undoButton.getRight() + padding, promptBounds.getY(), buttonWidth, buttonHeight);
-    // --- Posicionamos los botones de feedback al final de la fila ---
-    const int feedbackButtonWidth = 40 * scale; // Hacemos los botones de emoji m?s peque?os
-    likeButton.setBounds(redoButton.getRight() + padding, promptBounds.getY(), feedbackButtonWidth, buttonHeight);
-    dislikeButton.setBounds(likeButton.getRight() + padding, promptBounds.getY(), feedbackButtonWidth, buttonHeight);
+    const int generateButtonWidth = 100 * scale;
+    const int undoRedoButtonWidth = 70 * scale;
+    const int feedbackButtonWidth = 50 * scale;
 
-    // --- Posicionamos los componentes de presets debajo del prompt ---
-    auto feedbackBounds = dislikeButton.getBounds();
-    presetLabel.setBounds(promptBounds.getX() - (100 * scale), promptBounds.getBottom() + padding, 100 * scale, buttonHeight);
-    presetSelector.setBounds(promptBounds.getX(), promptBounds.getBottom() + padding, 300 * scale, buttonHeight);
-    refreshPresetsButton.setBounds(presetSelector.getRight() + padding, promptBounds.getBottom() + padding, buttonWidth, buttonHeight);
+    generateButton.setBounds(promptBounds.getRight() + padding, promptBounds.getCentreY() - (buttonHeight / 2), generateButtonWidth, buttonHeight);
+    undoButton.setBounds(generateButton.getRight() + padding, generateButton.getY(), undoRedoButtonWidth, buttonHeight);
+    redoButton.setBounds(undoButton.getRight() + padding, generateButton.getY(), undoRedoButtonWidth, buttonHeight);
+    likeButton.setBounds(redoButton.getRight() + padding, generateButton.getY(), feedbackButtonWidth, buttonHeight);
+    dislikeButton.setBounds(likeButton.getRight() + padding, generateButton.getY(), feedbackButtonWidth, buttonHeight);
 
+    // --- Posicionar Selector de Tama√±o (Esto no cambia) ---
+    sizeLabel.setBounds(getWidth() - 160, 5, 50, 25);
+    sizeComboBox.setBounds(getWidth() - 100, 5, 90, 25);
+
+    // --- Posicionamos los componentes de presets ---
+    auto sizeLabelBounds = sizeLabel.getBounds();
+    const int presetControlHeight = 25;
+    const int sectionGap = 30 * scale;
+
+    // ¬°AQU√ç EST√Å EL CAMBIO! Aumentamos el ancho de cada control.
+    const int refreshBtnWidth = 140 * scale;    
+    const int presetSelectorWidth = 260 * scale; 
+    const int presetLabelWidth = 900 * scale;     
+
+    refreshPresetsButton.setBounds(sizeLabelBounds.getX() - refreshBtnWidth - sectionGap,
+        sizeLabelBounds.getY(),
+        refreshBtnWidth, presetControlHeight);
+    presetSelector.setBounds(refreshPresetsButton.getX() - presetSelectorWidth - padding,
+        sizeLabelBounds.getY(),
+        presetSelectorWidth, presetControlHeight);
+    presetLabel.setBounds(presetSelector.getX() - presetLabelWidth,
+        sizeLabelBounds.getY(),
+        presetLabelWidth, presetControlHeight);
+
+    // --- 6. Posicionamos el resto de las secciones ---
     scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);
     scaleAndSet(osc2, LayoutConstants::OSC_2_SECTION);
     scaleAndSet(osc3, LayoutConstants::OSC_3_SECTION);
@@ -446,10 +463,6 @@ void SynthTabComponent::resized()
     scaleAndSet(filterSection, LayoutConstants::FILTER_SECTION);
     scaleAndSet(modulationComp, LayoutConstants::LFO_FM_SECTION);
     scaleAndSet(envelopeSection, LayoutConstants::ENVELOPE_SECTION);
-
-    // --- Posicionar Selector de Tama o (Esto no cambia) ---
-    sizeLabel.setBounds(getWidth() - 160, 5, 50, 25);
-    sizeComboBox.setBounds(getWidth() - 100, 5, 90, 25);
 
     // Actualizamos el factor de escala (Esto no cambia)
     this->scale = scale;
@@ -466,10 +479,10 @@ void SynthTabComponent::textEditorReturnKeyPressed(juce::TextEditor& editor)
         {
             DBG("Generando sonido con el prompt: " + prompt);
 
-            // Llamamos a la funciÛn del PythonManager que creamos
+            // Llamamos a la funciÓâ¢ del PythonManager que creamos
             py::dict patchData = audioProcessor.pythonManager->generateSynthSound(prompt);
 
-            // Por ahora, solo mostraremos el resultado en la consola de depuraciÛn.
+            // Por ahora, solo mostraremos el resultado en la consola de depuraciÓâ¢.
             // En el siguiente paso, usaremos este diccionario para mover los knobs.
             if (patchData.contains("error"))
             {
@@ -480,7 +493,7 @@ void SynthTabComponent::textEditorReturnKeyPressed(juce::TextEditor& editor)
             }
             else
             {
-                DBG("Patch generado con Èxito desde Python!");
+                DBG("Patch generado con È®ôito desde Python!");
                 applyPatchFromPython(patchData);
                 audioProcessor.applyPatchFromPython(patchData);
 
@@ -581,7 +594,7 @@ void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
                 return;
 
             if (!osc.oscSection.selectWaveByFilename(waveName.c_str()))
-                DBG("No se encontrÅEel wavetable solicitado: " << waveName);
+                DBG("No se encontr„Éªel wavetable solicitado: " << waveName);
         };
 
     selectWave(osc1, "osc1_wavetable");
@@ -610,28 +623,28 @@ void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
     applyFloat("delay_feedback", [&](float value) { delaySection.setFeedback(value); });
 }
 
-// --- IMPLEMENTACI”N DE LAS NUEVAS FUNCIONES DE HISTORIAL ---
+// --- IMPLEMENTACIÔæìN DE LAS NUEVAS FUNCIONES DE HISTORIAL ---
 
 void SynthTabComponent::addToHistory(const pybind11::dict& newPatch)
 {
     // Si hemos hecho "undo" y generamos un nuevo sonido,
-    // borramos el historial "futuro" que ya no es v·lido.
+    // borramos el historial "futuro" que ya no es vÁñùido.
     if (currentHistoryIndex < (int)patchHistory.size() - 1)
     {
         patchHistory.erase(patchHistory.begin() + currentHistoryIndex + 1, patchHistory.end());
     }
 
-    // AÒadimos el nuevo patch al final del vector
+    // AÓÉùdimos el nuevo patch al final del vector
     patchHistory.push_back(newPatch);
 
     // Limitamos el historial a 50 pasos para no consumir memoria infinita
     const int maxHistorySize = 50;
     if (patchHistory.size() > maxHistorySize)
     {
-        patchHistory.erase(patchHistory.begin()); // Borra el m·s antiguo
+        patchHistory.erase(patchHistory.begin()); // Borra el mÁñΩ antiguo
     }
 
-    // El puntero del historial ahora apunta al ˙ltimo elemento, el que acabamos de aÒadir
+    // El puntero del historial ahora apunta al ‰ºÉtimo elemento, el que acabamos de aÓÉùdir
     currentHistoryIndex = (int)patchHistory.size() - 1;
 
     // Finalmente, actualizamos el estado de los botones
@@ -645,7 +658,7 @@ void SynthTabComponent::undoButtonClicked()
     {
         currentHistoryIndex--;
         applyPatchFromPython(patchHistory[currentHistoryIndex]);
-        // TambiÈn aplicamos el patch al procesador de audio
+        // TambiÈß≠ aplicamos el patch al procesador de audio
         audioProcessor.applyPatchFromPython(patchHistory[currentHistoryIndex]);
         updateUndoRedoButtonStates();
     }
@@ -653,12 +666,12 @@ void SynthTabComponent::undoButtonClicked()
 
 void SynthTabComponent::redoButtonClicked()
 {
-    // Solo hacemos "redo" si no estamos en el ˙ltimo elemento del historial
+    // Solo hacemos "redo" si no estamos en el ‰ºÉtimo elemento del historial
     if (currentHistoryIndex < (int)patchHistory.size() - 1)
     {
         currentHistoryIndex++;
         applyPatchFromPython(patchHistory[currentHistoryIndex]);
-        // TambiÈn aplicamos el patch al procesador de audio
+        // TambiÈß≠ aplicamos el patch al procesador de audio
         audioProcessor.applyPatchFromPython(patchHistory[currentHistoryIndex]);
         updateUndoRedoButtonStates();
     }
@@ -691,5 +704,5 @@ void SynthTabComponent::populatePresets()
         presetSelector.addItem(presetName, id++);
     }
 
-    presetSelector.setSelectedId(0, juce::dontSendNotification); // Limpiamos la selecci?n
+    presetSelector.setSelectedId(0, juce::dontSendNotification); // Limpiamos la selecci√≥n
 }
