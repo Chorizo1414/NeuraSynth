@@ -116,12 +116,13 @@ void UnisonComponent::resized()
     float scaleY = (float)getHeight() / designBounds.getHeight();
 
     // Función auxiliar simple
-    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect)
     {
-        comp.setBounds(designRect.getX() * scaleX,
-                       designRect.getY() * scaleY,
-                       designRect.getWidth() * scaleX,
-                       designRect.getHeight() * scaleY);
+            juce::Rectangle<float> scaled(designRect.getX() * scaleX,
+                designRect.getY() * scaleY,
+                designRect.getWidth() * scaleX,
+                designRect.getHeight() * scaleY);
+            comp.setBounds(scaled.toNearestInt());
     };
 
     // Posicionamos los controles usando el plano de namespace Unison

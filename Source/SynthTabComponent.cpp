@@ -406,7 +406,7 @@ void SynthTabComponent::resized()
     }
 
 
-    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect)
         {
             const float scaledX = guiArea.getX() + designRect.getX() * scale;
             const float scaledY = guiArea.getY() + designRect.getY() * scale + offsetFactor;

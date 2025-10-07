@@ -44,13 +44,13 @@ void OscillatorComponent::resized()
     float scaleX = (float)getWidth() / designBounds.getWidth();
     float scaleY = (float)getHeight() / designBounds.getHeight();
 
-    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) {
-        comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
-    };
-
-    // No tenemos Unison en el plano, así que lo dejamos como estaba o lo añadimos al plano
-    // Por ahora, lo posicionamos manualmente
-    // unisonComp.setBounds(...) 
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect) {
+        juce::Rectangle<float> scaled(designRect.getX() * scaleX,
+            designRect.getY() * scaleY,
+            designRect.getWidth() * scaleX,
+            designRect.getHeight() * scaleY);
+        comp.setBounds(scaled.toNearestInt());
+        };
 
     scaleAndSet(oscSection, LayoutConstants::Oscillator::WAVE_SELECT);
     scaleAndSet(waveDisplay, LayoutConstants::Oscillator::WAVE_DISPLAY);

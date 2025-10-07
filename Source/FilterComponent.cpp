@@ -70,14 +70,18 @@ void FilterComponent::paint(juce::Graphics& g)
 
 void FilterComponent::resized()
 {
-const auto& designBounds = LayoutConstants::FILTER_SECTION;
-float scaleX = (float)getWidth() / designBounds.getWidth();
-float scaleY = (float)getHeight() / designBounds.getHeight();
+    const auto& designBounds = LayoutConstants::FILTER_SECTION;
+    float scaleX = (float)getWidth() / designBounds.getWidth();
+    float scaleY = (float)getHeight() / designBounds.getHeight();
 
-auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) 
-{
-    comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
-};
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect)
+        {
+            juce::Rectangle<float> scaled(designRect.getX() * scaleX,
+                designRect.getY() * scaleY,
+                designRect.getWidth() * scaleX,
+                designRect.getHeight() * scaleY);
+            comp.setBounds(scaled.toNearestInt());
+        };
 
     scaleAndSet(filterCutoffKnob, LayoutConstants::Filter::CUTOFF_KNOB);
     scaleAndSet(filterResonanceKnob, LayoutConstants::Filter::RES_KNOB);

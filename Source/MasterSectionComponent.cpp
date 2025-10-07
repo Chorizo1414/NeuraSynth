@@ -124,19 +124,20 @@ void MasterSectionComponent::resized()
     // Ahora escalamos los knobs internos basándonos en el plano de diseño.
       
     // 1. Obtenemos las dimensiones de diseño de esta sección desde el plano.
-    const auto & designBounds = LayoutConstants::MASTER_SECTION;
+    const auto& designBounds = LayoutConstants::MASTER_SECTION;
     
     // 2. Calculamos los factores de escala LOCALES (solo para este componente).
     float scaleX = (float)getWidth() / designBounds.getWidth();
     float scaleY = (float)getHeight() / designBounds.getHeight();
    
     // 3. Función auxiliar para simplificar el posicionamiento.
-    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect)
     {
-        comp.setBounds(designRect.getX() * scaleX,
-        designRect.getY() * scaleY,
-        designRect.getWidth() * scaleX,
-        designRect.getHeight() * scaleY);
+            juce::Rectangle<float> scaled(designRect.getX() * scaleX,
+                designRect.getY() * scaleY,
+                designRect.getWidth() * scaleX,
+                designRect.getHeight() * scaleY);
+            comp.setBounds(scaled.toNearestInt());
     };
     
     // 4. Aplicamos el posicionamiento a cada control usando el plano.

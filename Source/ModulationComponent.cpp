@@ -58,9 +58,13 @@ void ModulationComponent::resized()
     float scaleX = (float)getWidth() / designBounds.getWidth();
     float scaleY = (float)getHeight() / designBounds.getHeight();
 
-    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) {
-        comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
-    };
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect) {
+        juce::Rectangle<float> scaled(designRect.getX() * scaleX,
+            designRect.getY() * scaleY,
+            designRect.getWidth() * scaleX,
+            designRect.getHeight() * scaleY);
+        comp.setBounds(scaled.toNearestInt());
+        };
 
     scaleAndSet(lfoSpeedKnob, LayoutConstants::LFO_FM::LFO_SPEED_KNOB);
     scaleAndSet(lfoAmountKnob, LayoutConstants::LFO_FM::LFO_AMOUNT_KNOB);

@@ -45,7 +45,7 @@ EnvelopeComponent::~EnvelopeComponent() {}
 
 void EnvelopeComponent::paint(juce::Graphics& g)
 {
-	// Solo dibuja el borde si el designMode del editor est· activo
+	// Solo dibuja el borde si el designMode del editor estÅEactivo
 	if (auto* tab = findParentComponentOfClass<SynthTabComponent>())
 	{
 		if (tab->designMode)
@@ -62,9 +62,13 @@ void EnvelopeComponent::resized()
     float scaleX = (float)getWidth() / designBounds.getWidth();
     float scaleY = (float)getHeight() / designBounds.getHeight();
 
-    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) {
-        comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
-    };
+	auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect) {
+		juce::Rectangle<float> scaled(designRect.getX() * scaleX,
+			designRect.getY() * scaleY,
+			designRect.getWidth() * scaleX,
+			designRect.getHeight() * scaleY);
+		comp.setBounds(scaled.toNearestInt());
+		};
 
     scaleAndSet(envelopeDisplay, LayoutConstants::Envelope::DISPLAY);
     scaleAndSet(attackKnob, LayoutConstants::Envelope::ATTACK_KNOB);

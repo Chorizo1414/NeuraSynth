@@ -79,7 +79,7 @@ void ReverbComponent::setDecay(float value)
 
 void ReverbComponent::paint (juce::Graphics& g) 
 {
-    // Solo dibuja el borde si el designMode del editor est· activo
+    // Solo dibuja el borde si el designMode del editor estÅEactivo
     if (auto* tab = findParentComponentOfClass<SynthTabComponent>())
     {
         if (tab->designMode)
@@ -96,9 +96,13 @@ void ReverbComponent::resized()
     float scaleX = (float)getWidth() / designBounds.getWidth();
     float scaleY = (float)getHeight() / designBounds.getHeight();
 
-    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect) {
-        comp.setBounds(designRect.getX() * scaleX, designRect.getY() * scaleY, designRect.getWidth() * scaleX, designRect.getHeight() * scaleY);
-    };
+    auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect) {
+        juce::Rectangle<float> scaled(designRect.getX() * scaleX,
+            designRect.getY() * scaleY,
+            designRect.getWidth() * scaleX,
+            designRect.getHeight() * scaleY);
+        comp.setBounds(scaled.toNearestInt());
+        };
 
     scaleAndSet(dryKnob, LayoutConstants::Reverb::DRY_KNOB);
     scaleAndSet(wetKnob, LayoutConstants::Reverb::WET_KNOB);
