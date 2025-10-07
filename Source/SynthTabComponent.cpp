@@ -394,12 +394,29 @@ void SynthTabComponent::resized()
     const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
 
     // La función para posicionar ahora es más directa.
+    const float referenceScale = 0.5f;
+    const float minScale = 0.375f;
+    float offsetFactor = 0.0f;
+
+    if (scale < referenceScale)
+    {
+        auto normalised = (referenceScale - scale) / (referenceScale - minScale);
+        normalised = juce::jlimit(0.0f, 1.0f, normalised);
+        offsetFactor = juce::jmap(normalised, 0.0f, 1.0f, 0.0f, -5.0f);
+    }
+
+
     auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<int>& designRect)
         {
-            comp.setBounds(guiArea.getX() + designRect.getX() * scale,
-                guiArea.getY() + designRect.getY() * scale,
-                designRect.getWidth() * scale,
-                designRect.getHeight() * scale);
+            const float scaledX = guiArea.getX() + designRect.getX() * scale;
+            const float scaledY = guiArea.getY() + designRect.getY() * scale + offsetFactor;
+            const float scaledWidth = designRect.getWidth() * scale;
+            const float scaledHeight = designRect.getHeight() * scale;
+
+            comp.setBounds(juce::roundToInt(scaledX),
+                juce::roundToInt(scaledY),
+                juce::roundToInt(scaledWidth),
+                juce::roundToInt(scaledHeight));
         };
 
     // --- 4. Posicionamos todas las secciones (Esto no cambia) ---
@@ -409,32 +426,44 @@ void SynthTabComponent::resized()
     scaleAndSet(soundPromptEditor, LayoutConstants::PROMPT_SECTION);
 
     auto promptBounds = soundPromptEditor.getBounds();
-    const int buttonHeight = 40 * scale;
-    const int padding = 10 * scale;
+    const float buttonHeight = 40.0f * scale;
+    const int padding = juce::roundToInt(10 * scale);
 
-    const int generateButtonWidth = 100 * scale;
-    const int undoRedoButtonWidth = 70 * scale;
-    const int feedbackButtonWidth = 50 * scale;
+    const float generateButtonWidth = 100.0f * scale;
+    const float undoRedoButtonWidth = 70.0f * scale;
+    const float feedbackButtonWidth = 70.0f * scale;
 
-    generateButton.setBounds(promptBounds.getRight() + padding, promptBounds.getCentreY() - (buttonHeight / 2), generateButtonWidth, buttonHeight);
-    undoButton.setBounds(generateButton.getRight() + padding, generateButton.getY(), undoRedoButtonWidth, buttonHeight);
-    redoButton.setBounds(undoButton.getRight() + padding, generateButton.getY(), undoRedoButtonWidth, buttonHeight);
-    likeButton.setBounds(redoButton.getRight() + padding, generateButton.getY(), feedbackButtonWidth, buttonHeight);
-    dislikeButton.setBounds(likeButton.getRight() + padding, generateButton.getY(), feedbackButtonWidth, buttonHeight);
+    generateButton.setBounds(promptBounds.getRight() + padding,
+        juce::roundToInt(promptBounds.getCentreY() - (buttonHeight / 2.0f)),
+        juce::roundToInt(generateButtonWidth),
+        juce::roundToInt(buttonHeight));
+    undoButton.setBounds(generateButton.getRight() + padding, generateButton.getY(), juce::roundToInt(undoRedoButtonWidth), juce::roundToInt(buttonHeight));
+    redoButton.setBounds(undoButton.getRight() + padding, generateButton.getY(), juce::roundToInt(undoRedoButtonWidth), juce::roundToInt(buttonHeight));
+    likeButton.setBounds(redoButton.getRight() + padding, generateButton.getY(), juce::roundToInt(feedbackButtonWidth), juce::roundToInt(buttonHeight));
+    dislikeButton.setBounds(likeButton.getRight() + padding, generateButton.getY(), juce::roundToInt(feedbackButtonWidth), juce::roundToInt(buttonHeight));
 
     // --- Posicionar Selector de Tamaño (Esto no cambia) ---
-    sizeLabel.setBounds(getWidth() - 160, 5, 50, 25);
-    sizeComboBox.setBounds(getWidth() - 100, 5, 90, 25);
+    const int topPadding = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 8.0f, 5.0f));
+    const int topControlHeight = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 18.0f, 25.0f));
+    const int sizeLabelWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 36.0f, 50.0f));
+    const int sizeComboWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 70.0f, 90.0f));
+    const int sizeLabelXOffset = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 120.0f, 160.0f));
+
+    sizeLabel.setBounds(getWidth() - sizeLabelXOffset, topPadding, sizeLabelWidth, topControlHeight);
+    sizeComboBox.setBounds(sizeLabel.getRight() + juce::roundToInt(10 * scale), topPadding, sizeComboWidth, topControlHeight);
+    sizeLabel.setFont(sizeLabel.getFont().withHeight(juce::jmap(scale, minScale, referenceScale, 12.0f, 18.0f)));
+    sizeComboBox.setJustificationType(juce::Justification::centred);
+    sizeComboBox.setTextWhenNothingSelected("100%");
 
     // --- Posicionamos los componentes de presets ---
     auto sizeLabelBounds = sizeLabel.getBounds();
-    const int presetControlHeight = 25;
-    const int sectionGap = 30 * scale;
+    const int presetControlHeight = topControlHeight;
+    const int sectionGap = juce::roundToInt(30 * scale);
 
     //Aumentamos el ancho de cada control.
-    const int refreshBtnWidth = 140 * scale;    
-    const int presetSelectorWidth = 260 * scale; 
-    const int presetLabelWidth = 900 * scale;     
+    const int refreshBtnWidth = juce::roundToInt(140 * scale);
+    const int presetSelectorWidth = juce::roundToInt(260 * scale);
+    const int presetLabelWidth = juce::roundToInt(900 * scale);
 
     refreshPresetsButton.setBounds(sizeLabelBounds.getX() - refreshBtnWidth - sectionGap,
         sizeLabelBounds.getY(),
@@ -445,6 +474,11 @@ void SynthTabComponent::resized()
     presetLabel.setBounds(presetSelector.getX() - presetLabelWidth,
         sizeLabelBounds.getY(),
         presetLabelWidth, presetControlHeight);
+
+    auto topFont = juce::Font(juce::jmap(scale, minScale, referenceScale, 12.0f, 16.0f), juce::Font::plain);
+    presetLabel.setFont(topFont);
+    presetSelector.setJustificationType(juce::Justification::centred);
+    presetSelector.setTextWhenNothingSelected("Presets");
 
     // --- 6. Posicionamos el resto de las secciones ---
     scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);

@@ -123,4 +123,5 @@ namespace LayoutConstants
         const juce::Rectangle<int> DETUNE_SLIDER = { 190, 90,  74, 40 };
         const juce::Rectangle<int> VISUALIZER = { 28, 160, 230, 150 };
     }
+
 }
