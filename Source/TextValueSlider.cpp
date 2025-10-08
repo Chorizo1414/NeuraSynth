@@ -7,14 +7,13 @@ TextValueSlider::TextValueSlider(juce::String parameterName, juce::String suffix
     addAndMakeVisible(valueLabel);
     valueLabel.setJustificationType(juce::Justification::centred);
     valueLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    valueLabel.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
     //this->setTooltip("Arrastra o usa la rueda del ratón para cambiar " + name);
 }
 
 void TextValueSlider::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black.withAlpha(0.5f));
-    g.setColour(juce::Colours::white.withAlpha(0.7f));
-    g.drawRect(getLocalBounds(), 1.0f);
+    juce::ignoreUnused(g);
 }
 
 void TextValueSlider::resized()

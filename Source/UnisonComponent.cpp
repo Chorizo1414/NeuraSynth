@@ -1,21 +1,25 @@
-// UnisonComponent.cpp
+    // UnisonComponent.cpp
 #include "UnisonComponent.h"
 #include "LayoutConstants.h"
 #include "PluginEditor.h"
+#include <cmath>
+
+namespace
+{
+    const juce::Colour unisonAccentColour = juce::Colour::fromRGB(120, 144, 165);
+}
+
 
 // --- Implementación del Visualizador ---
 void UnisonComponent::UnisonVisualizer::paint(juce::Graphics & g)
 {
-   g.fillAll(juce::Colours::black.withAlpha(0.5f));
-   g.setColour(juce::Colours::white.withAlpha(0.7f));
-   g.drawRect(getLocalBounds(), 1.0f);
-    
-   if (voices <= 0) return;
+    g.fillAll(juce::Colours::transparentBlack);
+
+    if (voices <= 0)
+        return;
     
    const float barWidth = 2.0f;
    const float maxSpread = getWidth() * 0.8f; // Las barras ocuparán hasta el 80% del ancho
-    
-   g.setColour(juce::Colours::deepskyblue);
     
    for (int i = 0; i < voices; ++i)
    {
@@ -23,9 +27,13 @@ void UnisonComponent::UnisonVisualizer::paint(juce::Graphics & g)
         if (voices > 1)
             voicePosition = juce::jmap((float)i, 0.0f, (float)voices - 1.0f, -1.0f, 1.0f);
         
-        float horizontalOffset = voicePosition * detune * (maxSpread / 2.0f);
+        const float spreadAmount = detune * (maxSpread / 2.0f);
+        float horizontalOffset = voicePosition * spreadAmount;
         float x = (float)getWidth() / 2.0f + horizontalOffset - (barWidth / 2.0f);
         
+        auto alpha = juce::jmap(juce::jlimit(0.0f, 1.0f, std::abs(voicePosition)), 0.0f, 1.0f, 1.0f, 0.45f);
+        g.setColour(unisonAccentColour.withAlpha(alpha));
+
         juce::Rectangle<float> bar(x, 2.0f, barWidth, (float)getHeight() - 4.0f);
         g.fillRect(bar);
    }

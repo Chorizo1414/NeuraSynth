@@ -26,11 +26,11 @@ namespace LayoutConstants
     const juce::Rectangle<float> DELAY_SECTION = { 68.0f, 909.0f, 580.0f, 290.0f };
     
     const juce::Rectangle<float> UNISON_1_SECTION = { 729.0f, 120.0f, 270.0f, 345.0f };
-    const juce::Rectangle<float> UNISON_2_SECTION = { 729.0f, 488.0f, 270.0f, 340.0f };
+    const juce::Rectangle<float> UNISON_2_SECTION = { 729.0f, 488.0f, 270.0f, 345.0f };
     const juce::Rectangle<float> UNISON_3_SECTION = { 729.0f, 855.0f, 270.0f, 347.0f };
 
     const juce::Rectangle<float> OSC_1_SECTION = { 994.0f, 120.0f, 685.0f, 345.0f };
-    const juce::Rectangle<float> OSC_2_SECTION = { 994.0f, 488.0f, 685.0f, 340.0f };
+    const juce::Rectangle<float> OSC_2_SECTION = { 994.0f, 488.0f, 685.0f, 345.0f };
     const juce::Rectangle<float> OSC_3_SECTION = { 994.0f, 855.0f, 685.0f, 347.0f };
     // Nota: El Unison lo integraremos dentro del layout del oscilador.
 
@@ -118,10 +118,10 @@ namespace LayoutConstants
     namespace Unison
     {
         // Coordenadas relativas al área del Unison
-        const juce::Rectangle<float> VOICES_SLIDER = { 29.0f, 90.0f, 50.0f, 40.0f };
-        const juce::Rectangle<float> BALANCE_SLIDER = { 106.0f, 90.0f,  65.0f, 40.0f };
-        const juce::Rectangle<float> DETUNE_SLIDER = { 190.0f, 90.0f,  74.0f, 40.0f };
-        const juce::Rectangle<float> VISUALIZER = { 27.0f, 160.0f, 230.0f, 150.0f };
+        const juce::Rectangle<float> VOICES_SLIDER = { 27.0f, 87.0f, 50.0f, 40.0f };
+        const juce::Rectangle<float> BALANCE_SLIDER = { 95.0f, 87.0f, 97.0f, 40.0f };
+        const juce::Rectangle<float> DETUNE_SLIDER = { 194.0f, 87.0f, 72.0f, 40.0f };
+        const juce::Rectangle<float> VISUALIZER = { 24.103f, 156.67f, 230.0f, 150.0f };
     }
 
 }
