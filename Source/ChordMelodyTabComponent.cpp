@@ -2,9 +2,70 @@
 #include "ChordMelodyTabComponent.h"
 #include "PluginProcessor.h"
 
+namespace
+{
+    const juce::Colour backgroundTopColour = juce::Colour::fromRGB(20, 22, 25);
+    const juce::Colour backgroundBottomColour = juce::Colour::fromRGB(12, 13, 15);
+    const juce::Colour panelBaseColour = juce::Colour::fromRGB(30, 33, 37);
+    const juce::Colour panelOutlineColour = juce::Colour::fromRGB(62, 66, 73);
+    const juce::Colour panelHighlightColour = juce::Colour::fromRGB(44, 48, 54);
+    const juce::Colour accentColour = juce::Colour::fromRGB(120, 144, 165);
+    const juce::Colour buttonBaseColour = juce::Colour::fromRGB(40, 43, 48);
+    const juce::Colour buttonDownColour = juce::Colour::fromRGB(66, 92, 116);
+    const juce::Colour mainTextColour = juce::Colour::fromRGB(218, 222, 227);
+    const juce::Colour subtleTextColour = juce::Colour::fromRGB(148, 156, 165);
+
+    juce::Rectangle<int> expanded(const juce::Rectangle<int>& rect, int amountX, int amountY)
+    {
+        auto result = rect;
+        result.setX(result.getX() - amountX);
+        result.setY(result.getY() - amountY);
+        result.setWidth(result.getWidth() + amountX * 2);
+        result.setHeight(result.getHeight() + amountY * 2);
+        return result;
+    }
+}
+
 ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor)
     : audioProcessor(processor)
 {
+    setOpaque(true);
+
+    auto stylizeButton = [](juce::TextButton& button)
+        {
+            button.setColour(juce::TextButton::buttonColourId, buttonBaseColour);
+            button.setColour(juce::TextButton::buttonOnColourId, buttonDownColour);
+            button.setColour(juce::TextButton::textColourOffId, mainTextColour);
+            button.setColour(juce::TextButton::textColourOnId, mainTextColour);
+            //button.setColour(juce::TextButton::outlineColourId, panelOutlineColour.withAlpha(0.35f));
+        };
+
+    auto stylizeCombo = [](juce::ComboBox& combo)
+        {
+            combo.setColour(juce::ComboBox::backgroundColourId, buttonBaseColour);
+            combo.setColour(juce::ComboBox::textColourId, mainTextColour);
+            combo.setColour(juce::ComboBox::arrowColourId, mainTextColour);
+            combo.setColour(juce::ComboBox::outlineColourId, panelOutlineColour.withAlpha(0.35f));
+        };
+
+    auto stylizeLabel = [](juce::Label& label)
+        {
+            label.setColour(juce::Label::textColourId, subtleTextColour);
+            label.setJustificationType(juce::Justification::centredLeft);
+        };
+
+    promptEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colour::fromRGB(26, 28, 32));
+    promptEditor.setColour(juce::TextEditor::outlineColourId, panelOutlineColour.withAlpha(0.4f));
+    promptEditor.setColour(juce::TextEditor::focusedOutlineColourId, panelOutlineColour.brighter(0.3f));
+    promptEditor.setColour(juce::TextEditor::highlightColourId, panelHighlightColour.withAlpha(0.55f));
+    promptEditor.setColour(juce::TextEditor::highlightedTextColourId, mainTextColour);
+    promptEditor.setColour(juce::TextEditor::textColourId, mainTextColour);
+    promptEditor.setBorder(juce::BorderSize<int>(6));
+    promptEditor.setScrollbarsShown(true);
+    promptEditor.setFont(juce::Font(15.0f, juce::Font::plain));
+
+    stylizeLabel(promptLabel);
+
     // === EDITOR DE PROMPT ===
     addAndMakeVisible(promptLabel);
     promptLabel.setText("Escribe tu prompt aqui (ej: 'C minor', 'triste en Am')", juce::dontSendNotification);
@@ -14,7 +75,9 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     // === MENU DE GENERO ===
     addAndMakeVisible(genreLabel);
     genreLabel.setText("Genero", juce::dontSendNotification);
+    stylizeLabel(genreLabel);
     addAndMakeVisible(genreComboBox);
+    stylizeCombo(genreComboBox);
     genreComboBox.addItem("Detectar desde prompt", 1);
     juce::StringArray availableGenres = audioProcessor.pythonManager->getAvailableGenres();
     for (int i = 0; i < availableGenres.size(); ++i)
@@ -26,6 +89,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     genreComboBox.setSelectedId(1);
 
     addAndMakeVisible(chordCountComboBox);
+    stylizeCombo(chordCountComboBox);
     chordCountComboBox.addItem(juce::String::fromUTF8("Sin límite"), 1);
     chordCountComboBox.addItem("4", 2);
     chordCountComboBox.addItem("6", 3);
@@ -33,16 +97,24 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     chordCountComboBox.setSelectedId(1);
     addAndMakeVisible(chordCountLabel);
     chordCountLabel.setText(juce::String::fromUTF8("N° Acordes:"), juce::dontSendNotification);
+    stylizeLabel(chordCountLabel);
     chordCountLabel.attachToComponent(&chordCountComboBox, true);
 
     // === CONTROL DE BPM ===
     addAndMakeVisible(bpmLabel);
     bpmLabel.setText("BPM:", juce::dontSendNotification);
+    stylizeLabel(bpmLabel);
 
     addAndMakeVisible(bpmSlider);
     bpmSlider.setSliderStyle(juce::Slider::IncDecButtons);
     bpmSlider.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 50, 20);
     bpmSlider.setRange(40.0, 220.0, 1.0);
+    bpmSlider.setColour(juce::Slider::backgroundColourId, juce::Colour::fromRGB(24, 26, 29));
+    bpmSlider.setColour(juce::Slider::trackColourId, panelOutlineColour.withAlpha(0.45f));
+    bpmSlider.setColour(juce::Slider::thumbColourId, accentColour.withAlpha(0.9f));
+    bpmSlider.setColour(juce::Slider::textBoxTextColourId, mainTextColour);
+    bpmSlider.setColour(juce::Slider::textBoxBackgroundColourId, buttonBaseColour);
+    bpmSlider.setColour(juce::Slider::textBoxOutlineColourId, panelOutlineColour.withAlpha(0.35f));
     bpmLabel.attachToComponent(&bpmSlider, true);
 
     setBpmValue(120.0, juce::dontSendNotification);
@@ -50,32 +122,42 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     // === BOTONES DE GENERACIÓN Y TRANSPOSICIÓN ===
     addAndMakeVisible(generateChordsButton);
     generateChordsButton.setButtonText("1. Generar Acordes");
+    stylizeButton(generateChordsButton);
     addAndMakeVisible(generateMelodyButton);
     generateMelodyButton.setButtonText("2. Generar Melodia");
     generateMelodyButton.setEnabled(false);
+    stylizeButton(generateMelodyButton);
 
     addAndMakeVisible(transposeUpButton);
     transposeUpButton.setButtonText("+1 Semitono");
     transposeUpButton.setEnabled(false);
+    stylizeButton(transposeUpButton);
 
     addAndMakeVisible(transposeDownButton);
     transposeDownButton.setButtonText("-1 Semitono");
     transposeDownButton.setEnabled(false);
+    stylizeButton(transposeDownButton);
 
     // === BOTONES DE CONTROL Y EXPORTACIÓN ===
     addAndMakeVisible(playAllButton);
     playAllButton.setButtonText("Reproducir Todo");
+    stylizeButton(playAllButton);
     addAndMakeVisible(playChordsButton);
     playChordsButton.setButtonText("Reproducir Acordes");
+    stylizeButton(playChordsButton);
     addAndMakeVisible(playMelodyButton);
     playMelodyButton.setButtonText("Reproducir Melodia");
+    stylizeButton(playMelodyButton);
     addAndMakeVisible(stopButton);
     stopButton.setButtonText("Detener");
+    stylizeButton(stopButton);
     addAndMakeVisible(exportChordsButton);
     exportChordsButton.setButtonText("Exportar Acordes");
+    stylizeButton(exportChordsButton);
     addAndMakeVisible(exportMelodyButton);
     exportMelodyButton.setButtonText("Exportar Melodia");
     exportMelodyButton.setEnabled(false);
+    stylizeButton(exportMelodyButton);
 
     // === PIANO ROLL ===
     addAndMakeVisible(pianoRollComponent);
@@ -131,10 +213,10 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     // Crear y configurar el botón "Me gusta"
     likeButton = std::make_unique<juce::ImageButton>();
     auto likeImg = juce::ImageCache::getFromMemory(BinaryData::corazon_png, BinaryData::corazon_pngSize);
-    likeButton->setImages(true, true, true,
-        likeImg, 1.0f, juce::Colours::transparentBlack, // Imagen normal
-        likeImg, 0.8f, juce::Colours::transparentBlack, // Imagen al pasar el ratón
-        likeImg, 0.5f, juce::Colours::transparentBlack); // Imagen al hacer clic
+    likeButton->setImages(false, true, true,
+        likeImg, 1.0f, juce::Colours::transparentBlack,
+        likeImg, 0.85f, juce::Colours::transparentBlack,
+        likeImg, 0.7f, juce::Colours::transparentBlack);
     likeButton->onClick = [this] {
         audioProcessor.pythonManager->like();
         showNotification("Feedback Positivo Enviado!");
@@ -144,10 +226,10 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     // Crear y configurar el botón "No me gusta"
     dislikeButton = std::make_unique<juce::ImageButton>();
     auto dislikeImg = juce::ImageCache::getFromMemory(BinaryData::pulgar_abajo_png, BinaryData::pulgar_abajo_pngSize);
-    dislikeButton->setImages(true, true, true,
+    dislikeButton->setImages(false, true, true,
         dislikeImg, 1.0f, juce::Colours::transparentBlack,
-        dislikeImg, 0.8f, juce::Colours::transparentBlack,
-        dislikeImg, 0.5f, juce::Colours::transparentBlack);
+        dislikeImg, 0.85f, juce::Colours::transparentBlack,
+        dislikeImg, 0.7f, juce::Colours::transparentBlack);
     dislikeButton->onClick = [this] {
         audioProcessor.pythonManager->dislike();
         showNotification("Feedback Negativo Enviado!");
@@ -156,6 +238,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     addAndMakeVisible(undoButton);
     undoButton.setButtonText("Deshacer");
+    stylizeButton(undoButton);
     undoButton.onClick = [this]
         {
             if (historyCurrentIndex > 0)
@@ -164,6 +247,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     addAndMakeVisible(redoButton);
     redoButton.setButtonText("Rehacer");
+    stylizeButton(redoButton);
     redoButton.onClick = [this]
         {
             if (historyCurrentIndex >= 0 && historyCurrentIndex < (int)historyStates.size() - 1)
@@ -171,8 +255,9 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
         };
 
     addAndMakeVisible(notificationLabel);
-    notificationLabel.setColour(juce::Label::backgroundColourId, juce::Colours::darkgrey.withAlpha(0.8f));
-    notificationLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    notificationLabel.setColour(juce::Label::backgroundColourId, juce::Colour::fromRGBA(14, 16, 20, 200));
+    notificationLabel.setColour(juce::Label::outlineColourId, panelOutlineColour.withAlpha(0.45f));
+    notificationLabel.setColour(juce::Label::textColourId, mainTextColour);
     notificationLabel.setJustificationType(juce::Justification::centred);
     notificationLabel.setAlpha(0.0f);
 
@@ -270,7 +355,89 @@ ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
 
 void ChordMelodyTabComponent::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::grey);
+    juce::ColourGradient backgroundGradient(backgroundTopColour, 0.0f, 0.0f,
+        backgroundBottomColour, 0.0f, (float)getHeight(), false);
+    g.setGradientFill(backgroundGradient);
+    g.fillAll();
+
+    auto drawPanel = [&g](const juce::Rectangle<int>& area)
+        {
+            if (area.isEmpty())
+                return;
+
+            auto bounded = area.getIntersection(g.getClipBounds());
+            if (bounded.isEmpty())
+                return;
+
+            auto roundedBounds = bounded.toFloat();
+
+            juce::ColourGradient panelGradient(panelBaseColour.brighter(0.06f),
+                roundedBounds.getCentreX(), roundedBounds.getY(),
+                panelBaseColour.darker(0.04f),
+                roundedBounds.getCentreX(), roundedBounds.getBottom(), false);
+
+            g.setGradientFill(panelGradient);
+            g.fillRoundedRectangle(roundedBounds, 10.0f);
+
+            g.setColour(panelOutlineColour.withAlpha(0.45f));
+            g.drawRoundedRectangle(roundedBounds, 10.0f, 1.0f);
+
+            auto innerBounds = bounded.reduced(8);
+            if (!innerBounds.isEmpty())
+            {
+                g.setColour(panelHighlightColour.withAlpha(0.25f));
+                g.drawRoundedRectangle(innerBounds.toFloat(), 8.0f, 1.0f);
+            }
+        };
+
+    auto bounds = getLocalBounds().reduced(10);
+
+    auto bottomArea = bounds.removeFromBottom(90);
+    auto topArea = bounds.removeFromTop(180);
+    bounds.removeFromTop(10);
+    auto pianoArea = bounds;
+
+    auto topWorking = topArea;
+    auto rightColumn = topWorking.removeFromRight(200).reduced(5, 0);
+    auto leftColumn = topWorking;
+    leftColumn.removeFromRight(10);
+    auto promptArea = leftColumn.removeFromTop(125);
+    leftColumn.removeFromTop(10);
+    auto generationArea = leftColumn;
+
+    auto bottomWorking = bottomArea;
+    auto playbackRow = bottomWorking.removeFromTop(40);
+    auto exportRow = bottomWorking.removeFromBottom(40);
+
+    drawPanel(expanded(promptArea.getUnion(generationArea), 12, 8));
+    drawPanel(expanded(rightColumn, 12, 8));
+    drawPanel(expanded(playbackRow, 10, 6));
+    drawPanel(expanded(exportRow, 10, 6));
+    drawPanel(expanded(pianoArea, 8, 12));
+
+    auto drawRightColumnDividers = [&](juce::Rectangle<int> columnArea)
+        {
+            auto working = columnArea;
+            const int rowHeight = 25;
+            const int spacing = 5;
+            for (int i = 0; i < 6; ++i)
+            {
+                if (working.getHeight() <= rowHeight)
+                    break;
+
+                working.removeFromTop(rowHeight);
+                if (working.getHeight() <= 0)
+                    break;
+
+                auto dividerY = working.getY() - spacing / 2;
+                g.setColour(panelOutlineColour.withAlpha(0.25f));
+                g.fillRect(juce::Rectangle<int>(columnArea.getX() + 12, dividerY, columnArea.getWidth() - 24, 1));
+
+                working.removeFromTop(spacing);
+            }
+        };
+
+    drawRightColumnDividers(rightColumn);
 }
 
 // Source/ChordMelodyTabComponent.cpp
