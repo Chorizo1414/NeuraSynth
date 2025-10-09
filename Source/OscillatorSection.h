@@ -105,9 +105,11 @@ private:
         juce::PopupMenu::Options getOptionsForComboBoxPopupMenu(juce::ComboBox& box, juce::Label& label) override
         {
             auto options = juce::LookAndFeel_V4::getOptionsForComboBoxPopupMenu(box, label);
-            auto targetWidth = box.getWidth() > 0 ? box.getWidth() : 180;
-            targetWidth = juce::jlimit(120, 170, targetWidth);
-            const int itemHeight = 24;
+            const auto scale = box.getApproximateScaleFactorForComponent(&box);
+            const int boxWidth = juce::roundToInt(box.getWidth() * scale);
+            const int boxHeight = juce::roundToInt(box.getHeight() * scale);
+            const int targetWidth = juce::jlimit(70, 140, boxWidth > 0 ? boxWidth : juce::roundToInt(110 * scale));
+            const int itemHeight = juce::jlimit(18, 28, boxHeight > 0 ? boxHeight : juce::roundToInt(24 * scale));
             const int numItems = box.getNumItems();
 
             options = options.withMinimumWidth(targetWidth)
@@ -116,14 +118,56 @@ private:
 
             if (numItems > 0)
             {
-                const int maxVisible = juce::jlimit(1, 6, numItems);
-                const int popupHeight = itemHeight * maxVisible;
+                const int desiredVisible = juce::jlimit(1, 10, numItems);
                 auto screenBounds = box.getScreenBounds();
                 auto popupArea = juce::Rectangle<int>(
                     screenBounds.getX(),
                     screenBounds.getBottom(),
                     targetWidth,
-                    itemHeight * maxVisible);
+                    itemHeight * desiredVisible);
+
+                if (auto* topLevel = box.getTopLevelComponent())
+                {
+                    auto pluginBounds = topLevel->getScreenBounds();
+                    const int spaceBelow = juce::jmax(0, pluginBounds.getBottom() - screenBounds.getBottom());
+                    const int spaceAbove = juce::jmax(0, screenBounds.getY() - pluginBounds.getY());
+                    const int maxRowsBelow = itemHeight > 0 ? (spaceBelow / itemHeight) : desiredVisible;
+                    const int maxRowsAbove = itemHeight > 0 ? (spaceAbove / itemHeight) : desiredVisible;
+
+                    int visibleRows = desiredVisible;
+                    bool openAbove = false;
+
+                    if (maxRowsBelow >= desiredVisible)
+                    {
+                        visibleRows = desiredVisible;
+                    }
+                    else if (maxRowsBelow > 0 || maxRowsAbove > 0)
+                    {
+                        if (maxRowsAbove > maxRowsBelow)
+                        {
+                            openAbove = true;
+                            visibleRows = juce::jlimit(1, desiredVisible, juce::jmax(1, maxRowsAbove));
+                        }
+                        else
+                        {
+                            visibleRows = juce::jlimit(1, desiredVisible, juce::jmax(1, maxRowsBelow));
+                        }
+                    }
+                    else
+                    {
+                        visibleRows = 1;
+                    }
+
+                    popupArea.setHeight(itemHeight * visibleRows);
+                    if (openAbove)
+                        popupArea.setY(screenBounds.getY() - popupArea.getHeight());
+                    else
+                        popupArea.setY(screenBounds.getBottom());
+
+                    popupArea.setX(juce::jlimit(pluginBounds.getX(), pluginBounds.getRight() - popupArea.getWidth(), popupArea.getX()));
+                    popupArea.setY(juce::jlimit(pluginBounds.getY(), pluginBounds.getBottom() - popupArea.getHeight(), popupArea.getY()));
+                    options = options.withParentComponent(topLevel);
+                }
 
                 options = options.withTargetScreenArea(popupArea);
             }
