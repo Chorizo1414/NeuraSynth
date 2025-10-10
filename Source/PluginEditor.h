@@ -20,11 +20,13 @@ private:
     juce::TabbedComponent tabbedComponent;
     SynthTabComponent synthTab;
     ChordMelodyTabComponent chordMelodyTab;
-   
-    juce::MidiKeyboardComponent keyboardComponent;
 
+    // Controles de tamaño
+    juce::Label sizeLabel;
+    juce::ComboBox sizeComboBox;
+
+    juce::MidiKeyboardComponent keyboardComponent;
     std::unique_ptr<juce::ComponentBoundsConstrainer> constrainer;
-    juce::AudioProcessorValueTreeState::Listener* vtsListener = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessorEditor)
 };

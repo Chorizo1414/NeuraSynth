@@ -1,13 +1,10 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-
+#include "LayoutConstants.h"
 
 NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p),
-
-    // Inicializamos el componente de pestañas en la parte superior
     tabbedComponent(juce::TabbedButtonBar::Orientation::TabsAtTop),
-    // Inicializamos nuestras pestañas, pasando el procesador a la del sinte
     synthTab(p),
     chordMelodyTab(p),
     keyboardComponent(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
@@ -15,26 +12,46 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     addAndMakeVisible(tabbedComponent);
     addAndMakeVisible(keyboardComponent);
 
-    // Añadimos las pestañas con sus nombres
     tabbedComponent.addTab("Synthesizer", juce::Colours::black, &synthTab, false);
     tabbedComponent.addTab("Chord/Melody Generator", juce::Colours::black, &chordMelodyTab, false);
 
-    // Tamaño inicial de la ventana del plugin
-    const double designImageHeight = 1360.0;
-    const double designKeyboardHeight = 120.0; // Altura del teclado de tu diseño
-    const double designWidth = 2340.0;
-    const double totalDesignHeight = designImageHeight + designKeyboardHeight;
-    const double aspectRatio = designWidth / totalDesignHeight;
+    addAndMakeVisible(sizeLabel);
+    sizeLabel.setText("Size:", juce::dontSendNotification);
+    sizeLabel.setJustificationType(juce::Justification::centredRight);
+    sizeLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
 
-    // Establecemos un tamaño inicial que respete la proporción total
-    setSize(1170, 1170 / aspectRatio);
+    addAndMakeVisible(sizeComboBox);
+    sizeComboBox.addItem("75%", 1);
+    sizeComboBox.addItem("100%", 2);
+    sizeComboBox.setSelectedId(2);
+    sizeComboBox.setTooltip("Escala la interfaz del sintetizador");
+    sizeComboBox.setJustificationType(juce::Justification::centred);
+
+    sizeComboBox.onChange = [this]
+        {
+            if (auto* parent = getTopLevelComponent())
+            {
+                float finalScale = 0.5f;
+                int choice = sizeComboBox.getSelectedId();
+                if (choice == 1) finalScale = 0.375f;
+                if (choice == 2) finalScale = 0.5f;
+
+                const int newWidth = LayoutConstants::DESIGN_WIDTH * finalScale;
+                const int newHeight = LayoutConstants::DESIGN_HEIGHT * finalScale;
+
+                constrainer->setMinimumSize(newWidth, newHeight);
+                parent->setSize(newWidth, newHeight);
+            }
+        };
+
+    const double aspectRatio = (double)LayoutConstants::DESIGN_WIDTH / LayoutConstants::DESIGN_HEIGHT;
+    setSize(LayoutConstants::DESIGN_WIDTH * 0.5, LayoutConstants::DESIGN_HEIGHT * 0.5);
 
     constrainer = std::make_unique<juce::ComponentBoundsConstrainer>();
     constrainer->setFixedAspectRatio(aspectRatio);
     setConstrainer(constrainer.get());
 
     setResizable(true, true);
-
 }
 
 NeuraSynthAudioProcessorEditor::~NeuraSynthAudioProcessorEditor()
@@ -43,31 +60,39 @@ NeuraSynthAudioProcessorEditor::~NeuraSynthAudioProcessorEditor()
 
 void NeuraSynthAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    // El fondo ahora es gestionado por cada pestaña individualmente.
-    // Simplemente rellenamos de negro para evitar artefactos visuales.
     g.fillAll(juce::Colours::black);
 }
 
-
 void NeuraSynthAudioProcessorEditor::resized()
 {
-    // Obtiene el área total del editor
-    auto totalArea = getLocalBounds();
+    juce::Rectangle<int> totalArea = getLocalBounds();
 
-    // Define la altura del teclado. 
-    // Lo calculamos dinámicamente basándonos en la proporción del diseño original.
-    const double designImageHeight = 1360.0;
+    // 1. El teclado se posiciona abajo, como siempre
     const double designKeyboardHeight = 120.0;
-    const double totalDesignHeight = designImageHeight + designKeyboardHeight;
+    const double totalDesignHeight = LayoutConstants::DESIGN_HEIGHT;
     int keyboardHeight = static_cast<int>(getHeight() * (designKeyboardHeight / totalDesignHeight));
-
-    // El área para el teclado es la franja inferior
     auto keyboardArea = totalArea.removeFromBottom(keyboardHeight);
-
-    // El área restante en la parte superior es para las pestañas (synthTab y chordMelodyTab)
-    auto mainArea = totalArea;
-
-    // Asigna las áreas a los componentes
-    tabbedComponent.setBounds(mainArea);
     keyboardComponent.setBounds(keyboardArea);
+
+    // 2. El TabbedComponent ocupa TODO el espacio superior restante
+    tabbedComponent.setBounds(totalArea);
+
+    // 3. Posicionamos los controles MANUALMENTE sobre la barra de pestañas
+    const int tabBarHeight = 30;
+
+    // 4. Creamos un área en la esquina superior derecha.
+    //    Le damos un poco más de ancho total.
+    const int sizeControlsWidth = 130; // <-- Aumentamos de 120 a 130
+    auto sizeControlsArea = totalArea.removeFromTop(tabBarHeight).removeFromRight(sizeControlsWidth);
+
+    // 5. Reducimos el área un poco para que quede centrado y con márgenes.
+    sizeControlsArea.reduce(8, 4); // <-- Reducimos un poco el margen horizontal
+
+    // 6. Posicionamos nuestros controles dentro de esa área.
+    sizeLabel.setBounds(sizeControlsArea.removeFromLeft(45)); // Damos un poco más al label
+    sizeComboBox.setBounds(sizeControlsArea); // El ComboBox recibe el espacio extra
+
+    // 7. (MUY IMPORTANTE) Traemos los controles al frente.
+    sizeLabel.toFront(false);
+    sizeComboBox.toFront(false);
 }

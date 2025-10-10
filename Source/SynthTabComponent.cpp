@@ -219,30 +219,82 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     addAndMakeVisible(soundPromptEditor);
 
     // --- Inicializaci de los nuevos botones de historial ---
-    generateButton.setButtonText("Generate");
+    const auto accentColour = juce::Colour::fromRGB(255, 163, 72);
+    const auto controlBackground = juce::Colour::fromRGB(58, 68, 83);
+    const auto inputBackground = juce::Colour::fromRGB(32, 39, 52);
+    const auto successColour = juce::Colour::fromRGB(124, 205, 150);
+    const auto dangerColour = juce::Colour::fromRGB(223, 126, 118);
+    const auto outlineColour = juce::Colour::fromRGB(73, 85, 103);
+    const auto mutedTextColour = juce::Colour::fromRGB(214, 223, 237);
+
+    soundPromptEditor.setMultiLine(false);
+    soundPromptEditor.setReturnKeyStartsNewLine(false);
+    soundPromptEditor.setReadOnly(false);
+    soundPromptEditor.setScrollbarsShown(false);
+    soundPromptEditor.setCaretVisible(true);
+    soundPromptEditor.setPopupMenuEnabled(true);
+    soundPromptEditor.setTextToShowWhenEmpty("Escribe un sonido (ej: 'Warm Lead', 'Bright Pad')...", mutedTextColour.withAlpha(0.6f));
+    soundPromptEditor.setFont(juce::Font(17.0f));
+    soundPromptEditor.setBorder({});
+    soundPromptEditor.setColour(juce::TextEditor::backgroundColourId, inputBackground);
+    soundPromptEditor.setColour(juce::TextEditor::outlineColourId, outlineColour);
+    soundPromptEditor.setColour(juce::TextEditor::focusedOutlineColourId, accentColour);
+    soundPromptEditor.setColour(juce::TextEditor::textColourId, mutedTextColour);
+    soundPromptEditor.setColour(juce::TextEditor::highlightColourId, accentColour.withAlpha(0.35f));
+
+    addAndMakeVisible(soundPromptLabel);
+    soundPromptLabel.setText("Generador de Sonido:", juce::dontSendNotification);
+    soundPromptLabel.setColour(juce::Label::textColourId, mutedTextColour.withAlpha(0.9f));
+    soundPromptLabel.setFont(juce::Font(15.0f, juce::Font::bold));
+    soundPromptLabel.attachToComponent(&soundPromptEditor, true);
+
+    auto styleUtilityButton = [controlBackground, mutedTextColour](juce::TextButton& button, juce::Colour background)
+        {
+            button.setColour(juce::TextButton::buttonColourId, background);
+            button.setColour(juce::TextButton::buttonOnColourId, background.brighter(0.25f));
+            button.setColour(juce::TextButton::textColourOffId, mutedTextColour);
+            button.setColour(juce::TextButton::textColourOnId, mutedTextColour);
+            button.setWantsKeyboardFocus(false);
+        };
+
+    // --- Inicialización de los nuevos botones de historial ---
+    generateButton.setButtonText("Generar");
     addAndMakeVisible(generateButton);
-    // Asignamos la misma funci que presionar Enter en el editor de texto
+    // Asignamos la misma funcion que presionar Enter en el editor de texto
     generateButton.onClick = [this] { textEditorReturnKeyPressed(soundPromptEditor); };
 
-    undoButton.setButtonText("Undo");
+    generateButton.setTooltip("Generar un nuevo preset a partir del prompt actual");
+    const auto generateButtonColour = juce::Colour::fromRGB(80, 101, 135); // Un azul sutil
+    generateButton.setColour(juce::TextButton::buttonColourId, generateButtonColour);
+    generateButton.setColour(juce::TextButton::buttonOnColourId, generateButtonColour.brighter(0.2f));
+    generateButton.setColour(juce::TextButton::textColourOffId, mutedTextColour.brighter(0.5f));
+    generateButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    generateButton.setWantsKeyboardFocus(false);
+
+    undoButton.setButtonText(juce::CharPointer_UTF8("\xe2\x9f\xb2"));
     addAndMakeVisible(undoButton);
     undoButton.onClick = [this] { undoButtonClicked(); };
+    undoButton.setTooltip("Deshacer el último preset aplicado");
+    styleUtilityButton(undoButton, controlBackground);
 
-    redoButton.setButtonText("Redo");
+    redoButton.setButtonText(juce::CharPointer_UTF8("\xe2\x9f\xb3"));
     addAndMakeVisible(redoButton);
     redoButton.onClick = [this] { redoButtonClicked(); };
+    redoButton.setTooltip("Rehacer el último preset aplicado");
+    styleUtilityButton(redoButton, controlBackground);
 
     // Establecemos el estado inicial de los botones (deshabilitados)
     updateUndoRedoButtonStates();
 
     // --- Inicialización de los botones de feedback ---
-    likeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8d")); // Emoji 👍
+    likeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8d"));
     addAndMakeVisible(likeButton);
-    likeButton.onClick = [this] {
+    likeButton.setTooltip("Guardar el preset actual en favoritos");
+    likeButton.onClick = [this]
+        {
         // Llamamos a la función y guardamos el resultado
         bool success = audioProcessor.pythonManager->likeLastSound();
 
-        // Mostramos un mensaje dependiendo del resultado
         if (success)
         {
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon,
@@ -256,24 +308,43 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
                 "No se pudo guardar. Genera un sonido nuevo antes de darle 'Like'.");
         }
         };
+    likeButton.setColour(juce::TextButton::buttonColourId, controlBackground.brighter(0.2f));
+    likeButton.setColour(juce::TextButton::buttonOnColourId, controlBackground.brighter(0.3f));
+    likeButton.setColour(juce::TextButton::textColourOffId, successColour); // El icono se pone verde
+    likeButton.setColour(juce::TextButton::textColourOnId, successColour.brighter(0.5f));
 
-    dislikeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8e")); // Emoji 👎
+    dislikeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8e"));
     addAndMakeVisible(dislikeButton);
-    dislikeButton.onClick = [this] {
-        // La acción de "dislike" simplemente genera un nuevo sonido
-        textEditorReturnKeyPressed(soundPromptEditor);
-    };
+    dislikeButton.setTooltip("Descartar y generar un nuevo preset al instante");
+    dislikeButton.onClick = [this]
+        {
+            // La acción de "dislike" simplemente genera un nuevo sonido
+            textEditorReturnKeyPressed(soundPromptEditor);
+        };
+
+    dislikeButton.setColour(juce::TextButton::buttonColourId, controlBackground.brighter(0.2f));
+    dislikeButton.setColour(juce::TextButton::buttonOnColourId, controlBackground.brighter(0.3f));
+    dislikeButton.setColour(juce::TextButton::textColourOffId, dangerColour); // El icono se pone rojo
+    dislikeButton.setColour(juce::TextButton::textColourOnId, dangerColour.brighter(0.5f));
 
     // --- Inicialización de los componentes de presets ---
     addAndMakeVisible(presetLabel);
     presetLabel.setText("Presets:", juce::dontSendNotification);
     presetLabel.setJustificationType(juce::Justification::centredRight);
+    presetLabel.setColour(juce::Label::textColourId, mutedTextColour.withAlpha(0.85f));
 
     addAndMakeVisible(presetSelector);
     presetSelector.setTextWhenNoChoicesAvailable("No hay presets guardados");
-    presetSelector.onChange = [this] {
+    presetSelector.setJustificationType(juce::Justification::centred);
+    presetSelector.setTooltip("Selecciona un preset generado anteriormente");
+    presetSelector.setColour(juce::ComboBox::backgroundColourId, inputBackground);
+    presetSelector.setColour(juce::ComboBox::outlineColourId, outlineColour);
+    presetSelector.setColour(juce::ComboBox::textColourId, mutedTextColour);
+    presetSelector.setColour(juce::ComboBox::arrowColourId, mutedTextColour);
+    presetSelector.onChange = [this]
+        {
         int selectedId = presetSelector.getSelectedId();
-        if (selectedId > 0) // ID 0 es "ninguno seleccionado"
+        if (selectedId > 0)
         {
             juce::String presetName = presetSelector.getItemText(selectedId - 1);
             if (currentPresets.contains(presetName.toStdString().c_str()))
@@ -283,25 +354,14 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
                 audioProcessor.applyPatchFromPython(patch);
             }
         }
-        };
+    };
 
     addAndMakeVisible(refreshPresetsButton);
     refreshPresetsButton.setButtonText("Refrescar");
+    refreshPresetsButton.setTooltip("Actualizar la lista de presets guardados");
     refreshPresetsButton.onClick = [this] { populatePresets(); };
 
-    populatePresets(); // Llenamos los presets al iniciar
-
-    soundPromptEditor.setMultiLine(false);
-    soundPromptEditor.setReturnKeyStartsNewLine(false);
-    soundPromptEditor.setReadOnly(false);
-    soundPromptEditor.setScrollbarsShown(false);
-    soundPromptEditor.setCaretVisible(true);
-    soundPromptEditor.setPopupMenuEnabled(true);
-    soundPromptEditor.setTextToShowWhenEmpty("Escribe un sonido (ej: 'Warm Lead', 'Bright Pad')...", juce::Colours::darkgrey);
-
-    addAndMakeVisible(soundPromptLabel);
-    soundPromptLabel.setText("Generador de Sonido:", juce::dontSendNotification);
-    soundPromptLabel.attachToComponent(&soundPromptEditor, true);
+    populatePresets();
 
     soundPromptEditor.addListener(this);
 
@@ -329,32 +389,6 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     }
 
-    // -- - Selector de Tama o-- -
-    addAndMakeVisible(sizeLabel);
-    sizeLabel.setText("Size:", juce::dontSendNotification);
-    sizeLabel.setJustificationType(juce::Justification::centredRight);
-
-    addAndMakeVisible(sizeComboBox);
-    sizeComboBox.addItem("75%", 1);
-    sizeComboBox.addItem("100%", 2);
-    sizeComboBox.setSelectedId(2);
-
-    sizeComboBox.onChange = [this]
-    {
-            // Usamos la función correcta para obtener la ventana principal del plugin
-            if (auto* parent = findParentComponentOfClass<juce::TopLevelWindow>())
-            {
-                float finalScale = 0.5f; // Valor por defecto para 100%
-                int choice = sizeComboBox.getSelectedId();
-                if (choice == 1) finalScale = 0.375f; // 75%
-                if (choice == 2) finalScale = 0.5f;   // 100%
-
-                const int newWidth = LayoutConstants::DESIGN_WIDTH * finalScale;
-                const int newHeight = LayoutConstants::DESIGN_HEIGHT * finalScale;
-                parent->setSize(newWidth, newHeight);
-            }
-    };
-
 }
 
 SynthTabComponent::~SynthTabComponent()
@@ -363,17 +397,14 @@ SynthTabComponent::~SynthTabComponent()
 
 void SynthTabComponent::paint(juce::Graphics& g)
 {
-    // 1. Rellena todo el fondo de negro. Este ser  el color base para la secci n del piano.
+    // Rellenamos de negro por si acaso, aunque la imagen debería cubrirlo todo.
     g.fillAll(juce::Colours::black);
 
-    // 2. Calcula la altura actual del teclado para saber d nde termina la secci n de la GUI.
-    //    Esta l gica es id	ntica a la de `resized()` para que siempre est	n sincronizadas.
-    const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
-    int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
-    if (keyboardHeight < 0) keyboardHeight = 0;
-    juce::Rectangle<int> guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
+    // El área de la GUI ahora es simplemente TODO el espacio de este componente.
+    // Ya no nos preocupamos por el teclado aquí.
+    juce::Rectangle<int> guiArea = getLocalBounds();
 
-    // 3. Dibuja la imagen de fondo SOLAMENTE en el  rea superior (guiArea).
+    // Dibuja la imagen de fondo en toda el área disponible.
     if (backgroundImage.isValid())
     {
         g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::fillDestination);
@@ -382,18 +413,15 @@ void SynthTabComponent::paint(juce::Graphics& g)
 
 void SynthTabComponent::resized()
 {
-    // --- 1. Define el área para el teclado (Esto no cambia) ---
-    const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
-    int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
-    if (keyboardHeight < 0) keyboardHeight = 0;
+    // --- 1. El área de la GUI es ahora todo el componente ---
+    //    El PluginEditor ya se encarga de posicionar el teclado.
+    //    Este componente solo debe preocuparse de rellenar el espacio que se le da.
+    guiArea = getLocalBounds();
 
-    // --- 2. Define el área para la GUI (Esto no cambia) ---
-    guiArea = getLocalBounds().withTrimmedBottom(keyboardHeight);
-
-    // --- 3. LOGICA DE ESCALADO SIMPLIFICADA (Esto no cambia) ---
+    // El resto de la lógica de escalado y posicionamiento de los knobs no cambia,
+    // pero ahora se calculará a partir del área correcta y completa.
     const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
 
-    // La función para posicionar ahora es más directa.
     const float referenceScale = 0.5f;
     const float minScale = 0.375f;
     float offsetFactor = 0.0f;
@@ -404,7 +432,6 @@ void SynthTabComponent::resized()
         normalised = juce::jlimit(0.0f, 1.0f, normalised);
         offsetFactor = juce::jmap(normalised, 0.0f, 1.0f, 0.0f, -5.0f);
     }
-
 
     auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect)
         {
@@ -419,68 +446,49 @@ void SynthTabComponent::resized()
                 juce::roundToInt(scaledHeight));
         };
 
-    // --- 4. Posicionamos todas las secciones (Esto no cambia) ---
+    // --- Posicionamiento de la barra superior ---
+    const auto promptDesign = LayoutConstants::PROMPT_SECTION;
+    const int promptY = juce::roundToInt(guiArea.getY() + promptDesign.getY() * scale + offsetFactor);
+    const int promptLeft = juce::roundToInt(guiArea.getX() + promptDesign.getX() * scale);
+    const int rightMargin = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 12.0f, 18.0f));
+    const int availableWidth = juce::jmax(0, guiArea.getRight() - promptLeft - rightMargin);
+    const int rowHeight = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 20.0f, 26.0f));
+    juce::Rectangle<int> topRowBounds(promptLeft, promptY, availableWidth, rowHeight);
+
+    // ... (El resto de tu lógica de FlexBox para la barra de prompt no necesita cambiar)
+    juce::FlexBox topRow;
+    topRow.flexDirection = juce::FlexBox::Direction::row;
+    topRow.alignItems = juce::FlexBox::AlignItems::center;
+
+    // (Aquí va toda tu definición de tamaños y FlexItems para la barra del prompt,
+    // la he omitido por brevedad pero NO debes borrarla de tu código)
+
+    // ... Ejemplo:
+    const float spacing = juce::jmap(scale, minScale, referenceScale, 2.0f, 4.0f);
+    const int generateWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 60.0f, 80.0f));
+    const int feedbackUtilityButtonWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 28.0f, 38.0f));
+    const int presetLabelMinWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 50.0f, 65.0f));
+    const int presetSelectorWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 80.0f, 110.0f));
+    const int refreshWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 50.0f, 70.0f));
+
+    topRow.items.add(juce::FlexItem(soundPromptEditor).withFlex(1.0f).withHeight(rowHeight));
+    topRow.items.add(juce::FlexItem(generateButton).withWidth(generateWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, spacing * 1.5f }));
+    topRow.items.add(juce::FlexItem(likeButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, 0 }));
+    topRow.items.add(juce::FlexItem(dislikeButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, 0 }));
+    topRow.items.add(juce::FlexItem(undoButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, 0 }));
+    topRow.items.add(juce::FlexItem(redoButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, spacing * 2.0f }));
+    topRow.items.add(juce::FlexItem().withFlex(0.1f));
+    topRow.items.add(juce::FlexItem(presetLabel).withMinWidth(presetLabelMinWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, 0 }));
+    topRow.items.add(juce::FlexItem(presetSelector).withWidth(presetSelectorWidth).withHeight(rowHeight));
+    topRow.items.add(juce::FlexItem(refreshPresetsButton).withWidth(refreshWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, spacing }));
+
+    topRow.performLayout(topRowBounds);
+
+
+    // --- Posicionamos el resto de las secciones ---
     scaleAndSet(masterSection, LayoutConstants::MASTER_SECTION);
     scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
     scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);
-    scaleAndSet(soundPromptEditor, LayoutConstants::PROMPT_SECTION);
-
-    auto promptBounds = soundPromptEditor.getBounds();
-    const float buttonHeight = 40.0f * scale;
-    const int padding = juce::roundToInt(10 * scale);
-
-    const float generateButtonWidth = 100.0f * scale;
-    const float undoRedoButtonWidth = 70.0f * scale;
-    const float feedbackButtonWidth = 70.0f * scale;
-
-    generateButton.setBounds(promptBounds.getRight() + padding,
-        juce::roundToInt(promptBounds.getCentreY() - (buttonHeight / 2.0f)),
-        juce::roundToInt(generateButtonWidth),
-        juce::roundToInt(buttonHeight));
-    undoButton.setBounds(generateButton.getRight() + padding, generateButton.getY(), juce::roundToInt(undoRedoButtonWidth), juce::roundToInt(buttonHeight));
-    redoButton.setBounds(undoButton.getRight() + padding, generateButton.getY(), juce::roundToInt(undoRedoButtonWidth), juce::roundToInt(buttonHeight));
-    likeButton.setBounds(redoButton.getRight() + padding, generateButton.getY(), juce::roundToInt(feedbackButtonWidth), juce::roundToInt(buttonHeight));
-    dislikeButton.setBounds(likeButton.getRight() + padding, generateButton.getY(), juce::roundToInt(feedbackButtonWidth), juce::roundToInt(buttonHeight));
-
-    // --- Posicionar Selector de Tamaño (Esto no cambia) ---
-    const int topPadding = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 8.0f, 5.0f));
-    const int topControlHeight = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 18.0f, 25.0f));
-    const int sizeLabelWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 36.0f, 50.0f));
-    const int sizeComboWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 70.0f, 90.0f));
-    const int sizeLabelXOffset = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 120.0f, 160.0f));
-
-    sizeLabel.setBounds(getWidth() - sizeLabelXOffset, topPadding, sizeLabelWidth, topControlHeight);
-    sizeComboBox.setBounds(sizeLabel.getRight() + juce::roundToInt(10 * scale), topPadding, sizeComboWidth, topControlHeight);
-    sizeLabel.setFont(sizeLabel.getFont().withHeight(juce::jmap(scale, minScale, referenceScale, 12.0f, 18.0f)));
-    sizeComboBox.setJustificationType(juce::Justification::centred);
-    sizeComboBox.setTextWhenNothingSelected("100%");
-
-    // --- Posicionamos los componentes de presets ---
-    auto sizeLabelBounds = sizeLabel.getBounds();
-    const int presetControlHeight = topControlHeight;
-    const int sectionGap = juce::roundToInt(30 * scale);
-
-    //Aumentamos el ancho de cada control.
-    const int refreshBtnWidth = juce::roundToInt(140 * scale);
-    const int presetSelectorWidth = juce::roundToInt(260 * scale);
-    const int presetLabelWidth = juce::roundToInt(900 * scale);
-
-    refreshPresetsButton.setBounds(sizeLabelBounds.getX() - refreshBtnWidth - sectionGap,
-        sizeLabelBounds.getY(),
-        refreshBtnWidth, presetControlHeight);
-    presetSelector.setBounds(refreshPresetsButton.getX() - presetSelectorWidth - padding,
-        sizeLabelBounds.getY(),
-        presetSelectorWidth, presetControlHeight);
-    presetLabel.setBounds(presetSelector.getX() - presetLabelWidth,
-        sizeLabelBounds.getY(),
-        presetLabelWidth, presetControlHeight);
-
-    auto topFont = juce::Font(juce::jmap(scale, minScale, referenceScale, 12.0f, 16.0f), juce::Font::plain);
-    presetLabel.setFont(topFont);
-    presetSelector.setJustificationType(juce::Justification::centred);
-    presetSelector.setTextWhenNothingSelected("Presets");
-
-    // --- 6. Posicionamos el resto de las secciones ---
     scaleAndSet(osc1, LayoutConstants::OSC_1_SECTION);
     scaleAndSet(osc2, LayoutConstants::OSC_2_SECTION);
     scaleAndSet(osc3, LayoutConstants::OSC_3_SECTION);
@@ -491,7 +499,6 @@ void SynthTabComponent::resized()
     scaleAndSet(modulationComp, LayoutConstants::LFO_FM_SECTION);
     scaleAndSet(envelopeSection, LayoutConstants::ENVELOPE_SECTION);
 
-    // Actualizamos el factor de escala (Esto no cambia)
     this->scale = scale;
 }
 

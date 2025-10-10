@@ -33,8 +33,6 @@ private:
 
     juce::Image backgroundImage;
     juce::Rectangle<int> guiArea;
-    juce::ComboBox sizeComboBox;
-    juce::Label sizeLabel;
 
     // --- Componentes de Oscilador ---
     OscillatorComponent osc1;
