@@ -12,6 +12,7 @@ namespace LayoutConstants
     const int DESIGN_WIDTH = 2340;
     const int DESIGN_HEIGHT = 1360; // Altura total con el teclado
     const int KEYBOARD_HEIGHT = 120; // Altura del teclado en el diseño original
+    const int KEYBOARD_BOTTOM_MARGIN = 40;
     
     // --- Tamaños de Componentes (según tus medidas de Photoshop) ---
     const juce::Point<float> KNOB_LARGE = { 100.0f, 101.0f };

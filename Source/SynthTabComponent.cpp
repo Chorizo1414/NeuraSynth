@@ -402,12 +402,16 @@ void SynthTabComponent::paint(juce::Graphics& g)
 
     // El área de la GUI ahora es simplemente TODO el espacio de este componente.
     // Ya no nos preocupamos por el teclado aquí.
-    juce::Rectangle<int> guiArea = getLocalBounds();
+    auto bounds = getLocalBounds();
+    auto scale = bounds.getWidth() / (float)LayoutConstants::DESIGN_WIDTH;
+    const int interfaceDesignHeight = LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT;
+    const int interfaceHeight = juce::roundToInt(interfaceDesignHeight * scale);
+    auto imageArea = bounds.withHeight(juce::jmin(interfaceHeight, bounds.getHeight()));
 
     // Dibuja la imagen de fondo en toda el área disponible.
     if (backgroundImage.isValid())
     {
-        g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::fillDestination);
+        g.drawImage(backgroundImage, imageArea.toFloat(), juce::RectanglePlacement::fillDestination);
     }
 }
 
@@ -416,11 +420,17 @@ void SynthTabComponent::resized()
     // --- 1. El área de la GUI es ahora todo el componente ---
     //    El PluginEditor ya se encarga de posicionar el teclado.
     //    Este componente solo debe preocuparse de rellenar el espacio que se le da.
-    guiArea = getLocalBounds();
+    auto bounds = getLocalBounds();
+    const float scale = bounds.getWidth() / (float)LayoutConstants::DESIGN_WIDTH;
+    const int interfaceDesignHeight = LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT;
+    const int interfaceHeight = juce::roundToInt(interfaceDesignHeight * scale);
+
+    // --- 1. El área de la GUI corresponde únicamente a la interfaz visual ---
+    //     Dejamos un espacio negro inferior donde se colocará el teclado virtual.
+    guiArea = bounds.withHeight(juce::jmin(interfaceHeight, bounds.getHeight()));
 
     // El resto de la lógica de escalado y posicionamiento de los knobs no cambia,
     // pero ahora se calculará a partir del área correcta y completa.
-    const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
 
     const float referenceScale = 0.5f;
     const float minScale = 0.375f;

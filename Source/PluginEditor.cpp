@@ -2,6 +2,14 @@
 #include "PluginEditor.h"
 #include "LayoutConstants.h"
 
+namespace
+{
+    constexpr int tabBarDesignHeight = 60; // Altura del área de pestañas en el diseño original
+    constexpr int designInterfaceHeight = LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT;
+    constexpr int designKeyboardSpace = LayoutConstants::KEYBOARD_HEIGHT + LayoutConstants::KEYBOARD_BOTTOM_MARGIN;
+    constexpr int totalDesignHeight = designInterfaceHeight + designKeyboardSpace + tabBarDesignHeight;
+}
+
 NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p),
     tabbedComponent(juce::TabbedButtonBar::Orientation::TabsAtTop),
@@ -29,26 +37,34 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
     sizeComboBox.onChange = [this]
         {
-            if (auto* parent = getTopLevelComponent())
-            {
-                float finalScale = 0.5f;
-                int choice = sizeComboBox.getSelectedId();
-                if (choice == 1) finalScale = 0.375f;
-                if (choice == 2) finalScale = 0.5f;
+            float finalScale = 0.5f;
+            const int choice = sizeComboBox.getSelectedId();
+            if (choice == 1) finalScale = 0.375f;
+            if (choice == 2) finalScale = 0.5f;
 
-                const int newWidth = LayoutConstants::DESIGN_WIDTH * finalScale;
-                const int newHeight = LayoutConstants::DESIGN_HEIGHT * finalScale;
+            const int newWidth = juce::roundToInt(LayoutConstants::DESIGN_WIDTH * finalScale);
+            const int newHeight = juce::roundToInt(totalDesignHeight * finalScale);
 
+            if (constrainer != nullptr)
                 constrainer->setMinimumSize(newWidth, newHeight);
+            if (auto* parent = getTopLevelComponent())
                 parent->setSize(newWidth, newHeight);
-            }
+
+            setSize(newWidth, newHeight);
         };
 
-    const double aspectRatio = (double)LayoutConstants::DESIGN_WIDTH / LayoutConstants::DESIGN_HEIGHT;
-    setSize(LayoutConstants::DESIGN_WIDTH * 0.5, LayoutConstants::DESIGN_HEIGHT * 0.5);
+    const double aspectRatio = (double)LayoutConstants::DESIGN_WIDTH /
+        (double)totalDesignHeight;
+
+    const float defaultScale = 0.5f;
+    const int defaultWidth = juce::roundToInt(LayoutConstants::DESIGN_WIDTH * defaultScale);
+    const int defaultHeight = juce::roundToInt(totalDesignHeight * defaultScale);
+
+    setSize(defaultWidth, defaultHeight);
 
     constrainer = std::make_unique<juce::ComponentBoundsConstrainer>();
     constrainer->setFixedAspectRatio(aspectRatio);
+    constrainer->setMinimumSize(defaultWidth, defaultHeight);
     setConstrainer(constrainer.get());
 
     setResizable(true, true);
@@ -68,21 +84,17 @@ void NeuraSynthAudioProcessorEditor::resized()
     juce::Rectangle<int> totalArea = getLocalBounds();
 
     // 1. El teclado se posiciona abajo, como siempre
-    const double designKeyboardHeight = 120.0;
-    const double totalDesignHeight = LayoutConstants::DESIGN_HEIGHT;
-    int keyboardHeight = static_cast<int>(getHeight() * (designKeyboardHeight / totalDesignHeight));
-    auto keyboardArea = totalArea.removeFromBottom(keyboardHeight);
+    const float currentScale = static_cast<float>(getWidth()) / LayoutConstants::DESIGN_WIDTH;
+    const int keyboardHeight = juce::roundToInt(LayoutConstants::KEYBOARD_HEIGHT * currentScale);
+    const int keyboardSpace = juce::roundToInt(designKeyboardSpace * currentScale);
+    const int tabBarHeight = juce::roundToInt(tabBarDesignHeight * currentScale);
+    auto keyboardSpaceArea = totalArea.removeFromBottom(keyboardSpace);
+    auto keyboardArea = keyboardSpaceArea.removeFromBottom(keyboardHeight);
     keyboardComponent.setBounds(keyboardArea);
 
-    // 2. El TabbedComponent ocupa TODO el espacio superior restante
     tabbedComponent.setBounds(totalArea);
 
-    // 3. Posicionamos los controles MANUALMENTE sobre la barra de pestañas
-    const int tabBarHeight = 30;
-
-    // 4. Creamos un área en la esquina superior derecha.
-    //    Le damos un poco más de ancho total.
-    const int sizeControlsWidth = 130; // <-- Aumentamos de 120 a 130
+    const int sizeControlsWidth = 130;
     auto sizeControlsArea = totalArea.removeFromTop(tabBarHeight).removeFromRight(sizeControlsWidth);
 
     // 5. Reducimos el área un poco para que quede centrado y con márgenes.
