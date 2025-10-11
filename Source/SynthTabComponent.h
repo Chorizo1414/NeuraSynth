@@ -65,6 +65,7 @@ private:
     // --- NUEVOS COMPONENTES PARA PRESETS ---
     juce::ComboBox presetSelector;
     juce::TextButton refreshPresetsButton;
+    juce::MidiKeyboardComponent keyboardComponent;
     juce::Label presetLabel;
 
     void populatePresets(); // Función para llenar el ComboBox

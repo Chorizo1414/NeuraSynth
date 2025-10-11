@@ -64,7 +64,8 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     delaySection(p),
     filterSection(p),
     envelopeSection(p),
-    designMouseListener(componentDragger, this)
+    designMouseListener(componentDragger, this),
+    keyboardComponent(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
     setWantsKeyboardFocus(true);
     backgroundImage = juce::ImageCache::getFromMemory(BinaryData::boceto_png, BinaryData::boceto_pngSize);
@@ -397,41 +398,39 @@ SynthTabComponent::~SynthTabComponent()
 
 void SynthTabComponent::paint(juce::Graphics& g)
 {
-    // Rellenamos de negro por si acaso, aunque la imagen debería cubrirlo todo.
+    // 1. Rellena todo el fondo de negro.
     g.fillAll(juce::Colours::black);
 
-    // El área de la GUI ahora es simplemente TODO el espacio de este componente.
-    // Ya no nos preocupamos por el teclado aquí.
-    auto bounds = getLocalBounds();
-    auto scale = bounds.getWidth() / (float)LayoutConstants::DESIGN_WIDTH;
-    const int interfaceDesignHeight = LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT;
-    const int interfaceHeight = juce::roundToInt(interfaceDesignHeight * scale);
-    auto imageArea = bounds.withHeight(juce::jmin(interfaceHeight, bounds.getHeight()));
-
-    // Dibuja la imagen de fondo en toda el área disponible.
+    // 2. Dibuja la imagen de fondo SOLAMENTE en el área de la GUI,
+    //    la cual es definida una sola vez en el método resized().
     if (backgroundImage.isValid())
     {
-        g.drawImage(backgroundImage, imageArea.toFloat(), juce::RectanglePlacement::fillDestination);
+        g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::fillDestination);
     }
 }
 
 void SynthTabComponent::resized()
 {
-    // --- 1. El área de la GUI es ahora todo el componente ---
-    //    El PluginEditor ya se encarga de posicionar el teclado.
-    //    Este componente solo debe preocuparse de rellenar el espacio que se le da.
-    auto bounds = getLocalBounds();
-    const float scale = bounds.getWidth() / (float)LayoutConstants::DESIGN_WIDTH;
-    const int interfaceDesignHeight = LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT;
-    const int interfaceHeight = juce::roundToInt(interfaceDesignHeight * scale);
+    // --- 1. DIVIDIMOS EL ESPACIO DISPONIBLE ---
+    auto totalBounds = getLocalBounds();
 
-    // --- 1. El área de la GUI corresponde únicamente a la interfaz visual ---
-    //     Dejamos un espacio negro inferior donde se colocará el teclado virtual.
-    guiArea = bounds.withHeight(juce::jmin(interfaceHeight, bounds.getHeight()));
+    // Calculamos la altura que debe tener el teclado según el ancho actual de la ventana
+    const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
+    int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
+    if (keyboardHeight < 0) keyboardHeight = 0;
 
-    // El resto de la lógica de escalado y posicionamiento de los knobs no cambia,
-    // pero ahora se calculará a partir del área correcta y completa.
+    // Le asignamos la franja inferior al componente del teclado.
+    // totalBounds se encoge automáticamente para representar el espacio restante.
+    keyboardComponent.setBounds(totalBounds.removeFromBottom(keyboardHeight));
 
+    // El área restante (la parte superior) es ahora nuestra área para la GUI.
+    guiArea = totalBounds;
+
+    // --- 2. POSICIONAMOS LOS COMPONENTES DE LA GUI ---
+    // A partir de aquí, el resto de tu código no necesita cambiar,
+    // ya que ahora operará sobre el 'guiArea' correcto.
+
+    const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
     const float referenceScale = 0.5f;
     const float minScale = 0.375f;
     float offsetFactor = 0.0f;
@@ -456,7 +455,7 @@ void SynthTabComponent::resized()
                 juce::roundToInt(scaledHeight));
         };
 
-    // --- Posicionamiento de la barra superior ---
+    // (Aquí sigue todo tu código de FlexBox para la barra superior, que ya estaba bien)
     const auto promptDesign = LayoutConstants::PROMPT_SECTION;
     const int promptY = juce::roundToInt(guiArea.getY() + promptDesign.getY() * scale + offsetFactor);
     const int promptLeft = juce::roundToInt(guiArea.getX() + promptDesign.getX() * scale);
@@ -465,15 +464,10 @@ void SynthTabComponent::resized()
     const int rowHeight = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 20.0f, 26.0f));
     juce::Rectangle<int> topRowBounds(promptLeft, promptY, availableWidth, rowHeight);
 
-    // ... (El resto de tu lógica de FlexBox para la barra de prompt no necesita cambiar)
     juce::FlexBox topRow;
     topRow.flexDirection = juce::FlexBox::Direction::row;
     topRow.alignItems = juce::FlexBox::AlignItems::center;
 
-    // (Aquí va toda tu definición de tamaños y FlexItems para la barra del prompt,
-    // la he omitido por brevedad pero NO debes borrarla de tu código)
-
-    // ... Ejemplo:
     const float spacing = juce::jmap(scale, minScale, referenceScale, 2.0f, 4.0f);
     const int generateWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 60.0f, 80.0f));
     const int feedbackUtilityButtonWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 28.0f, 38.0f));
@@ -482,20 +476,18 @@ void SynthTabComponent::resized()
     const int refreshWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 50.0f, 70.0f));
 
     topRow.items.add(juce::FlexItem(soundPromptEditor).withFlex(1.0f).withHeight(rowHeight));
-    topRow.items.add(juce::FlexItem(generateButton).withWidth(generateWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, spacing * 1.5f }));
-    topRow.items.add(juce::FlexItem(likeButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, 0 }));
-    topRow.items.add(juce::FlexItem(dislikeButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, 0 }));
-    topRow.items.add(juce::FlexItem(undoButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, 0 }));
-    topRow.items.add(juce::FlexItem(redoButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, spacing * 2.0f }));
+    topRow.items.add(juce::FlexItem(generateButton).withWidth(generateWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, spacing * 1.5f }));
+    topRow.items.add(juce::FlexItem(likeButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, 0.0f }));
+    topRow.items.add(juce::FlexItem(dislikeButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, 0.0f }));
+    topRow.items.add(juce::FlexItem(undoButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, 0.0f }));
+    topRow.items.add(juce::FlexItem(redoButton).withWidth(feedbackUtilityButtonWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, spacing * 2.0f }));
     topRow.items.add(juce::FlexItem().withFlex(0.1f));
-    topRow.items.add(juce::FlexItem(presetLabel).withMinWidth(presetLabelMinWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, 0 }));
+    topRow.items.add(juce::FlexItem(presetLabel).withMinWidth(presetLabelMinWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, 0.0f }));
     topRow.items.add(juce::FlexItem(presetSelector).withWidth(presetSelectorWidth).withHeight(rowHeight));
-    topRow.items.add(juce::FlexItem(refreshPresetsButton).withWidth(refreshWidth).withHeight(rowHeight).withMargin({ 0, spacing, 0, spacing }));
-
+    topRow.items.add(juce::FlexItem(refreshPresetsButton).withWidth(refreshWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, spacing }));
     topRow.performLayout(topRowBounds);
 
-
-    // --- Posicionamos el resto de las secciones ---
+    // (Aquí sigue todo tu código para posicionar los knobs y demás secciones, que ya estaba bien)
     scaleAndSet(masterSection, LayoutConstants::MASTER_SECTION);
     scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
     scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);
