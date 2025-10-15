@@ -66,7 +66,7 @@ private:
     juce::Label presetLabel;
     juce::ComboBox presetSelector;
     juce::TextButton refreshPresetsButton;
-    //juce::MidiKeyboardComponent keyboardComponent;
+    juce::MidiKeyboardComponent keyboardComponent;
 
 
     void populatePresets(); // Función para llenar el ComboBox

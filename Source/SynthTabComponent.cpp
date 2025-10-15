@@ -64,10 +64,10 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     delaySection(p),
     filterSection(p),
     envelopeSection(p),
-    designMouseListener(componentDragger, this)
-    //keyboardComponent(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
+    designMouseListener(componentDragger, this),
+    keyboardComponent(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
-   // addAndMakeVisible(keyboardComponent);
+    addAndMakeVisible(keyboardComponent);
     setWantsKeyboardFocus(true);
     backgroundImage = juce::ImageCache::getFromMemory(BinaryData::boceto_png, BinaryData::boceto_pngSize);
 
@@ -412,28 +412,22 @@ void SynthTabComponent::paint(juce::Graphics& g)
 
 void SynthTabComponent::resized()
 {
-    // El área total que nos dan tiene la proporción de 2340x1360.
+    // Obtenemos el área total de esta pestaña.
     auto totalBounds = getLocalBounds();
 
-    // La proporción que la imagen del SINTETIZADOR (sin el piano) debe tener.
-    const float synthImageAspectRatio = (float)LayoutConstants::DESIGN_WIDTH / (float)(LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT);
+    // Calculamos la altura que debe tener el teclado.
+    const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
+    const int keyboardHeight = juce::roundToInt(LayoutConstants::KEYBOARD_HEIGHT * widthScale);
 
-    // ==============================================================================
-    // CÁLCULO MANUAL DEL ÁREA DE LA GUI (A PRUEBA DE VERSIONES DE JUCE)
-    // ==============================================================================
+    // Asignamos la parte inferior al teclado.
+    // La función 'removeFromBottom' recorta el rectángulo original y devuelve la parte cortada.
+    keyboardComponent.setBounds(totalBounds.removeFromBottom(keyboardHeight));
 
-    // 1. Obtenemos el ancho total disponible.
-    const int availableWidthTotal = totalBounds.getWidth();
+    // El área restante en la parte superior (ya reducida) es para la GUI.
+    guiArea = totalBounds;
 
-    // 2. Calculamos la altura necesaria para mantener la proporción de la imagen del sinte.
-    const int requiredHeight = static_cast<int>(availableWidthTotal / synthImageAspectRatio);
-
-    // 3. Definimos el 'guiArea' en la parte superior del espacio disponible.
-    guiArea.setBounds(0, 0, availableWidthTotal, requiredHeight);
-
-    // ==============================================================================
-
-    // A partir de aquí, el resto del código posiciona los knobs dentro del 'guiArea' correcto.
+    // --- A partir de aquí, el resto de tu código no cambia ---
+    // Posicionará todos los knobs dentro del 'guiArea' correcto.
     const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
     const float referenceScale = 0.5f;
     const float minScale = 0.375f;
@@ -463,10 +457,7 @@ void SynthTabComponent::resized()
     const int promptY = juce::roundToInt(guiArea.getY() + promptDesign.getY() * scale + offsetFactor);
     const int promptLeft = juce::roundToInt(guiArea.getX() + promptDesign.getX() * scale);
     const int rightMargin = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 12.0f, 18.0f));
-
-    // Esta es la única declaración de 'availableWidth' para la FlexBox
     const int availableWidth = juce::jmax(0, guiArea.getRight() - promptLeft - rightMargin);
-
     const int rowHeight = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 20.0f, 26.0f));
     juce::Rectangle<int> topRowBounds(promptLeft, promptY, availableWidth, rowHeight);
 
