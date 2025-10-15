@@ -17,8 +17,7 @@ public:
     OscillatorSection oscSection;
     WaveformDisplay waveDisplay;
 
-    // --- Componentes para la vista de FX ---
-    juce::Component fxPanel; // Contenedor para futuros efectos
+    juce::Component fxPanel; 
     juce::TextButton fxToggleButton{ "FX" };
 
     CustomKnob octKnob;

@@ -64,9 +64,10 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     delaySection(p),
     filterSection(p),
     envelopeSection(p),
-    designMouseListener(componentDragger, this),
-    keyboardComponent(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
+    designMouseListener(componentDragger, this)
+    //keyboardComponent(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
+   // addAndMakeVisible(keyboardComponent);
     setWantsKeyboardFocus(true);
     backgroundImage = juce::ImageCache::getFromMemory(BinaryData::boceto_png, BinaryData::boceto_pngSize);
 
@@ -122,9 +123,9 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     setupOscillatorKnobs(osc2);
     setupOscillatorKnobs(osc3);
 
-    // Conexi n de Callbacks para el Oscilador 1 (el que est  activo)
+    // Conexion de Callbacks para el Oscilador 1 (el que est  activo)
     osc1.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
-        audioProcessor.setWavetable1(buffer); // <-- CORREGIDO
+        audioProcessor.setWavetable1(buffer); 
         osc1.waveDisplay.setAudioBuffer(buffer, audioProcessor.getNumFrames1());
         };
     osc1.gainKnob.onValueChange = [this]() { audioProcessor.setOsc1Gain(osc1.gainKnob.getValue()); };
@@ -135,13 +136,13 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     osc1.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc1Spread(osc1.spreadKnob.getValue()); };
     osc1.positionKnob.onValueChange = [this]() {
         float newPosition = osc1.positionKnob.getValue();
-        audioProcessor.setWavePosition1(newPosition); // <-- CORREGIDO
+        audioProcessor.setWavePosition1(newPosition); 
         osc1.waveDisplay.setDisplayPosition(newPosition);
         };
 
-    // Conexi n de displays para OSC2 y OSC3 (solo visual, sin afectar audio)
+    // Conexion de displays para OSC2 y OSC3 (solo visual, sin afectar audio)
     osc2.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
-        audioProcessor.setWavetable2(buffer); // <-- CORREGIDO
+        audioProcessor.setWavetable2(buffer);
         osc2.waveDisplay.setAudioBuffer(buffer, audioProcessor.getNumFrames2());
         };
     osc2.gainKnob.onValueChange = [this]() { audioProcessor.setOsc2Gain(osc2.gainKnob.getValue()); };
@@ -152,7 +153,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     osc2.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc2Spread(osc2.spreadKnob.getValue()); };
     osc2.positionKnob.onValueChange = [this]() {
         float newPosition = osc2.positionKnob.getValue();
-        audioProcessor.setWavePosition2(newPosition); // <-- CORREGIDO
+        audioProcessor.setWavePosition2(newPosition); 
         osc2.waveDisplay.setDisplayPosition(newPosition);
         };
 
@@ -398,38 +399,41 @@ SynthTabComponent::~SynthTabComponent()
 
 void SynthTabComponent::paint(juce::Graphics& g)
 {
-    // 1. Rellena todo el fondo de negro.
+    // 1. Rellenamos todo el fondo de negro. Esto creará la barra negra inferior.
     g.fillAll(juce::Colours::black);
 
-    // 2. Dibuja la imagen de fondo SOLAMENTE en el área de la GUI,
-    //    la cual es definida una sola vez en el método resized().
     if (backgroundImage.isValid())
     {
-        g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::fillDestination);
+        // 2. Dibujamos la imagen de fondo SOLAMENTE en el 'guiArea',
+        //    que ahora tendrá la proporción correcta y no estará deformada.
+        g.drawImage(backgroundImage, guiArea.toFloat(), juce::RectanglePlacement::stretchToFit);
     }
 }
 
 void SynthTabComponent::resized()
 {
-    // --- 1. DIVIDIMOS EL ESPACIO DISPONIBLE ---
+    // El área total que nos dan tiene la proporción de 2340x1360.
     auto totalBounds = getLocalBounds();
 
-    // Calculamos la altura que debe tener el teclado según el ancho actual de la ventana
-    const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
-    int keyboardHeight = LayoutConstants::KEYBOARD_HEIGHT * widthScale;
-    if (keyboardHeight < 0) keyboardHeight = 0;
+    // La proporción que la imagen del SINTETIZADOR (sin el piano) debe tener.
+    const float synthImageAspectRatio = (float)LayoutConstants::DESIGN_WIDTH / (float)(LayoutConstants::DESIGN_HEIGHT - LayoutConstants::KEYBOARD_HEIGHT);
 
-    // Le asignamos la franja inferior al componente del teclado.
-    // totalBounds se encoge automáticamente para representar el espacio restante.
-    keyboardComponent.setBounds(totalBounds.removeFromBottom(keyboardHeight));
+    // ==============================================================================
+    // CÁLCULO MANUAL DEL ÁREA DE LA GUI (A PRUEBA DE VERSIONES DE JUCE)
+    // ==============================================================================
 
-    // El área restante (la parte superior) es ahora nuestra área para la GUI.
-    guiArea = totalBounds;
+    // 1. Obtenemos el ancho total disponible.
+    const int availableWidthTotal = totalBounds.getWidth();
 
-    // --- 2. POSICIONAMOS LOS COMPONENTES DE LA GUI ---
-    // A partir de aquí, el resto de tu código no necesita cambiar,
-    // ya que ahora operará sobre el 'guiArea' correcto.
+    // 2. Calculamos la altura necesaria para mantener la proporción de la imagen del sinte.
+    const int requiredHeight = static_cast<int>(availableWidthTotal / synthImageAspectRatio);
 
+    // 3. Definimos el 'guiArea' en la parte superior del espacio disponible.
+    guiArea.setBounds(0, 0, availableWidthTotal, requiredHeight);
+
+    // ==============================================================================
+
+    // A partir de aquí, el resto del código posiciona los knobs dentro del 'guiArea' correcto.
     const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
     const float referenceScale = 0.5f;
     const float minScale = 0.375f;
@@ -455,12 +459,14 @@ void SynthTabComponent::resized()
                 juce::roundToInt(scaledHeight));
         };
 
-    // (Aquí sigue todo tu código de FlexBox para la barra superior, que ya estaba bien)
     const auto promptDesign = LayoutConstants::PROMPT_SECTION;
     const int promptY = juce::roundToInt(guiArea.getY() + promptDesign.getY() * scale + offsetFactor);
     const int promptLeft = juce::roundToInt(guiArea.getX() + promptDesign.getX() * scale);
     const int rightMargin = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 12.0f, 18.0f));
+
+    // Esta es la única declaración de 'availableWidth' para la FlexBox
     const int availableWidth = juce::jmax(0, guiArea.getRight() - promptLeft - rightMargin);
+
     const int rowHeight = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 20.0f, 26.0f));
     juce::Rectangle<int> topRowBounds(promptLeft, promptY, availableWidth, rowHeight);
 
@@ -487,7 +493,6 @@ void SynthTabComponent::resized()
     topRow.items.add(juce::FlexItem(refreshPresetsButton).withWidth(refreshWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, spacing }));
     topRow.performLayout(topRowBounds);
 
-    // (Aquí sigue todo tu código para posicionar los knobs y demás secciones, que ya estaba bien)
     scaleAndSet(masterSection, LayoutConstants::MASTER_SECTION);
     scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
     scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);

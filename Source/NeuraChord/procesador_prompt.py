@@ -59,7 +59,7 @@ def normalizar_texto_simple(texto):
     if not isinstance(texto, str):
         return ""
     texto = texto.lower()
-    texto = re.sub(r'\s+', ' ', texto).strip() # Reemplaza múltiples espacios con uno solo
+    texto = re.sub(r'\s+', ' ', texto).strip()
     return texto
 
 def corregir_genero_en_prompt(prompt_normalizado):

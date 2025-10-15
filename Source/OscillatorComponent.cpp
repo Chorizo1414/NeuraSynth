@@ -4,13 +4,13 @@
 #include "PluginEditor.h"
 
 OscillatorComponent::OscillatorComponent() :
-    octKnob(BinaryData::knoboct_png, BinaryData::knoboct_pngSize, 300.0f, 0.5),      // En medio
-    fineKnob(BinaryData::knoboct_png, BinaryData::knoboct_pngSize, 300.0f, 0.5),     // En medio
-    pitchKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5),    // En medio
-    spreadKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.0),   // Izquierda (como estaba)
-    panKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5),      // En medio (L/R)
-    positionKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.0), // Izquierda (como estaba)
-    gainKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5)      // En medio (50%)
+    octKnob(BinaryData::knoboct_png, BinaryData::knoboct_pngSize, 300.0f, 0.5),      
+    fineKnob(BinaryData::knoboct_png, BinaryData::knoboct_pngSize, 300.0f, 0.5),     
+    pitchKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5),  
+    spreadKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.0),   
+    panKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5),      
+    positionKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.0), 
+    gainKnob(BinaryData::knobosc_png, BinaryData::knobosc_pngSize, 300.0f, 0.5)      
 {
     addAndMakeVisible(oscSection);
     addAndMakeVisible(waveDisplay);

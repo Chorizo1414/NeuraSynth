@@ -1,4 +1,3 @@
-// CÓDIGO LIMPIO PARA ChordMelodyTabComponent.cpp
 #include "ChordMelodyTabComponent.h"
 #include "PluginProcessor.h"
 

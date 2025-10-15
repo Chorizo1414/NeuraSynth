@@ -414,12 +414,11 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // --- 1. EFECTO DRIVE ---
     if (driveAmount > 0.0f)
     {
-        // 1. Usamos una curva cuadrática. Esto hace que el efecto sea aún más
-        //    suave al principio del recorrido del knob.
+        // 1. Se usa una curva cuadrática para hacer el efecto más
+        //    suave al principio del recorrido.
         float curvedAmount = driveAmount * driveAmount;
 
-        // 2. La ganancia interna que genera la saturación es ahora muy baja (máximo 2.0).
-        //    Ya no buscamos distorsión, sino solo generar "color" armónico.
+        // 2. genera saturación baja solo para generar armonicos
         float driveGain = juce::jmap(curvedAmount, 0.0f, 1.0f, 1.0f, 2.0f);
 
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -429,12 +428,9 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             {
                 float originalSample = channelData[sample];
 
-                // Calculamos la señal "húmeda" (la textura de saturación)
                 float wetSample = std::tanh(originalSample * driveGain);
 
                 // 3. LA CLAVE: Mezclamos la señal original (dry) con la saturada (wet).
-                //    'curvedAmount' actúa como el control de mezcla, asegurando que
-                //    a niveles bajos, el efecto sea casi imperceptible.
                 channelData[sample] = (1.0f - curvedAmount) * originalSample + curvedAmount * wetSample;
             }
         }
@@ -451,7 +447,7 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
     // --- 3. EFECTO CHORUS ---
     juce::dsp::ProcessContextReplacing<float> chorusContext(block);
-    chorus.process(chorusContext); // <-- Usamos el 'chorusContext', no el 'block' directamente.
+    chorus.process(chorusContext); 
 
     // --- 4. PROCESADO DE DELAY MULTI-TAP ---
     juce::AudioBuffer<float> delayInputBuffer;
@@ -466,7 +462,6 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         // 1. Efecto "Wow" (modulación de tiempo)
         float lfoSample = lfo.processSample(0.0f);
         float wowEffect = lfoSample * delayWowDepth * 5.0f;
-        // Sujetamos el tiempo total (base + wow) para que esté siempre en un rango seguro [0ms, 2000ms]
         const float maxDelayTimeMs = 2000.0f;
         float totalTimeLeftMs = juce::jlimit(0.0f, maxDelayTimeMs, delayTimeLeftMs + wowEffect);
         float totalTimeCenterMs = juce::jlimit(0.0f, maxDelayTimeMs, delayTimeCenterMs + wowEffect);

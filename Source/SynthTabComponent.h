@@ -44,12 +44,12 @@ private:
     UnisonComponent unisonComp2;
     UnisonComponent unisonComp3;
 
-    ModulationComponent modulationComp;
     MasterSectionComponent masterSection;
     ReverbComponent reverbSection;
     DelayComponent delaySection;
     FilterComponent filterSection;
     EnvelopeComponent envelopeSection;
+    ModulationComponent modulationComp;
 
     juce::File wavetableDirectory;
 
@@ -63,10 +63,11 @@ private:
     juce::TextButton likeButton;
     juce::TextButton dislikeButton;
     // --- NUEVOS COMPONENTES PARA PRESETS ---
+    juce::Label presetLabel;
     juce::ComboBox presetSelector;
     juce::TextButton refreshPresetsButton;
-    juce::MidiKeyboardComponent keyboardComponent;
-    juce::Label presetLabel;
+    //juce::MidiKeyboardComponent keyboardComponent;
+
 
     void populatePresets(); // Función para llenar el ComboBox
     pybind11::dict currentPresets; // Para guardar los datos de los presets

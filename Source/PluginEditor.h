@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "SynthTabComponent.h"
 #include "ChordMelodyTabComponent.h"
+#include "CustomLookAndFeel.h"
 
 class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -21,12 +22,11 @@ private:
     SynthTabComponent synthTab;
     ChordMelodyTabComponent chordMelodyTab;
 
-    // Controles de tamaño
     juce::Label sizeLabel;
     juce::ComboBox sizeComboBox;
 
-    juce::MidiKeyboardComponent keyboardComponent;
     std::unique_ptr<juce::ComponentBoundsConstrainer> constrainer;
+    CustomLookAndFeel customLookAndFeel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessorEditor)
 };
