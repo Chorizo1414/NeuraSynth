@@ -1503,8 +1503,8 @@ def _apply_modulation_scenario(result: Dict, specs: Dict[str, Dict], archetype: 
 
     elif chosen_scenario == "slow_sweep":
         # LFO lento y profundo para pads y atmósferas
-        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(0.08, 0.3))
-        _set_numeric_param(result, specs, "lfo_amount", random.uniform(0.3, 0.7))
+        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(0.05, 0.3))
+        _set_numeric_param(result, specs, "lfo_amount", random.uniform(0.1, 0.3))
         # Aseguramos que el filtro no esté completamente abierto para que el LFO tenga espacio para actuar
         if "filter_cutoff_hz" in result and result["filter_cutoff_hz"] > 10000:
              _set_numeric_param(result, specs, "filter_cutoff_hz", random.uniform(4000, 9000))
