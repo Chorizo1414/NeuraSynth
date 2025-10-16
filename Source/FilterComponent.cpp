@@ -5,6 +5,7 @@
 #include "LayoutConstants.h"
 #include "PluginEditor.h"
 
+
 FilterComponent::FilterComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
 filterCutoffKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 1.0),
 filterResonanceKnob(BinaryData::knobfilter_png, BinaryData::knobfilter_pngSize, 300.0f, 0.0),
@@ -40,17 +41,19 @@ keyButton("KeyButton")
 
     // Configuración del botón de Key Tracking
     addAndMakeVisible(keyButton);
+
+    auto keyOff = juce::ImageCache::getFromMemory(BinaryData::button_png, BinaryData::button_pngSize);
+    auto keyOn = juce::ImageCache::getFromMemory(BinaryData::buttonreverse_png, BinaryData::buttonreverse_pngSize);
+
+    keyButton.setImages(false, true, true,
+        keyOff, 1.0f, juce::Colours::transparentBlack, // Imagen Normal
+        keyOff, 1.0f, juce::Colours::transparentBlack, // Imagen Mouse Encima (Hover)
+        keyOn, 1.0f, juce::Colours::transparentBlack); // Imagen Presionado (y Activado)
+
     keyButton.setClickingTogglesState(true);
-
-    // --- CORREGIDOS LOS ERRORES DE TIPEO AQUÍ ---
-    auto normalKeyImage = juce::ImageCache::getFromMemory(BinaryData::button_png, BinaryData::button_pngSize);
-    auto toggledKeyImage = juce::ImageCache::getFromMemory(BinaryData::buttonreverse_png, BinaryData::buttonreverse_pngSize);
-
-    keyButton.setImages(false, true, true, normalKeyImage, 1.0f, juce::Colours::transparentBlack, toggledKeyImage, 1.0f, juce::Colours::transparentBlack, normalKeyImage, 1.0f, juce::Colours::transparentBlack);
-    keyButton.onStateChange = [this]() { audioProcessor.setKeyTrack(keyButton.getToggleState()); };
-
-    // Inicial: OFF y mandado al DSP
-    keyButton.setToggleState(false, juce::sendNotificationSync);
+    keyButton.onStateChange = [this]() {
+        audioProcessor.setKeyTrack(keyButton.getToggleState());
+        };
 }
 
 FilterComponent::~FilterComponent() {}

@@ -28,143 +28,125 @@ public:
     void applyPatchFromPython(const pybind11::dict& patchData);
 
 private:
-    // Mantenemos la referencia al procesador de audio
     NeuraSynthAudioProcessor& audioProcessor;
-
     juce::Image backgroundImage;
     juce::Rectangle<int> guiArea;
 
-    // --- Componentes de Oscilador ---
-    OscillatorComponent osc1;
-    OscillatorComponent osc2;
-    OscillatorComponent osc3;
-
-    // --- Componentes de Unison ---
-    UnisonComponent unisonComp1;
-    UnisonComponent unisonComp2;
-    UnisonComponent unisonComp3;
-
+    // --- Componentes de UI (sin cambios) ---
+    OscillatorComponent osc1, osc2, osc3;
+    UnisonComponent unisonComp1, unisonComp2, unisonComp3;
     MasterSectionComponent masterSection;
     ReverbComponent reverbSection;
     DelayComponent delaySection;
     FilterComponent filterSection;
     EnvelopeComponent envelopeSection;
     ModulationComponent modulationComp;
-
     juce::File wavetableDirectory;
-
     juce::TextEditor soundPromptEditor;
     juce::Label soundPromptLabel;
-
-    // --- NUEVOS COMPONENTES Y FUNCIONES ---
-    juce::TextButton generateButton; // Ya que no estaba declarada, la añadimos aquí.
-    juce::TextButton undoButton;
-    juce::TextButton redoButton;
-    juce::TextButton likeButton;
-    juce::TextButton dislikeButton;
-    // --- NUEVOS COMPONENTES PARA PRESETS ---
+    juce::TextButton generateButton, undoButton, redoButton, likeButton, dislikeButton;
     juce::Label presetLabel;
     juce::ComboBox presetSelector;
     juce::TextButton refreshPresetsButton;
     juce::MidiKeyboardComponent keyboardComponent;
 
-
-    void populatePresets(); // Función para llenar el ComboBox
-    pybind11::dict currentPresets; // Para guardar los datos de los presets
-
-    // --- Funciones para gestionar el historial ---
+    // --- Miembros privados (sin cambios) ---
+    void populatePresets();
+    pybind11::dict currentPresets;
     void undoButtonClicked();
     void redoButtonClicked();
     void updateUndoRedoButtonStates();
     void addToHistory(const pybind11::dict& newPatch);
-
-    // --- Variables para almacenar el historial de patches ---
     std::vector<pybind11::dict> patchHistory;
-    int currentHistoryIndex = -1; // -1 indica que el historial está vacío
+    int currentHistoryIndex = -1;
 
     juce::ComponentDragger componentDragger;
 
+    // ==============================================================================
+    // INICIO DE LA SECCIÓN CORREGIDA
+    // ==============================================================================
     class DesignMouseListener : public juce::MouseListener
     {
     public:
         DesignMouseListener(juce::ComponentDragger& drag, SynthTabComponent* ownerComponent)
-            : componentDragger(drag), owner(ownerComponent)
-        {
+            : componentDragger(drag), owner(ownerComponent) {
         }
 
         void mouseDown(const juce::MouseEvent& event) override
         {
-            // Le decimos al dragger qué componente empezar a mover
-            if (auto* componentToDrag = getDraggableComponentFrom(event))
-                componentDragger.startDraggingComponent(componentToDrag, event);
+            if (owner->designMode)
+                if (auto* c = getDraggableComponentFrom(event))
+                    componentDragger.startDraggingComponent(c, event);
         }
 
         void mouseDrag(const juce::MouseEvent& event) override
         {
-            // Le decimos explícitamente qué componente arrastrar.
-            // Esto es más compatible con todas las versiones de JUCE.
-            componentDragger.dragComponent(getDraggableComponentFrom(event), event, nullptr);
+            if (owner->designMode)
+                if (auto* c = getDraggableComponentFrom(event))
+                    componentDragger.dragComponent(c, event, nullptr);
         }
 
         void mouseUp(const juce::MouseEvent& event) override
         {
-            if (auto* componentToReport = getDraggableComponentFrom(event))
+            if (owner->designMode)
             {
-                auto bounds = componentToReport->getBounds();
-                float unscaledX = 0.0f;
-                float unscaledY = 0.0f;
-
-                // NUEVA LÓGICA: Distinguimos entre mover un knob o una sección.
-                if (event.mods.isShiftDown())
+                if (auto* c = getDraggableComponentFrom(event))
                 {
-                    // MODO SHIFT: Se movió un knob DENTRO de una sección.
-                    // Sus coordenadas son relativas al padre, solo necesitamos des-escalar.
-                    unscaledX = bounds.getX() / owner->scale;
-                    unscaledY = bounds.getY() / owner->scale;
-                }
-                else
-                {
-                    // MODO NORMAL: Se movió una sección entera.
-                    // Sus coordenadas son relativas a la ventana, necesitamos corregir el desfase.
-                    unscaledX = (bounds.getX() - owner->getBounds().getX()) / owner->scale;
-                    unscaledY = (bounds.getY() - owner->getBounds().getY()) / owner->scale;
-                }
+                    auto bounds = c->getBounds().toFloat();
+                    const float invScale = 1.0f / owner->scale;
+                    float designX, designY;
 
-                // El ancho y alto siempre se calculan de la misma forma.
-                float unscaledWidth = bounds.getWidth() / owner->scale;
-                float unscaledHeight = bounds.getHeight() / owner->scale;
+                    // --- ESTA ES LA LÓGICA CORREGIDA ---
+                    if (event.mods.isShiftDown())
+                    {
+                        // MODO SHIFT: Se movió un knob DENTRO de una sección.
+                        // Sus coordenadas son relativas a su padre (la sección),
+                        // por lo que solo necesitamos des-escalarlas.
+                        designX = bounds.getX() * invScale;
+                        designY = bounds.getY() * invScale;
+                    }
+                    else
+                    {
+                        // MODO NORMAL: Se movió una sección entera.
+                        // Sus coordenadas son relativas a la ventana, por lo que
+                        // necesitamos revertir la transformación completa.
+                        designX = bounds.getX() * invScale;
+                        designY = (bounds.getY() - owner->guiArea.getY() - owner->offsetFactor) * invScale;
+                    }
 
-                DBG(componentToReport->getName() + " RELATIVE DESIGN bounds: "
-                    + juce::String(unscaledX, 0) + ", "
-                    + juce::String(unscaledY, 0) + ", "
-                    + juce::String(unscaledWidth, 0) + ", "
-                    + juce::String(unscaledHeight, 0));
+                    // El ancho y el alto siempre se des-escalan de la misma manera.
+                    const float designWidth = bounds.getWidth() * invScale;
+                    const float designHeight = bounds.getHeight() * invScale;
+
+                    // Imprimimos el resultado correcto en la consola.
+                    DBG(juce::String(c->getName()) + " = { " +
+                        juce::String(designX) + "f, " +
+                        juce::String(designY) + "f, " +
+                        juce::String(designWidth) + "f, " +
+                        juce::String(designHeight) + "f };");
+                }
             }
         }
     private:
-        // --- FUNCIÓN AUXILIAR CORREGIDA ---
-        // Ahora detecta si la tecla SHIFT está presionada
+        // Esta función ya estaba correcta, la mantenemos.
         juce::Component* getDraggableComponentFrom(const juce::MouseEvent& event)
         {
             auto* clickedComponent = event.eventComponent;
-            if (clickedComponent == nullptr)
-                return nullptr;
+            if (clickedComponent == nullptr) return nullptr;
 
-            // SI SHIFT ESTÁ PRESIONADO, SELECCIONAMOS EL COMPONENTE INDIVIDUAL
             if (event.mods.isShiftDown())
             {
                 return clickedComponent;
             }
 
-            // SI NO, buscamos el contenedor de la sección
             if (auto* parent = clickedComponent->findParentComponentOfClass<MasterSectionComponent>()) return parent;
-            if (auto* parent = clickedComponent->findParentComponentOfClass<ReverbComponent>())      return parent;
-            if (auto* parent = clickedComponent->findParentComponentOfClass<DelayComponent>())       return parent;
-            if (auto* parent = clickedComponent->findParentComponentOfClass<UnisonComponent>())      return parent; // <-- ¡AQUÍ ESTÁ LA LÍNEA!
-            if (auto* parent = clickedComponent->findParentComponentOfClass<OscillatorComponent>())  return parent;
-            if (auto* parent = clickedComponent->findParentComponentOfClass<FilterComponent>())      return parent;
-            if (auto* parent = clickedComponent->findParentComponentOfClass<ModulationComponent>())  return parent;
-            if (auto* parent = clickedComponent->findParentComponentOfClass<EnvelopeComponent>())    return parent;
+            if (auto* parent = clickedComponent->findParentComponentOfClass<ReverbComponent>()) return parent;
+            if (auto* parent = clickedComponent->findParentComponentOfClass<DelayComponent>()) return parent;
+            if (auto* parent = clickedComponent->findParentComponentOfClass<UnisonComponent>()) return parent;
+            if (auto* parent = clickedComponent->findParentComponentOfClass<OscillatorComponent>()) return parent;
+            if (auto* parent = clickedComponent->findParentComponentOfClass<FilterComponent>()) return parent;
+            if (auto* parent = clickedComponent->findParentComponentOfClass<ModulationComponent>()) return parent;
+            if (auto* parent = clickedComponent->findParentComponentOfClass<EnvelopeComponent>()) return parent;
 
             return clickedComponent;
         }
@@ -176,11 +158,10 @@ private:
     DesignMouseListener designMouseListener;
 
 public:
-    bool designMode = false;
+    bool designMode = true;
     float scale = 1.0f;
-    juce::Rectangle<float> scaledGuiArea;
-
+    float offsetFactor = 0.0f; // Necesario para la corrección
 
 private:
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthTabComponent)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthTabComponent);
 };
