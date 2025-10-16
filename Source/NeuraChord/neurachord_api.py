@@ -349,3 +349,22 @@ def get_learned_sounds():
         error_message = f"Error al leer los sonidos aprendidos: {str(e)}"
         print(f"!!! Python API Error: {error_message}")
         return {"error": error_message}
+
+def get_sound_archetypes():
+    """
+    Devuelve una lista con los nombres de todos los arquetipos de sonido disponibles.
+    """
+    try:
+        # Importamos los arquetipos directamente desde el módulo de diseño de sonido
+        from sound_designer import ARCHETYPES
+        
+        # Las claves del diccionario son los nombres que queremos mostrar
+        archetype_names = list(ARCHETYPES.keys())
+        
+        print(f">>> Python API: Devolviendo {len(archetype_names)} arquetipos de sonido.")
+        return archetype_names
+    except Exception as e:
+        error_message = f"Error al obtener los arquetipos de sonido: {str(e)}"
+        print(f"!!! Python API Error: {error_message}")
+        # Devolvemos una lista vacía en caso de error
+        return []

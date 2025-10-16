@@ -27,6 +27,7 @@ public:
 
     bool likeLastSound();
     pybind11::dict getLearnedSounds();
+    juce::StringArray getSoundArchetypes();
 
 private:
     py::module neuraChordApi;

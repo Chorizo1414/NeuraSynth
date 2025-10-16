@@ -365,6 +365,36 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     populatePresets();
 
+    // --- Botón de ayuda para tipos de sonido ---
+    addAndMakeVisible(soundTypesHelpButton);
+    soundTypesHelpButton.setButtonText("?");
+    soundTypesHelpButton.setTooltip("Muestra una lista de los tipos de sonido que puedes generar (ej: pad, lead, bass...)");
+
+    soundTypesHelpButton.onClick = [this]
+        {
+            // 1. Obtenemos la lista de sonidos desde Python
+            juce::StringArray soundTypes = audioProcessor.pythonManager->getSoundArchetypes();
+
+            if (soundTypes.isEmpty())
+            {
+                juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
+                    "Sin información",
+                    "No se pudo obtener la lista de tipos de sonido.");
+                return;
+            }
+
+            // 2. Creamos el menú popup
+            juce::PopupMenu menu;
+            for (int i = 0; i < soundTypes.size(); ++i)
+            {
+                // Añadimos cada tipo de sonido como un item (no seleccionable)
+                menu.addItem(i + 1, soundTypes[i]);
+            }
+
+            // 3. Mostramos el menú al lado del botón
+            menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&soundTypesHelpButton));
+        };
+
     soundPromptEditor.addListener(this);
 
     if (designMode)
@@ -412,47 +442,32 @@ void SynthTabComponent::paint(juce::Graphics& g)
 
 void SynthTabComponent::resized()
 {
-    // Obtenemos el área total de esta pestaña.
     auto totalBounds = getLocalBounds();
-
-    // Calculamos la altura que debe tener el teclado.
     const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
-    const int keyboardHeight = juce::roundToInt(LayoutConstants::KEYBOARD_HEIGHT * widthScale);
-
-    // Asignamos la parte inferior al teclado.
-    // La función 'removeFromBottom' recorta el rectángulo original y devuelve la parte cortada.
+    int keyboardHeight = juce::roundToInt(LayoutConstants::KEYBOARD_HEIGHT * widthScale);
+    if (keyboardHeight < 0) keyboardHeight = 0;
     keyboardComponent.setBounds(totalBounds.removeFromBottom(keyboardHeight));
-
-    // El área restante en la parte superior (ya reducida) es para la GUI.
     guiArea = totalBounds;
-
-    // --- A partir de aquí, el resto de tu código no cambia ---
-    // Posicionará todos los knobs dentro del 'guiArea' correcto.
     const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
     const float referenceScale = 0.5f;
     const float minScale = 0.375f;
-    float offsetFactor = 0.0f;
-
+    offsetFactor = 0.0f;
     if (scale < referenceScale)
     {
         auto normalised = (referenceScale - scale) / (referenceScale - minScale);
         normalised = juce::jlimit(0.0f, 1.0f, normalised);
         offsetFactor = juce::jmap(normalised, 0.0f, 1.0f, 0.0f, -5.0f);
     }
-
     auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect)
         {
             const float scaledX = guiArea.getX() + designRect.getX() * scale;
             const float scaledY = guiArea.getY() + designRect.getY() * scale + offsetFactor;
             const float scaledWidth = designRect.getWidth() * scale;
             const float scaledHeight = designRect.getHeight() * scale;
-
-            comp.setBounds(juce::roundToInt(scaledX),
-                juce::roundToInt(scaledY),
-                juce::roundToInt(scaledWidth),
-                juce::roundToInt(scaledHeight));
+            comp.setBounds(juce::roundToInt(scaledX), juce::roundToInt(scaledY), juce::roundToInt(scaledWidth), juce::roundToInt(scaledHeight));
         };
 
+    // --- 1. Posicionamos la barra superior (sin el botón de ayuda) ---
     const auto promptDesign = LayoutConstants::PROMPT_SECTION;
     const int promptY = juce::roundToInt(guiArea.getY() + promptDesign.getY() * scale + offsetFactor);
     const int promptLeft = juce::roundToInt(guiArea.getX() + promptDesign.getX() * scale);
@@ -465,7 +480,7 @@ void SynthTabComponent::resized()
     topRow.flexDirection = juce::FlexBox::Direction::row;
     topRow.alignItems = juce::FlexBox::AlignItems::center;
 
-    const float spacing = juce::jmap(scale, minScale, referenceScale, 2.0f, 4.0f);
+    const float spacing = juce::jmap(scale, minScale, referenceScale, 4.0f, 6.0f);
     const int generateWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 60.0f, 80.0f));
     const int feedbackUtilityButtonWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 28.0f, 38.0f));
     const int presetLabelMinWidth = juce::roundToInt(juce::jmap(scale, minScale, referenceScale, 50.0f, 65.0f));
@@ -482,8 +497,10 @@ void SynthTabComponent::resized()
     topRow.items.add(juce::FlexItem(presetLabel).withMinWidth(presetLabelMinWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, 0.0f }));
     topRow.items.add(juce::FlexItem(presetSelector).withWidth(presetSelectorWidth).withHeight(rowHeight));
     topRow.items.add(juce::FlexItem(refreshPresetsButton).withWidth(refreshWidth).withHeight(rowHeight).withMargin({ 0.0f, spacing, 0.0f, spacing }));
+
     topRow.performLayout(topRowBounds);
 
+    // --- 2. Posicionamos todas las secciones principales ---
     scaleAndSet(masterSection, LayoutConstants::MASTER_SECTION);
     scaleAndSet(reverbSection, LayoutConstants::REVERB_SECTION);
     scaleAndSet(delaySection, LayoutConstants::DELAY_SECTION);
@@ -496,6 +513,14 @@ void SynthTabComponent::resized()
     scaleAndSet(filterSection, LayoutConstants::FILTER_SECTION);
     scaleAndSet(modulationComp, LayoutConstants::LFO_FM_SECTION);
     scaleAndSet(envelopeSection, LayoutConstants::ENVELOPE_SECTION);
+
+    const int helpButtonWidth = juce::roundToInt(rowHeight * 0.85f);
+
+    const int buttonY = topRowBounds.getBottom() + (int)spacing * 2;
+
+    const int buttonX = masterSection.getX() - helpButtonWidth - (int)spacing;
+
+    soundTypesHelpButton.setBounds(buttonX, buttonY, helpButtonWidth, helpButtonWidth);
 
     this->scale = scale;
 }

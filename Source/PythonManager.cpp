@@ -306,3 +306,32 @@ pybind11::dict PythonManager::getLearnedSounds()
     }
     return result;
 }
+
+// (Añade esta función al final de PythonManager.cpp)
+
+juce::StringArray PythonManager::getSoundArchetypes()
+{
+    juce::StringArray archetypes;
+    if (!neuraChordApi)
+    {
+        DBG("ERROR: Modulo neurachord_api no cargado, no se pueden obtener los arquetipos.");
+        return archetypes; // Devuelve un array vacío
+    }
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        py::list result = neuraChordApi.attr("get_sound_archetypes")();
+
+        for (auto item : result)
+        {
+            archetypes.add(item.cast<std::string>());
+        }
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("!!! Error de Python en getSoundArchetypes(): " << e.what());
+    }
+
+    return archetypes;
+}

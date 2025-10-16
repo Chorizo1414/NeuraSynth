@@ -49,6 +49,7 @@ private:
     juce::ComboBox presetSelector;
     juce::TextButton refreshPresetsButton;
     juce::MidiKeyboardComponent keyboardComponent;
+    juce::TextButton soundTypesHelpButton;
 
     // --- Miembros privados (sin cambios) ---
     void populatePresets();
@@ -158,7 +159,7 @@ private:
     DesignMouseListener designMouseListener;
 
 public:
-    bool designMode = true;
+    bool designMode = false;
     float scale = 1.0f;
     float offsetFactor = 0.0f; // Necesario para la corrección
 
