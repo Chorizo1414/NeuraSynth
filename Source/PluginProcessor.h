@@ -58,6 +58,11 @@ public:
         return dynamic_cast<SynthSound*> (sound) != nullptr;
     }
 
+    bool isVoiceActive() const override
+    {
+        return env.isActive();
+    }
+
     void startNote(int midiNoteNumber, float /*velocity*/, juce::SynthesiserSound*, int) override
     {
         currentMidiNote = midiNoteNumber;

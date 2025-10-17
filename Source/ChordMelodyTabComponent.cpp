@@ -164,49 +164,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     // === LOGICA DE LOS BOTONES ===
     generateChordsButton.onClick = [this]
         {
-            juce::String userPrompt = promptEditor.getText();
-            if (userPrompt.isEmpty()) return;
-
-            juce::String selectedGenre = genreComboBox.getText();
-            juce::String finalPrompt = userPrompt;
-
-            if (genreComboBox.getSelectedId() != 1 && !userPrompt.containsIgnoreCase(selectedGenre))
-            {
-                finalPrompt = selectedGenre + " " + userPrompt;
-            }
-
-            DBG("Prompt final enviado a Python: " + finalPrompt);
-
-            int chordLimit = -1;
-            switch (chordCountComboBox.getSelectedId())
-            {
-            case 2: chordLimit = 4; break;
-            case 3: chordLimit = 6; break;
-            case 4: chordLimit = 8; break;
-            default: break;
-            }
-
-            lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt, chordLimit);
-
-            if (lastGeneratedChordsData.empty() || (lastGeneratedChordsData.contains("error") && !lastGeneratedChordsData["error"].cast<std::string>().empty()))
-            {
-                std::string errorMessage = lastGeneratedChordsData.contains("error") ? lastGeneratedChordsData["error"].cast<std::string>() : "Diccionario vacio";
-                DBG("!!! Error desde Python: " + juce::String(errorMessage));
-                return;
-            }
-
-            DBG("Acordes generados desde Python con exito!");
-
-            if (lastGeneratedChordsData.contains("bpm"))
-            {
-                int suggestedBpm = lastGeneratedChordsData["bpm"].cast<int>();
-                setBpmValue(suggestedBpm);
-            }
-
-            pianoRollComponent.setMusicData(lastGeneratedChordsData);
-            updateUiForCurrentState();
-            pushStateToHistory(lastGeneratedChordsData);
-            repaint();
+            generateChordsFromCurrentPrompt();
         };
 
     // Crear y configurar el botón "Me gusta"
@@ -231,7 +189,8 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
         dislikeImg, 0.7f, juce::Colours::transparentBlack);
     dislikeButton->onClick = [this] {
         audioProcessor.pythonManager->dislike();
-        showNotification("Feedback Negativo Enviado!");
+        showNotification("Feedback Negativo Enviado! Generando nueva progresion...");
+        generateChordsFromCurrentPrompt();
         };
     addAndMakeVisible(*dislikeButton);
 
@@ -675,6 +634,55 @@ void ChordMelodyTabComponent::timerCallback()
     notificationLabel.setAlpha(0.0f); // Ocultamos la etiqueta
     stopTimer(); // Detenemos el temporizador
 }
+
+void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
+{
+    juce::String userPrompt = promptEditor.getText();
+    if (userPrompt.isEmpty())
+        return;
+
+    juce::String selectedGenre = genreComboBox.getText();
+    juce::String finalPrompt = userPrompt;
+
+    if (genreComboBox.getSelectedId() != 1 && !userPrompt.containsIgnoreCase(selectedGenre))
+    {
+        finalPrompt = selectedGenre + " " + userPrompt;
+    }
+
+    DBG("Prompt final enviado a Python: " + finalPrompt);
+
+    int chordLimit = -1;
+    switch (chordCountComboBox.getSelectedId())
+    {
+    case 2: chordLimit = 4; break;
+    case 3: chordLimit = 6; break;
+    case 4: chordLimit = 8; break;
+    default: break;
+    }
+
+    lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt, chordLimit);
+
+    if (lastGeneratedChordsData.empty() || (lastGeneratedChordsData.contains("error") && !lastGeneratedChordsData["error"].cast<std::string>().empty()))
+    {
+        std::string errorMessage = lastGeneratedChordsData.contains("error") ? lastGeneratedChordsData["error"].cast<std::string>() : "Diccionario vacio";
+        DBG("!!! Error desde Python: " + juce::String(errorMessage));
+        return;
+    }
+
+    DBG("Acordes generados desde Python con exito!");
+
+    if (lastGeneratedChordsData.contains("bpm"))
+    {
+        int suggestedBpm = lastGeneratedChordsData["bpm"].cast<int>();
+        setBpmValue(suggestedBpm);
+    }
+
+    pianoRollComponent.setMusicData(lastGeneratedChordsData);
+    updateUiForCurrentState();
+    pushStateToHistory(lastGeneratedChordsData);
+    repaint();
+}
+
 void ChordMelodyTabComponent::updateUiForCurrentState()
 {
     const bool hasData = !lastGeneratedChordsData.empty();

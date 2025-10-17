@@ -27,6 +27,7 @@ private:
     void updateBpmDisplayFromSlider();
     void setBpmValue(double newValue, juce::NotificationType notification = juce::sendNotification);
     void showNotification(const juce::String& message);
+    void generateChordsFromCurrentPrompt();
     void updateUiForCurrentState();
     void pushStateToHistory(const py::dict& data);
     void applyStateFromHistory(int newIndex);
