@@ -4,6 +4,7 @@
 #include <map>
 #include <algorithm>
 #include <utility>
+#include <cmath>
 
 // --- Función de ayuda para convertir nombres de nota ("C4", "G#3") a números MIDI ---
 int noteNameToMidi(const std::string& noteName)
@@ -53,6 +54,13 @@ juce::String midiToNoteName(int midiNote)
     return noteNames[index] + juce::String(octave);
 }
 
+namespace
+{
+    constexpr float kBasePixelsPerBeat = 100.0f;
+    constexpr float kMinHorizontalZoom = 0.25f;
+    constexpr float kMaxHorizontalZoom = 6.0f;
+}
+
 PianoRollComponent::PianoRollComponent() {}
 PianoRollComponent::~PianoRollComponent() {}
 
@@ -60,36 +68,11 @@ void PianoRollComponent::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff3c3c3c));
 
-    const int keyWidth = 45;
-    const int defaultLowestNote = 21;   // A0
-    const int defaultHighestNote = 108; // C8
-
-    int lowestNote = defaultLowestNote;
-    int highestNote = defaultHighestNote;
-
-    if (!notes.isEmpty())
-    {
-        int minNote = defaultHighestNote;
-        int maxNote = defaultLowestNote;
-
-        for (const auto& note : notes)
-        {
-            minNote = std::min(minNote, note.midiNote);
-            maxNote = std::max(maxNote, note.midiNote);
-        }
-
-        if (minNote <= maxNote)
-        {
-            lowestNote = juce::jmax(defaultLowestNote, minNote - 4);
-            highestNote = juce::jmin(defaultHighestNote, maxNote + 4);
-
-            if (highestNote <= lowestNote)
-                highestNote = juce::jmin(defaultHighestNote, lowestNote + 1);
-        }
-    }
-
-    const int numNotes = juce::jmax(1, (highestNote - lowestNote) + 1);
-    const float noteHeight = (float)getHeight() / (float)numNotes;
+    const int keyWidth = getKeyWidth();
+    const int lowestNote = displayLowestNote;
+    const int highestNote = displayHighestNote;
+    const int numNotes = juce::jmax(1, visibleNoteCount);
+    const float noteHeight = numNotes > 0 ? (float)getHeight() / (float)numNotes : (float)getHeight();
 
     // Fondo para la zona del teclado lateral
     juce::Rectangle<float> keyArea(0.0f, 0.0f, (float)keyWidth, (float)getHeight());
@@ -149,16 +132,19 @@ void PianoRollComponent::paint(juce::Graphics& g)
         return;
     }
 
-    const float pixelsPerBeat = 100.0f;
+    const float pixelsPerBeat = kBasePixelsPerBeat * horizontalZoom;
 
     for (const auto& note : notes)
     {
         if (note.midiNote < lowestNote || note.midiNote > highestNote) continue;
 
-        float x = (float)keyWidth + (note.startTime * pixelsPerBeat);
+        float x = (float)keyWidth + ((note.startTime - (float)horizontalScrollBeats) * pixelsPerBeat);
         // La 'y' y la 'altura' del rectángulo de la nota también usan la nueva altura escalada
         float y = (highestNote - note.midiNote) * noteHeight;
         float width = note.duration * pixelsPerBeat;
+
+        if (x + width < (float)keyWidth || x >(float)getWidth())
+            continue;
 
         g.setColour(note.isChordNote ? juce::Colours::cornflowerblue : juce::Colours::mediumspringgreen);
         g.fillRect(x, y, width, noteHeight);
@@ -167,7 +153,107 @@ void PianoRollComponent::paint(juce::Graphics& g)
     }
 }
 
-void PianoRollComponent::resized() {}
+void PianoRollComponent::resized()
+{
+    clampHorizontalScroll();
+    clampVerticalScroll();
+}
+
+void PianoRollComponent::mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel)
+{
+    const int keyWidth = getKeyWidth();
+
+    if (event.mods.isCtrlDown())
+    {
+        const float oldZoom = horizontalZoom;
+        const float zoomFactor = juce::jlimit(0.1f, 10.0f, 1.0f + wheel.deltaY * 0.1f);
+        horizontalZoom = juce::jlimit(kMinHorizontalZoom, kMaxHorizontalZoom, horizontalZoom * zoomFactor);
+
+        if (std::abs(oldZoom - horizontalZoom) > 1.0e-5f)
+        {
+            const double mouseX = juce::jmax(0.0, event.position.x - (double)keyWidth);
+            const double beatAtMouse = (mouseX / (kBasePixelsPerBeat * oldZoom)) + horizontalScrollBeats;
+
+            clampHorizontalScroll();
+
+            if (mouseX > 0.0)
+            {
+                const double newVisibleBeats = (double)juce::jmax(1, getWidth() - keyWidth) / (kBasePixelsPerBeat * horizontalZoom);
+                const double newScroll = beatAtMouse - (mouseX / (kBasePixelsPerBeat * horizontalZoom));
+                const double maxScroll = juce::jmax(0.0, contentLengthBeats - newVisibleBeats);
+                horizontalScrollBeats = juce::jlimit(0.0, maxScroll, newScroll);
+            }
+        }
+
+        repaint();
+        return;
+    }
+
+    if (std::abs(wheel.deltaX) > 1.0e-5f)
+        scrollHorizontally((double)wheel.deltaX * 4.0 / horizontalZoom);
+
+    if (std::abs(wheel.deltaY) > 1.0e-5f)
+    {
+        verticalScrollRemainder += -wheel.deltaY * 4.0f;
+        const int deltaNotes = (int)verticalScrollRemainder;
+        if (deltaNotes != 0)
+        {
+            const int applied = scrollVertically(deltaNotes);
+            if (applied != 0)
+                verticalScrollRemainder -= (float)applied;
+            else
+                verticalScrollRemainder = 0.0f;
+        }
+    }
+}
+
+void PianoRollComponent::mouseDown(const juce::MouseEvent& event)
+{
+    if (event.mods.isMiddleButtonDown() || event.mods.isRightButtonDown() || event.mods.isAltDown())
+    {
+        isPanning = true;
+        lastPanPosition = event.getPosition();
+        setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    }
+}
+
+void PianoRollComponent::mouseDrag(const juce::MouseEvent& event)
+{
+    if (!isPanning)
+        return;
+
+    const auto delta = event.getPosition() - lastPanPosition;
+    lastPanPosition = event.getPosition();
+
+    if (delta.x != 0)
+        scrollHorizontally((double)delta.x / (kBasePixelsPerBeat * horizontalZoom));
+
+    if (delta.y != 0)
+    {
+        const int currentNotes = juce::jmax(1, visibleNoteCount);
+        const float noteHeight = currentNotes > 0 ? (float)getHeight() / (float)currentNotes : 0.0f;
+        if (noteHeight > 0.0f)
+        {
+            const int deltaNotes = juce::roundToInt((float)delta.y / noteHeight);
+            if (deltaNotes != 0)
+            {
+                const int applied = scrollVertically(deltaNotes);
+                if (applied != 0)
+                    verticalScrollRemainder = 0.0f;
+            }
+        }
+    }
+}
+
+void PianoRollComponent::mouseUp(const juce::MouseEvent& event)
+{
+    juce::ignoreUnused(event);
+    if (isPanning)
+    {
+        isPanning = false;
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+    }
+}
 
 
 void PianoRollComponent::setMusicData(const py::dict& data)
@@ -271,5 +357,87 @@ void PianoRollComponent::setMusicData(const py::dict& data)
 
     DBG("Procesamiento finalizado. Total de notas en el array: " + juce::String(notes.size()) +
         ", eventos para reproducir: " + juce::String((int)musicData.size()));
+    if (notes.isEmpty())
+    {
+        visibleNoteCount = juce::jmin(24, (defaultHighestNote - defaultLowestNote) + 1);
+        displayLowestNote = defaultLowestNote;
+    }
+    else
+    {
+        int minNote = defaultHighestNote;
+        int maxNote = defaultLowestNote;
+
+        for (const auto& note : notes)
+        {
+            minNote = std::min(minNote, note.midiNote);
+            maxNote = std::max(maxNote, note.midiNote);
+        }
+
+        minNote = juce::jmax(defaultLowestNote, minNote - 4);
+        maxNote = juce::jmin(defaultHighestNote, maxNote + 4);
+
+        if (maxNote < minNote)
+            std::swap(maxNote, minNote);
+
+        visibleNoteCount = juce::jmax(1, juce::jmin((defaultHighestNote - defaultLowestNote) + 1, (maxNote - minNote) + 1));
+        displayLowestNote = juce::jlimit(defaultLowestNote, defaultHighestNote - visibleNoteCount + 1, minNote);
+    }
+
+    displayHighestNote = displayLowestNote + visibleNoteCount - 1;
+
+    contentLengthBeats = 0.0;
+    for (const auto& note : notes)
+        contentLengthBeats = std::max(contentLengthBeats, static_cast<double>(note.startTime + note.duration));
+
+    horizontalScrollBeats = 0.0;
+    verticalScrollRemainder = 0.0f;
+    clampVerticalScroll();
+    clampHorizontalScroll();
     repaint();
+}
+
+void PianoRollComponent::clampHorizontalScroll()
+{
+    const int keyWidth = getKeyWidth();
+    const float pixelsPerBeat = kBasePixelsPerBeat * horizontalZoom;
+    const int availableWidth = juce::jmax(0, getWidth() - keyWidth);
+    const double visibleBeats = pixelsPerBeat > 0.0f ? (double)availableWidth / pixelsPerBeat : 0.0;
+    const double maxScroll = juce::jmax(0.0, contentLengthBeats - visibleBeats);
+    horizontalScrollBeats = juce::jlimit(0.0, maxScroll, horizontalScrollBeats);
+}
+
+void PianoRollComponent::clampVerticalScroll()
+{
+    const int totalRange = (defaultHighestNote - defaultLowestNote) + 1;
+    visibleNoteCount = juce::jlimit(1, totalRange, visibleNoteCount);
+
+    const int maxLowest = defaultHighestNote - visibleNoteCount + 1;
+    displayLowestNote = juce::jlimit(defaultLowestNote, maxLowest, displayLowestNote);
+    displayHighestNote = displayLowestNote + visibleNoteCount - 1;
+}
+
+void PianoRollComponent::scrollHorizontally(double deltaBeats)
+{
+    if (std::abs(deltaBeats) < 1.0e-5)
+        return;
+
+    const double previous = horizontalScrollBeats;
+    horizontalScrollBeats += deltaBeats;
+    clampHorizontalScroll();
+    if (horizontalScrollBeats != previous)
+        repaint();
+}
+
+int PianoRollComponent::scrollVertically(int deltaNotes)
+{
+    if (deltaNotes == 0)
+        return 0;
+
+    const int originalLowest = displayLowestNote;
+    displayLowestNote += deltaNotes;
+    clampVerticalScroll();
+    const int appliedDelta = displayLowestNote - originalLowest;
+    if (appliedDelta != 0)
+        repaint();
+    return appliedDelta;
 }

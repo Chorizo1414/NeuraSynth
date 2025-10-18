@@ -24,6 +24,10 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override;
+    void mouseDown(const juce::MouseEvent& event) override;
+    void mouseDrag(const juce::MouseEvent& event) override;
+    void mouseUp(const juce::MouseEvent& event) override;
     void setMusicData(const py::dict& chords, const py::dict& melody);
 
     // Esta función nos permitirá leer las notas de forma segura.
@@ -48,6 +52,28 @@ private:
     // Usamos un juce::Array para almacenar nuestras notas.
     juce::Array<Note> notes;
     std::vector<NoteInfo> musicData;
+
+    // --- Parámetros de vista y navegación ---
+    float horizontalZoom = 1.0f;
+    double horizontalScrollBeats = 0.0;
+    double contentLengthBeats = 0.0;
+
+    static constexpr int defaultLowestNote = 21;   // A0
+    static constexpr int defaultHighestNote = 108; // C8
+
+    int displayLowestNote = defaultLowestNote;
+    int visibleNoteCount = 24;
+    int displayHighestNote = defaultLowestNote + 24 - 1;
+    float verticalScrollRemainder = 0.0f;
+
+    bool isPanning = false;
+    juce::Point<int> lastPanPosition;
+
+    void clampHorizontalScroll();
+    void clampVerticalScroll();
+    void scrollHorizontally(double deltaBeats);
+    int scrollVertically(int deltaNotes);
+    int getKeyWidth() const noexcept { return 45; }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PianoRollComponent)
 };
