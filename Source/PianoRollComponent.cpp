@@ -60,13 +60,35 @@ void PianoRollComponent::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff3c3c3c));
 
-    const int keyWidth = 25;
-    const int lowestNote = 21;  // A0
-    const int highestNote = 108; // C8
-    const int numNotes = highestNote - lowestNote;
+    const int keyWidth = 45;
+    const int defaultLowestNote = 21;   // A0
+    const int defaultHighestNote = 108; // C8
 
-    // --- LÓGICA DE DIBUJO CORREGIDA ---
-    // Calculamos la altura de cada "fila" de nota basándonos en la altura actual del componente
+    int lowestNote = defaultLowestNote;
+    int highestNote = defaultHighestNote;
+
+    if (!notes.isEmpty())
+    {
+        int minNote = defaultHighestNote;
+        int maxNote = defaultLowestNote;
+
+        for (const auto& note : notes)
+        {
+            minNote = std::min(minNote, note.midiNote);
+            maxNote = std::max(maxNote, note.midiNote);
+        }
+
+        if (minNote <= maxNote)
+        {
+            lowestNote = juce::jmax(defaultLowestNote, minNote - 4);
+            highestNote = juce::jmin(defaultHighestNote, maxNote + 4);
+
+            if (highestNote <= lowestNote)
+                highestNote = juce::jmin(defaultHighestNote, lowestNote + 1);
+        }
+    }
+
+    const int numNotes = juce::jmax(1, (highestNote - lowestNote) + 1);
     const float noteHeight = (float)getHeight() / (float)numNotes;
 
     // Fondo para la zona del teclado lateral
@@ -93,9 +115,9 @@ void PianoRollComponent::paint(juce::Graphics& g)
         // Etiqueta de la nota (solo en teclas blancas para claridad)
         if (!isBlackKey || isC)
         {
-            g.setColour(juce::Colours::whitesmoke.withAlpha(isC ? 1.0f : 0.8f));
-            g.setFont(juce::Font(11.0f, juce::Font::bold));
-            g.drawText(midiToNoteName(note), juce::Rectangle<float>(2.0f, y, (float)keyWidth - 4.0f, noteHeight), juce::Justification::centredLeft, false);
+            g.setColour(juce::Colours::whitesmoke.withAlpha(isC ? 1.0f : 0.85f));
+            g.setFont(juce::Font(13.0f, juce::Font::bold));
+            g.drawText(midiToNoteName(note), juce::Rectangle<float>(4.0f, y, (float)keyWidth - 8.0f, noteHeight), juce::Justification::centredLeft, false);
         }
 
         g.setColour(juce::Colours::black.withAlpha(0.35f));
@@ -113,6 +135,9 @@ void PianoRollComponent::paint(juce::Graphics& g)
         g.drawLine((float)keyWidth, y, (float)getWidth(), y);
     }
 
+    g.setColour(juce::Colours::black.withAlpha(0.2f));
+    g.drawLine(0.0f, (float)getHeight(), (float)getWidth(), (float)getHeight());
+
     // Borde exterior del teclado
     g.setColour(juce::Colours::black.withAlpha(0.6f));
     g.drawRect(keyArea);
@@ -124,7 +149,7 @@ void PianoRollComponent::paint(juce::Graphics& g)
         return;
     }
 
-    const float pixelsPerBeat = 60.0f;
+    const float pixelsPerBeat = 100.0f;
 
     for (const auto& note : notes)
     {
