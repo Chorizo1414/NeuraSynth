@@ -151,6 +151,16 @@ void PianoRollComponent::paint(juce::Graphics& g)
         g.setColour(juce::Colours::black);
         g.drawRect(x, y, width, noteHeight, 1.0f);
     }
+
+    if (isPlaybackActive)
+    {
+        const float playbackX = (float)keyWidth + (float)((playbackPositionBeats - horizontalScrollBeats) * pixelsPerBeat);
+        if (playbackX >= (float)keyWidth - 1.0f && playbackX <= (float)getWidth() + 1.0f)
+        {
+            g.setColour(juce::Colours::red);
+            g.drawLine(playbackX, 0.0f, playbackX, (float)getHeight(), 2.0f);
+        }
+    }
 }
 
 void PianoRollComponent::resized()
@@ -259,6 +269,7 @@ void PianoRollComponent::mouseUp(const juce::MouseEvent& event)
 void PianoRollComponent::setMusicData(const py::dict& data)
 {
     DBG("PianoRollComponent::setMusicData fue llamado.");
+    stopPlayback();
     notes.clear();
     musicData.clear();
     float time = 0.0f;
@@ -396,6 +407,37 @@ void PianoRollComponent::setMusicData(const py::dict& data)
     repaint();
 }
 
+void PianoRollComponent::startPlayback(double bpm)
+{
+    const double safeBpm = juce::jmax(0.001, bpm);
+    secondsPerBeat = 60.0 / safeBpm;
+    playbackPositionBeats = 0.0;
+    lastPlaybackUpdateSeconds = juce::Time::getMillisecondCounterHiRes() * 0.001;
+
+    if (contentLengthBeats <= 0.0)
+    {
+        isPlaybackActive = false;
+        stopTimer();
+        repaint();
+        return;
+    }
+
+    isPlaybackActive = true;
+    startTimerHz(60);
+    repaint();
+}
+
+void PianoRollComponent::stopPlayback()
+{
+    const bool wasActive = isPlaybackActive || playbackPositionBeats > 0.0;
+    isPlaybackActive = false;
+    playbackPositionBeats = 0.0;
+    stopTimer();
+
+    if (wasActive)
+        repaint();
+}
+
 void PianoRollComponent::clampHorizontalScroll()
 {
     const int keyWidth = getKeyWidth();
@@ -440,4 +482,29 @@ int PianoRollComponent::scrollVertically(int deltaNotes)
     if (appliedDelta != 0)
         repaint();
     return appliedDelta;
+}
+
+void PianoRollComponent::timerCallback()
+{
+    if (!isPlaybackActive)
+    {
+        stopTimer();
+        return;
+    }
+
+    const double nowSeconds = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    const double deltaSeconds = nowSeconds - lastPlaybackUpdateSeconds;
+    lastPlaybackUpdateSeconds = nowSeconds;
+
+    if (secondsPerBeat > 0.0)
+        playbackPositionBeats += deltaSeconds / secondsPerBeat;
+
+    if (playbackPositionBeats >= contentLengthBeats)
+    {
+        playbackPositionBeats = contentLengthBeats;
+        isPlaybackActive = false;
+        stopTimer();
+    }
+
+    repaint();
 }

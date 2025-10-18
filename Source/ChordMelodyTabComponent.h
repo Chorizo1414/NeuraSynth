@@ -7,7 +7,7 @@
 
 class NeuraSynthAudioProcessor;
 
-class ChordMelodyTabComponent : public juce::Component, public juce::Timer
+class ChordMelodyTabComponent : public juce::Component, private juce::MultiTimer
 {
 public:
     ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor);
@@ -16,7 +16,7 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
-    void timerCallback() override;
+    void timerCallback(int timerId) override;
 
 private:
     void transpose(int semitones);
@@ -33,6 +33,7 @@ private:
     void applyStateFromHistory(int newIndex);
     void updateUndoRedoButtonStates();
     py::dict deepCopyMusicDict(const py::dict& source);
+    void handlePlaybackFinished();
 
     NeuraSynthAudioProcessor& audioProcessor;
 
@@ -108,6 +109,11 @@ private:
     std::vector<MusicState> historyStates;
     int historyCurrentIndex = -1;
 
+    enum TimerIds
+    {
+        notificationTimerId = 1,
+        playbackMonitorTimerId = 2
+    };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChordMelodyTabComponent)
 };

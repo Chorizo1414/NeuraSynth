@@ -16,7 +16,7 @@ struct NoteInfo
     std::vector<int> chordMidiValues; // Para acordes
 };
 
-class PianoRollComponent : public juce::Component
+class PianoRollComponent : public juce::Component, private juce::Timer
 {
 public:
     PianoRollComponent();
@@ -44,7 +44,8 @@ public:
     void setMusicData(const py::dict& data);
     // --- AÑADE ESTA FUNCIÓN ---
     const juce::Array<Note>& getNotes() const { return notes; }
-
+    void startPlayback(double bpm);
+    void stopPlayback();
 
 
 private:
@@ -57,6 +58,11 @@ private:
     float horizontalZoom = 1.0f;
     double horizontalScrollBeats = 0.0;
     double contentLengthBeats = 0.0;
+
+    bool isPlaybackActive = false;
+    double playbackPositionBeats = 0.0;
+    double secondsPerBeat = 0.5;
+    double lastPlaybackUpdateSeconds = 0.0;
 
     static constexpr int defaultLowestNote = 21;   // A0
     static constexpr int defaultHighestNote = 108; // C8
@@ -74,6 +80,8 @@ private:
     void scrollHorizontally(double deltaBeats);
     int scrollVertically(int deltaNotes);
     int getKeyWidth() const noexcept { return 45; }
+
+    void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PianoRollComponent)
 };

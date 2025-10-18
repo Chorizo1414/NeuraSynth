@@ -262,7 +262,8 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
                     if (audioProcessor.isPlayingSequence())
                     {
                         audioProcessor.stopPlayback();
-                        resetPlaybackButtonStates();
+                        stopTimer(playbackMonitorTimerId);
+                        handlePlaybackFinished();
 
                         if (isSameButton)
                             return;
@@ -283,7 +284,8 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     stopButton.onClick = [this]
         {
             audioProcessor.stopPlayback();
-            resetPlaybackButtonStates();
+            stopTimer(playbackMonitorTimerId);
+            handlePlaybackFinished();
         };
 
     transposeUpButton.onClick = [this] { transpose(1); };
@@ -602,7 +604,8 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
     for (const auto& event : eventList)
         midiSequence.addEvent(event.message, event.samplePosition);
 
-    audioProcessor.startPlaybackWithSequence(midiSequence);
+    pianoRollComponent.startPlayback(bpm);
+    startTimer(playbackMonitorTimerId, 30);
     return true;
 }
 
@@ -626,13 +629,31 @@ void ChordMelodyTabComponent::showNotification(const juce::String& message)
 {
     notificationLabel.setText(message, juce::dontSendNotification);
     notificationLabel.setAlpha(1.0f); // Hacemos visible la etiqueta
-    startTimer(2000); // Iniciamos un temporizador de 2 segundos (2000 ms)
+    startTimer(notificationTimerId, 2000); // Iniciamos un temporizador de 2 segundos (2000 ms)
 }
 
-void ChordMelodyTabComponent::timerCallback()
+void ChordMelodyTabComponent::timerCallback(int timerId)
 {
-    notificationLabel.setAlpha(0.0f); // Ocultamos la etiqueta
-    stopTimer(); // Detenemos el temporizador
+    if (timerId == notificationTimerId)
+    {
+        notificationLabel.setAlpha(0.0f); // Ocultamos la etiqueta
+        stopTimer(notificationTimerId); // Detenemos el temporizador
+    }
+    else if (timerId == playbackMonitorTimerId)
+    {
+        if (!audioProcessor.isPlayingSequence())
+        {
+            stopTimer(playbackMonitorTimerId);
+            handlePlaybackFinished();
+        }
+    }
+}
+
+void ChordMelodyTabComponent::handlePlaybackFinished()
+{
+    pianoRollComponent.stopPlayback();
+    if (activePlaybackButton != nullptr)
+        resetPlaybackButtonStates();
 }
 
 void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
