@@ -604,6 +604,7 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
     for (const auto& event : eventList)
         midiSequence.addEvent(event.message, event.samplePosition);
 
+    audioProcessor.startPlaybackWithSequence(midiSequence);
     pianoRollComponent.startPlayback(bpm);
     startTimer(playbackMonitorTimerId, 30);
     return true;
