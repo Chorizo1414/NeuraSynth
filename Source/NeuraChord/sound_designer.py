@@ -1484,7 +1484,12 @@ def _apply_modulation_scenario(result: Dict, specs: Dict[str, Dict], archetype: 
     """
     # Escenarios posibles y sus probabilidades
     scenarios = ["static", "slow_sweep", "classic_vibrato", "rhythmic_pulse"]
-    weights = [0.35, 0.30, 0.20, 0.15] # 35% de chance de no tener modulación
+    weights = [0.40, 0.32, 0.18, 0.10]  # Un poco menos de probabilidad de modulaciones intensas
+
+    is_pad_like = archetype in ["pad", "string_synth"]
+    if is_pad_like:
+        # Los pads deben mantenerse más estables, con menor probabilidad de modulaciones fuertes
+        weights = [0.48, 0.34, 0.14, 0.04]
 
     # Los bajos y sonidos percusivos a menudo no necesitan LFOs complejos
     if archetype in ["bass", "kick", "pluck", "keys", "snare"]:
@@ -1502,9 +1507,13 @@ def _apply_modulation_scenario(result: Dict, specs: Dict[str, Dict], archetype: 
             result["filter_env_amt"] *= 0.3
 
     elif chosen_scenario == "slow_sweep":
-        # LFO lento y profundo para pads y atmósferas
-        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(0.05, 0.3))
-        _set_numeric_param(result, specs, "lfo_amount", random.uniform(0.1, 0.3))
+        # LFO lento para pads y atmósferas, pero con un amount más contenido
+        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(0.05, 0.25))
+
+        amount_min, amount_max = (0.06, 0.22)
+        if is_pad_like:
+            amount_min, amount_max = (0.04, 0.14)
+        _set_numeric_param(result, specs, "lfo_amount", random.uniform(amount_min, amount_max))
         # Aseguramos que el filtro no esté completamente abierto para que el LFO tenga espacio para actuar
         if "filter_cutoff_hz" in result and result["filter_cutoff_hz"] > 10000:
              _set_numeric_param(result, specs, "filter_cutoff_hz", random.uniform(4000, 9000))
@@ -1512,11 +1521,20 @@ def _apply_modulation_scenario(result: Dict, specs: Dict[str, Dict], archetype: 
     elif chosen_scenario == "classic_vibrato":
         # LFO rápido y sutil para un vibrato musical
         _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(4.5, 7.0))
-        _set_numeric_param(result, specs, "lfo_amount", random.uniform(0.02, 0.08))
+        vibrato_min, vibrato_max = (0.015, 0.06)
+        if is_pad_like:
+            vibrato_min, vibrato_max = (0.01, 0.045)
+        _set_numeric_param(result, specs, "lfo_amount", random.uniform(vibrato_min, vibrato_max))
 
     elif chosen_scenario == "rhythmic_pulse":
         # LFO a velocidad media para crear wobbles o pulsos
-        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(0.5, 4.0))
+       # LFO a velocidad media para crear wobbles o pulsos, manteniendo un amount más moderado
+        _set_numeric_param(result, specs, "lfo_speed_hz", random.uniform(0.5, 3.5))
+
+        pulse_min, pulse_max = (0.28, 0.65)
+        if is_pad_like:
+            pulse_min, pulse_max = (0.18, 0.42)
+        _set_numeric_param(result, specs, "lfo_amount", random.uniform(pulse_min, pulse_max))
         _set_numeric_param(result, specs, "lfo_amount", random.uniform(0.4, 0.85))
         # Este efecto necesita que la envolvente del filtro no sea demasiado agresiva
         if "filter_env_amt" in result:
