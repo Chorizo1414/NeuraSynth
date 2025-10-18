@@ -257,22 +257,17 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             auto* buttonPtr = &targetButton;
             targetButton.onClick = [this, includeChords, includeMelody, buttonPtr]()
                 {
-                    const bool isSameButton = (activePlaybackButton == buttonPtr);
-
                     if (audioProcessor.isPlayingSequence())
                     {
                         audioProcessor.stopPlayback();
                         stopTimer(playbackMonitorTimerId);
                         handlePlaybackFinished();
 
-                        if (isSameButton)
-                            return;
                     }
 
                     if (prepareAndPlaySequence(includeChords, includeMelody))
                     {
                         activePlaybackButton = buttonPtr;
-                        buttonPtr->setButtonText("Detener");
                     }
                 };
         };
