@@ -1031,10 +1031,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout NeuraSynthAudioProcessor::cr
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
     // --- ENVELOPE ---
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("attack", "Attack", 0.0f, 5.0f, 0.01f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("decay", "Decay", 0.0f, 5.0f, 0.2f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("sustain", "Sustain", 0.0f, 1.0f, 0.8f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("release", "Release", 0.0f, 5.0f, 0.1f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "attack", "Attack",
+        juce::NormalisableRange<float>(0.0f, 5.0f, 0.001f, 0.3f), // El 0.3f es la curva logarítmica
+        0.01f));
+
+    // Decay: Control fino en la parte importante del sonido.
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "decay", "Decay",
+        juce::NormalisableRange<float>(0.01f, 2.0f, 0.001f, 0.4f), // Curva logarítmica
+        0.4f));
+
+    // Sustain: Nivel de volumen, se queda lineal y con un valor medio por defecto.
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "sustain", "Sustain",
+        0.0f, 1.0f,
+        0.6f)); // Un poco más de sustain por defecto
+
+    // Release: Corto y preciso al inicio, largo y suave al final.
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "release", "Release",
+        juce::NormalisableRange<float>(0.01f, 3.0f, 0.001f, 0.4f), // Curva logarítmica
+        0.4f));
 
     // --- OSCILLATORS ---
     // Usamos el helper que creamos en PluginProcessor.h para las opciones del ComboBox
