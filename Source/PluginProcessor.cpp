@@ -96,6 +96,28 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
 {
     if (!isVoiceActive()) return;
 
+    constexpr float minEnvelopeLevel = 1.0e-4f;
+
+    const double sr = sampleRateHz > 0.0 ? sampleRateHz : getSampleRate();
+    if (sr <= 0.0)
+        return;
+
+    const double invSampleRate = 1.0 / sr;
+    const float glideCoefficient = 0.001f / (*pGlideSeconds + 0.001f);
+    const float lfoIncrement = (*pLfoSpeed / sr) * juce::MathConstants<float>::twoPi;
+    const float lfoAmountLocal = (pLfoAmount ? *pLfoAmount : 0.0f);
+    const float fmAmountLocal = (pFmAmount ? *pFmAmount : 0.0f);
+    const bool fmEnabled = fmAmountLocal != 0.0f;
+    const double pitchFactor1 = std::pow(2.0, *pitchShift1);
+    const double pitchFactor2 = std::pow(2.0, *pitchShift2);
+    const double pitchFactor3 = std::pow(2.0, *pitchShift3);
+    const double detuneFactor2Base = std::pow(2.0, *detuneOsc2 / 1200.0);
+    const double detuneFactor3Base = std::pow(2.0, *detuneOsc3 / 1200.0);
+    const double keyTrackFactor = (pKeyTrack && *pKeyTrack) ? std::pow(2.0, (currentMidiNote - 60) / 12.0) : 1.0;
+    const double baseCutoff = (pCutoff ? *pCutoff : 20000.0) * keyTrackFactor;
+    const double envModAmount = (pEnvAmt ? *pEnvAmt : 0.0);
+    const double qLocal = (pQ ? juce::jlimit(0.1, 1.0, *pQ) : 0.707);
+
     // --- Bucle principal muestra por muestra ---
     for (int sample = startSample; sample < startSample + numSamples; ++sample)
     {
@@ -103,9 +125,6 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         // Si la frecuencia actual no es la objetivo, la movemos un poco
         if (currentFrequency != targetFrequency)
         {
-            // Calculamos cuánto movernos en este sample. Usamos un coeficiente para un slide suave.
-            // Un valor más pequeño (ej. 0.0005f) da un glide más lento.
-            const float glideCoefficient = 0.001f / (*pGlideSeconds + 0.001f);
             currentFrequency += (targetFrequency - currentFrequency) * glideCoefficient;
 
             // Si estamos muy cerca, simplemente saltamos al final para evitar errores de precisión
@@ -120,26 +139,25 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         // --- LÓGICA DEL LFO ---
         // 1. Generar la onda del LFO (seno)
         float lfoSample = std::sin(lfoPhase);
-        lfoPhase += (*pLfoSpeed / sampleRateHz) * juce::MathConstants<float>::twoPi;
+        lfoPhase += lfoIncrement;   
         if (lfoPhase >= juce::MathConstants<float>::twoPi)
             lfoPhase -= juce::MathConstants<float>::twoPi;
 
         // 2. Calcular cuánto afectará al tono (en semitonos)
         // El Amount va de 0 a 1. Lo escalamos para que en su máximo, module +/- 2 semitonos.
         // ¡Puedes cambiar el '2.0f' para un vibrato más sutil o más extremo!
-        float pitchModulation = lfoSample * *pLfoAmount * 2.0f;
+        float pitchModulation = lfoSample * lfoAmountLocal * 2.0f;
 
         // --- PASO 1: Calcular la señal del MODULADOR de FM dedicado ---
-        float fmAmount = (pFmAmount ? *pFmAmount : 0.0f);
         float modulatorSample = 0.0f;
 
-        if (fmAmount != 0.0f)
+        if (fmEnabled)
         {
             // La frecuencia del modulador se basa en la frecuencia de OSC 1
-            double osc1Freq = currentFrequency * std::pow(2.0, *pitchShift1);
+            double osc1Freq = currentFrequency * pitchFactor1;
             double modulatorFreq;
 
-            if (fmAmount > 0.0f) // Derecha -> Brillante (una octava arriba)
+            if (fmAmountLocal > 0.0f) // Derecha -> Brillante (una octava arriba)
             {
                 modulatorFreq = osc1Freq * 2.0;
             }
@@ -150,7 +168,7 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
 
             // Generamos la muestra del modulador (seno puro)
             modulatorSample = std::sin(fmModulatorPhase);
-            fmModulatorPhase += (modulatorFreq / sampleRateHz) * juce::MathConstants<float>::twoPi;
+            fmModulatorPhase += static_cast<float>(modulatorFreq * juce::MathConstants<float>::twoPi * invSampleRate);
             if (fmModulatorPhase >= juce::MathConstants<float>::twoPi)
                 fmModulatorPhase -= juce::MathConstants<float>::twoPi;
         }
@@ -159,7 +177,7 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         // ¡ESTE VALOR ES LA CLAVE DE LA SUTILEZA!
         // Si el efecto sigue siendo muy brusco, reduce este número (p. ej. a 100.0, 50.0...)
         const float fmDepthScale = 200.0f;
-        float modulationDepth = modulatorSample * std::abs(fmAmount) * fmDepthScale;
+        float modulationDepth = fmEnabled ? modulatorSample * std::abs(fmAmountLocal) * fmDepthScale : 0.0f;
 
         // --- PASO 3: Generar los osciladores principales con sus frecuencias ya moduladas ---
         float finalLeft = 0.0f;
@@ -169,24 +187,25 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         double lfoPitchFactor = std::pow(2.0, pitchModulation / 12.0);
 
         // Convertimos el Detune en cents a un factor de frecuencia
-        double detuneFactor2 = std::pow(2.0, *detuneOsc2 / 1200.0);
-        double detuneFactor3 = std::pow(2.0, *detuneOsc3 / 1200.0);
+        double detuneFactor2 = detuneFactor2Base;
+        double detuneFactor3 = detuneFactor3Base;
 
         // Frecuencias base de cada oscilador (¡AHORA USAN 'currentFrequency'!)
-        double baseFreq1 = currentFrequency * std::pow(2.0, *pitchShift1) * lfoPitchFactor;
-        double baseFreq2 = currentFrequency * std::pow(2.0, *pitchShift2) * lfoPitchFactor * detuneFactor2;
-        double baseFreq3 = currentFrequency * std::pow(2.0, *pitchShift3) * lfoPitchFactor * detuneFactor3;
+        double baseFreq1 = currentFrequency * pitchFactor1 * lfoPitchFactor;
+        double baseFreq2 = currentFrequency * pitchFactor2 * lfoPitchFactor * detuneFactor2;
+        double baseFreq3 = currentFrequency * pitchFactor3 * lfoPitchFactor * detuneFactor3;
 
         // Aplicamos la modulación a cada uno
         double modulatedFreq2 = baseFreq2 + modulationDepth;
         double modulatedFreq3 = baseFreq3 + modulationDepth;
 
         // Calculamos los incrementos DENTRO del bucle
-        double increment2 = (wt2 && modulatedFreq2 > 0) ? (modulatedFreq2 / getSampleRate()) * 2048.0 : 0.0;
-        double increment3 = (wt3 && modulatedFreq3 > 0) ? (modulatedFreq3 / getSampleRate()) * 2048.0 : 0.0;
+        const double tableSize = 2048.0;
+        double increment2 = (wt2 && modulatedFreq2 > 0) ? modulatedFreq2 * tableSize * invSampleRate : 0.0;
+        double increment3 = (wt3 && modulatedFreq3 > 0) ? modulatedFreq3 * tableSize * invSampleRate : 0.0;
 
         // Función para generar el audio (simplificada)
-        auto getOscSample = [&](juce::AudioBuffer<float>* wt, int numFrames, float wavePosition, double& readPos, double increment, float gain, float pan) -> std::pair<float, float> {
+        auto getOscSample = [&](juce::AudioBuffer<float>* wt, int numFrames, float wavePosition, double& readPos, double increment, float gain, float panAngle) -> std::pair<float, float> {
             if (!wt || wt->getNumSamples() == 0 || gain <= 0.0f) return { 0.0f, 0.0f };
             float frameFloat = wavePosition * (numFrames > 1 ? numFrames - 1 : 0);
             int frameIndex = static_cast<int>(std::floor(frameFloat));
@@ -198,7 +217,6 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
                 return (1.0f - frac) * s0 + frac * s1;
                 };
             float voiceSample = (1.0f - frameFrac) * getSample(frameIndex, readPos) + frameFrac * getSample(frameIndex + 1, readPos);
-            float panAngle = pan * juce::MathConstants<float>::halfPi;
             readPos += increment;
             if (readPos >= 2048.0) readPos -= 2048.0;
             return { voiceSample * std::cos(panAngle) * gain, voiceSample * std::sin(panAngle) * gain };
@@ -233,36 +251,31 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
 
             double detuneFactor = std::pow(2.0, detuneCents / 1200.0);
             double modulatedFreq1 = (baseFreq1 * detuneFactor) + modulationDepth;
-            double increment1 = (wt1 && modulatedFreq1 > 0) ? (modulatedFreq1 / getSampleRate()) * 2048.0 : 0.0;
+            double increment1 = (wt1 && modulatedFreq1 > 0) ? modulatedFreq1 * tableSize * invSampleRate : 0.0;
+            float panAngle = pan * juce::MathConstants<float>::halfPi;
 
-            auto osc1_out = getOscSample(wt1, *numFrames1, *wavePosition1, unisonVoices[i].readPosOsc1, increment1, totalGainOsc1, pan);
+            auto osc1_out = getOscSample(wt1, *numFrames1, *wavePosition1, unisonVoices[i].readPosOsc1, increment1, totalGainOsc1, panAngle);
             finalLeft += osc1_out.first;
             finalRight += osc1_out.second;
         }
 
-        auto osc2_out = getOscSample(wt2, *numFrames2, *wavePosition2, unisonVoices[0].readPosOsc2, increment2, *oscGain2, *panOsc2);
+        auto osc2_out = getOscSample(wt2, *numFrames2, *wavePosition2, unisonVoices[0].readPosOsc2, increment2, *oscGain2, *panOsc2 * juce::MathConstants<float>::halfPi);
         finalLeft += osc2_out.first; finalRight += osc2_out.second;
 
-        auto osc3_out = getOscSample(wt3, *numFrames3, *wavePosition3, unisonVoices[0].readPosOsc3, increment3, *oscGain3, *panOsc3);
+        auto osc3_out = getOscSample(wt3, *numFrames3, *wavePosition3, unisonVoices[0].readPosOsc3, increment3, *oscGain3, *panOsc3 * juce::MathConstants<float>::halfPi);
         finalLeft += osc3_out.first; finalRight += osc3_out.second;
 
         // --- PASO 4: Filtrado y Salida ---
-        double baseCutoff = (pCutoff ? *pCutoff : 20000.0);
-        // ... (resto del código del filtro y envolvente sin cambios)
-        if (pKeyTrack && *pKeyTrack)
-            baseCutoff *= std::pow(2.0, (currentMidiNote - 60) / 12.0);
-        double modulationOctaves = (pEnvAmt ? *pEnvAmt : 0.0) * envVal * 5.0;
+        double modulationOctaves = envModAmount * envVal * 5.0;
         double fc = baseCutoff * std::pow(2.0, modulationOctaves);
         fc = juce::jlimit(20.0, 20000.0, fc);
-        const double q = (pQ ? juce::jlimit(0.1, 1.0, *pQ) : 0.707);
-
-        float fl = processSVFLP(finalLeft, (float)fc, (float)q, svfL);
-        float fr = processSVFLP(finalRight, (float)fc, (float)q, svfR);
+        float fl = processSVFLP(finalLeft, (float)fc, (float)qLocal, svfL);
+        float fr = processSVFLP(finalRight, (float)fc, (float)qLocal, svfR);
 
         outputBuffer.addSample(0, sample, fl * envVal);
         outputBuffer.addSample(1, sample, fr * envVal);
 
-        if (!env.isActive())
+        if (!env.isActive() || (envVal <= minEnvelopeLevel))
         {
             clearCurrentNote();
             break;

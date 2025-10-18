@@ -257,6 +257,8 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
             button.setColour(juce::TextButton::textColourOffId, mutedTextColour);
             button.setColour(juce::TextButton::textColourOnId, mutedTextColour);
             button.setWantsKeyboardFocus(false);
+            button.setMouseClickGrabsKeyboardFocus(false);
+            button.setTriggeredOnMouseDown(true);
         };
 
     // --- Inicialización de los nuevos botones de historial ---
@@ -272,6 +274,8 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     generateButton.setColour(juce::TextButton::textColourOffId, mutedTextColour.brighter(0.5f));
     generateButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
     generateButton.setWantsKeyboardFocus(false);
+    generateButton.setMouseClickGrabsKeyboardFocus(false);
+    generateButton.setTriggeredOnMouseDown(true);
 
     undoButton.setButtonText(juce::CharPointer_UTF8("\xe2\x9f\xb2"));
     addAndMakeVisible(undoButton);
@@ -314,6 +318,9 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     likeButton.setColour(juce::TextButton::buttonOnColourId, controlBackground.brighter(0.3f));
     likeButton.setColour(juce::TextButton::textColourOffId, successColour); // El icono se pone verde
     likeButton.setColour(juce::TextButton::textColourOnId, successColour.brighter(0.5f));
+    likeButton.setWantsKeyboardFocus(false);
+    likeButton.setMouseClickGrabsKeyboardFocus(false);
+    likeButton.setTriggeredOnMouseDown(true);
 
     dislikeButton.setButtonText(juce::CharPointer_UTF8("\xf0\x9f\x91\x8e"));
     addAndMakeVisible(dislikeButton);
@@ -328,6 +335,9 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     dislikeButton.setColour(juce::TextButton::buttonOnColourId, controlBackground.brighter(0.3f));
     dislikeButton.setColour(juce::TextButton::textColourOffId, dangerColour); // El icono se pone rojo
     dislikeButton.setColour(juce::TextButton::textColourOnId, dangerColour.brighter(0.5f));
+    dislikeButton.setWantsKeyboardFocus(false);
+    dislikeButton.setMouseClickGrabsKeyboardFocus(false);
+    dislikeButton.setTriggeredOnMouseDown(true);
 
     // --- Inicialización de los componentes de presets ---
     addAndMakeVisible(presetLabel);
