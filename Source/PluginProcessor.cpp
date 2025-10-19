@@ -72,6 +72,18 @@ void SynthVoice::AnalogEnvelope::setParameters(const juce::ADSR::Parameters& new
     parameters.decay = juce::jmax(0.0f, newParams.decay);
     parameters.sustain = juce::jlimit(0.0f, 1.0f, newParams.sustain);
     parameters.release = juce::jmax(0.0f, newParams.release);
+
+    if (parameters.attack <= 0.0f)
+    {
+        attackCurveExponent = 1.0f;
+    }
+    else
+    {
+        const float rampSeconds = attackExponentRampSeconds > 0.0f ? attackExponentRampSeconds : 1.0f;
+        const float normalizedAttack = juce::jlimit(0.0f, 1.0f, parameters.attack / rampSeconds);
+        attackCurveExponent = 1.0f + normalizedAttack * (maxAttackExponent - 1.0f);
+    }
+
     updateCoefficients();
 }
 
@@ -107,6 +119,7 @@ void SynthVoice::AnalogEnvelope::noteOff()
 
 float SynthVoice::AnalogEnvelope::getNextSample()
 {
+    const auto stageAtStart = stage;
     switch (stage)
     {
     case Stage::Idle:
@@ -143,7 +156,12 @@ float SynthVoice::AnalogEnvelope::getNextSample()
         break;
     }
 
-    return juce::jlimit(0.0f, 1.0f, currentLevel);
+    float output = juce::jlimit(0.0f, 1.0f, currentLevel);
+
+    if (stageAtStart == Stage::Attack && attackCurveExponent > 1.0f)
+        output = std::pow(output, attackCurveExponent);
+
+    return output;
 }
 
 bool SynthVoice::AnalogEnvelope::isActive() const

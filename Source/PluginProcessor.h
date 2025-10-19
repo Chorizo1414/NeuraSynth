@@ -64,8 +64,11 @@ public:
         float currentLevel{ 0.0f };
         float attackCoeff{ 0.0f }, decayCoeff{ 0.0f }, releaseCoeff{ 0.0f };
         float attackBase{ 0.0f }, decayBase{ 0.0f }, releaseBase{ 0.0f };
+        float attackCurveExponent{ 1.0f };
 
         static constexpr float targetRatio = 0.001f;
+        static constexpr float maxAttackExponent = 5.0f;
+        static constexpr float attackExponentRampSeconds = 3.0f;
 
         void updateCoefficients();
         float computeCoefficient(float timeSeconds) const;
