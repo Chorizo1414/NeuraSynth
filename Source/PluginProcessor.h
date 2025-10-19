@@ -43,7 +43,35 @@ class SynthVoice : public juce::SynthesiserVoice
 public:
     SynthVoice() {}
 
-    void setSampleRate(double sr) { env.setSampleRate(sr); sampleRateHz = sr; }
+    class AnalogEnvelope
+    {
+    public:
+        void setSampleRate(double sr);
+        void setParameters(const juce::ADSR::Parameters& newParams);
+        void noteOn();
+        void noteOff();
+        float getNextSample();
+        bool isActive() const;
+        void reset();
+        const juce::ADSR::Parameters& getParameters() const noexcept { return parameters; }
+
+    private:
+        enum class Stage { Idle, Attack, Decay, Sustain, Release };
+
+        Stage stage{ Stage::Idle };
+        double sampleRate{ 44100.0 };
+        juce::ADSR::Parameters parameters{};
+        float currentLevel{ 0.0f };
+        float attackCoeff{ 0.0f }, decayCoeff{ 0.0f }, releaseCoeff{ 0.0f };
+        float attackBase{ 0.0f }, decayBase{ 0.0f }, releaseBase{ 0.0f };
+
+        static constexpr float targetRatio = 0.001f;
+
+        void updateCoefficients();
+        float computeCoefficient(float timeSeconds) const;
+    };
+
+    void setSampleRate(double sr) { ampEnvelope.setSampleRate(sr); sampleRateHz = sr; }
 
     // Asigna los parámetros globales del sintetizador a esta voz (DECLARACIÓN)
     void setParameters(juce::ADSR::Parameters& adsr,
@@ -60,7 +88,7 @@ public:
 
     bool isVoiceActive() const override
     {
-        return env.isActive();
+        return ampEnvelope.isActive();
     }
 
     void startNote(int midiNoteNumber, float /*velocity*/, juce::SynthesiserSound*, int) override
@@ -84,7 +112,7 @@ public:
         lfoPhase = 0.0f;
         fmModulatorPhase = 0.0f;
 
-        env.noteOn();
+        ampEnvelope.noteOn();
         for (auto& v : unisonVoices)
             v.readPosOsc1 = v.readPosOsc2 = v.readPosOsc3 = 0.0;
 
@@ -96,11 +124,11 @@ public:
     {
         // "Recordamos" la frecuencia de esta nota para la siguiente que se toque
         lastNoteFrequency = targetFrequency;
-        env.noteOff();
+        ampEnvelope.noteOff();
         if (!allowTailOff)
         {
             clearCurrentNote();
-            env.reset();
+            ampEnvelope.reset();
         }
     }
 
@@ -111,6 +139,7 @@ public:
 
 private:
     juce::ADSR env;
+    AnalogEnvelope ampEnvelope;
     double currentFrequency = 0.0; // Frecuencia actual, que se deslizará
     double targetFrequency = 0.0;  // Frecuencia objetivo de la nota pulsada
     static double lastNoteFrequency; // Frecuencia de la última nota tocada (compartida entre todas las voces)

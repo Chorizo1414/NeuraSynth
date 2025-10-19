@@ -59,6 +59,124 @@ void NeuraSynthAudioProcessor::stopPlayback()
 // Inicializamos la frecuencia estática a 0
 double SynthVoice::lastNoteFrequency = 0.0;
 
+// === AnalogEnvelope implementation =========================================================
+void SynthVoice::AnalogEnvelope::setSampleRate(double sr)
+{
+    sampleRate = (sr > 0.0) ? sr : 44100.0;
+    updateCoefficients();
+}
+
+void SynthVoice::AnalogEnvelope::setParameters(const juce::ADSR::Parameters& newParams)
+{
+    parameters.attack = juce::jmax(0.0f, newParams.attack);
+    parameters.decay = juce::jmax(0.0f, newParams.decay);
+    parameters.sustain = juce::jlimit(0.0f, 1.0f, newParams.sustain);
+    parameters.release = juce::jmax(0.0f, newParams.release);
+    updateCoefficients();
+}
+
+void SynthVoice::AnalogEnvelope::noteOn()
+{
+    if (stage == Stage::Idle)
+        currentLevel = 0.0f;
+
+    if (parameters.attack <= 0.0f)
+    {
+        currentLevel = 1.0f;
+        stage = parameters.decay > 0.0f ? Stage::Decay : Stage::Sustain;
+        return;
+    }
+
+    stage = Stage::Attack;
+}
+
+void SynthVoice::AnalogEnvelope::noteOff()
+{
+    if (stage == Stage::Idle)
+        return;
+
+    if (parameters.release <= 0.0f)
+    {
+        currentLevel = 0.0f;
+        stage = Stage::Idle;
+        return;
+    }
+
+    stage = Stage::Release;
+}
+
+float SynthVoice::AnalogEnvelope::getNextSample()
+{
+    switch (stage)
+    {
+    case Stage::Idle:
+        return 0.0f;
+    case Stage::Attack:
+        currentLevel += attackBase * (1.0f - currentLevel);
+        if (currentLevel >= 0.9999f || parameters.attack <= 0.0f)
+        {
+            currentLevel = 1.0f;
+            stage = parameters.decay > 0.0f ? Stage::Decay : Stage::Sustain;
+        }
+        break;
+    case Stage::Decay:
+    {
+        const float sustain = juce::jlimit(0.0f, 1.0f, parameters.sustain);
+        currentLevel += decayBase * (sustain - currentLevel);
+        if (currentLevel <= sustain + 1.0e-4f || parameters.decay <= 0.0f)
+        {
+            currentLevel = sustain;
+            stage = Stage::Sustain;
+        }
+        break;
+    }
+    case Stage::Sustain:
+        currentLevel = juce::jlimit(0.0f, 1.0f, parameters.sustain);
+        break;
+    case Stage::Release:
+        currentLevel += releaseBase * (0.0f - currentLevel);
+        if (currentLevel <= 1.0e-4f || parameters.release <= 0.0f)
+        {
+            currentLevel = 0.0f;
+            stage = Stage::Idle;
+        }
+        break;
+    }
+
+    return juce::jlimit(0.0f, 1.0f, currentLevel);
+}
+
+bool SynthVoice::AnalogEnvelope::isActive() const
+{
+    return stage != Stage::Idle;
+}
+
+void SynthVoice::AnalogEnvelope::reset()
+{
+    currentLevel = 0.0f;
+    stage = Stage::Idle;
+}
+
+void SynthVoice::AnalogEnvelope::updateCoefficients()
+{
+    attackCoeff = computeCoefficient(parameters.attack);
+    decayCoeff = computeCoefficient(parameters.decay);
+    releaseCoeff = computeCoefficient(parameters.release);
+
+    attackBase = 1.0f - attackCoeff;
+    decayBase = 1.0f - decayCoeff;
+    releaseBase = 1.0f - releaseCoeff;
+}
+
+float SynthVoice::AnalogEnvelope::computeCoefficient(float timeSeconds) const
+{
+    if (timeSeconds <= 0.0f || sampleRate <= 0.0)
+        return 0.0f;
+
+    const float samples = juce::jmax(timeSeconds * static_cast<float>(sampleRate), 1.0f);
+    return std::exp(std::log(targetRatio) / samples);
+}
+
 // DEFINICIÓN de setParameters(...) (va en el .cpp, no en el .h)
 void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     int* nf1, juce::AudioBuffer<float>* wavetable1, float* wavePos1, float* gain1, double* pitch1, float* pan1, float* spread1, int* unisonVoices1, float* unisonDetune1, float* unisonBalance1,
@@ -67,7 +185,7 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr,
     float* glideSecondsPtr, double sr)
 {
-    env.setParameters(adsr);
+    ampEnvelope.setParameters(adsr);
 
     numFrames1 = nf1; numFrames2 = nf2; numFrames3 = nf3;
 
@@ -134,7 +252,7 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
             }
         }
 
-        float envVal = env.getNextSample();
+        float envVal = ampEnvelope.getNextSample();
 
         // --- LÓGICA DEL LFO ---
         // 1. Generar la onda del LFO (seno)
@@ -275,9 +393,14 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         outputBuffer.addSample(0, sample, fl * envVal);
         outputBuffer.addSample(1, sample, fr * envVal);
 
-        if (!env.isActive() || (envVal <= minEnvelopeLevel))
+        const auto envelopeFinished = !ampEnvelope.isActive();
+        const auto envelopeSilent = (envVal <= minEnvelopeLevel);
+        const auto noteStillHeld = isKeyDown();
+
+        if (envelopeFinished || (!noteStillHeld && envelopeSilent))
         {
             clearCurrentNote();
+            ampEnvelope.reset();
             break;
         }
     }
@@ -1033,7 +1156,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout NeuraSynthAudioProcessor::cr
     // --- ENVELOPE ---
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "attack", "Attack",
-        juce::NormalisableRange<float>(0.0f, 5.0f, 0.001f, 0.3f), // El 0.3f es la curva logarítmica
+        juce::NormalisableRange<float>(0.0f, 8.0f, 0.001f, 0.35f), // Más tiempo máximo y curva más suave
         0.01f));
 
     // Decay: Control fino en la parte importante del sonido.
