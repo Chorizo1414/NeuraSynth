@@ -22,7 +22,9 @@ from generador_acordes import (
     MAPEO_GENERO_BPM,
     # --- ¡ESTAS LÍNEAS AHORA FUNCIONARÁN! ---
     puntuar_acordes_positivamente,
-    puntuar_acordes_negativamente
+    puntuar_acordes_negativamente,
+    obtener_ultima_fuente_generada,
+    obtener_ultimo_tipo_generacion
 )
 from generador_melodia import generar_melodia_sobre_acordes
 from procesador_sentimientos import detectar_sentimiento_en_prompt, inferir_parametros_desde_sentimiento
@@ -87,7 +89,9 @@ def generar_progresion(prompt: str, num_acordes: int = -1):
             "raiz": raiz_final,
             "modo": modo_final,
             "estilo": estilo_final,
-            "bpm": bpm_sugerido,  # <--- BPM AÑADIDO
+            "bpm": bpm_sugerido, 
+            "tipo_generacion": obtener_ultimo_tipo_generacion(),
+            "fuente_generacion": obtener_ultima_fuente_generada(),
             "error": ""
         }
 

@@ -23,6 +23,16 @@ namespace
         result.setHeight(result.getHeight() + amountY * 2);
         return result;
     }
+
+    juce::String utf8String(const char* text)
+    {
+        return text != nullptr ? juce::String::fromUTF8(text) : juce::String();
+    }
+
+    juce::String utf8String(const std::string& text)
+    {
+        return juce::String::fromUTF8(text.c_str());
+    }
 }
 
 ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor)
@@ -239,7 +249,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             if (melodyData.empty() || (melodyData.contains("error") && !melodyData["error"].cast<std::string>().empty()))
             {
                 std::string errorMessage = melodyData.contains("error") ? melodyData["error"].cast<std::string>() : "Diccionario vacio";
-                DBG("!!! Error al generar la melodia desde Python: " + juce::String(errorMessage));
+                DBG("!!! Error al generar la melodia desde Python: " + utf8String(errorMessage));
                 return;
             }
 
@@ -494,8 +504,8 @@ void ChordMelodyTabComponent::transpose(int semitones)
     if (transposedData.contains("error") && !transposedData["error"].cast<std::string>().empty())
     {
         auto errorMessage = transposedData["error"].cast<std::string>();
-        DBG("!!! Error al transponer desde Python: " + juce::String(errorMessage));
-        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Error de Transposicion", errorMessage);
+        DBG("!!! Error al transponer desde Python: " + utf8String(errorMessage));
+        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Error de Transposicion", utf8String(errorMessage));
         return;
     }
 
@@ -682,11 +692,43 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
     if (lastGeneratedChordsData.empty() || (lastGeneratedChordsData.contains("error") && !lastGeneratedChordsData["error"].cast<std::string>().empty()))
     {
         std::string errorMessage = lastGeneratedChordsData.contains("error") ? lastGeneratedChordsData["error"].cast<std::string>() : "Diccionario vacio";
-        DBG("!!! Error desde Python: " + juce::String(errorMessage));
+        DBG("!!! Error desde Python: " + utf8String(errorMessage));
         return;
     }
 
     DBG("Acordes generados desde Python con exito!");
+
+    juce::String modeSummary;
+    if (lastGeneratedChordsData.contains("tipo_generacion"))
+    {
+        py::object modeObj = lastGeneratedChordsData["tipo_generacion"];
+        if (!modeObj.is_none())
+        {
+            const std::string modeType = modeObj.cast<std::string>();
+            if (modeType == "markov")
+                modeSummary = utf8String(u8"Progresión generada con el método de Markov.");
+            else if (modeType == "learned")
+                modeSummary = utf8String(u8"Progresión obtenida de una progresión guardada.");
+            else if (modeType == "fallback")
+                modeSummary = utf8String(u8"Progresión generada mediante el fallback interno.");
+            else if (!modeType.empty() && modeType != "unknown")
+                modeSummary = utf8String(u8"Progresión generada con modo: ") + utf8String(modeType);
+        }
+    }
+
+    if (modeSummary.isNotEmpty())
+        DBG(modeSummary);
+
+    if (lastGeneratedChordsData.contains("fuente_generacion"))
+    {
+        py::object detailObj = lastGeneratedChordsData["fuente_generacion"];
+        if (!detailObj.is_none())
+        {
+            const std::string detail = detailObj.cast<std::string>();
+            if (!detail.empty())
+                DBG(utf8String(u8"Detalle de origen de progresión: ") + utf8String(detail));
+        }
+    }
 
     if (lastGeneratedChordsData.contains("bpm"))
     {
