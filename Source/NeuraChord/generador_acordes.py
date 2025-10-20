@@ -231,6 +231,16 @@ def ajustar_pesos_para_diversidad(eventos, pesos, historial_reciente, evento_act
 KEY_C_MAJOR = key.Key("C", "major")
 KEY_C_MINOR = key.Key("C", "minor")
 
+_COMMON_DEGREE_TRANSITIONS = {
+    1: {4, 5, 6, 2},
+    2: {5, 7},
+    3: {6, 4},
+    4: {5, 1, 2},
+    5: {1, 6},
+    6: {4, 2, 5},
+    7: {1, 6},
+}
+
 _FUNCION_PESOS = {
     "tonic": {"tonic": 2.5, "predominant": 1.2, "dominant": 0.8, "other": 0.65},
     "predominant": {"predominant": 2.4, "tonic": 1.0, "dominant": 1.2, "other": 0.7},
@@ -277,23 +287,61 @@ def _clasificar_funcion_armonica(evento_func, modo="major"):
             return "dominant"
     return "other"
 
+def _planificar_frases_markov(longitud):
+    """Devuelve longitudes y límites (inicio, fin) de cada frase."""
+    if longitud <= 0:
+        return [], []
+
+    longitudes_frases = []
+    restante = longitud
+
+    while restante > 0:
+        if restante >= 8:
+            frase_len = 4
+        elif restante >= 4:
+            frase_len = 3 if restante == 5 else 4
+        else:
+            frase_len = restante
+
+        longitudes_frases.append(frase_len)
+        restante -= frase_len
+
+    if longitudes_frases and longitudes_frases[-1] == 1:
+        if len(longitudes_frases) >= 2:
+            longitudes_frases[-2] += 1
+            longitudes_frases.pop()
+        else:
+            longitudes_frases[0] = max(2, longitudes_frases[0])
+
+    limites = []
+    cursor = 0
+    for frase_len in longitudes_frases:
+        limites.append((cursor, cursor + frase_len - 1))
+        cursor += frase_len
+
+    return longitudes_frases, limites
 
 def _construir_plan_funcional(longitud, modo="major"):
-    """Crea una guía de funciones armónicas para distribuir la progresión (T-P-D-T)."""
+    """Crea una guía de funciones armónicas distribuida por frases."""
     if longitud <= 0:
-        return []
+        return [], []
 
+    longitudes_frases, limites_frases = _planificar_frases_markov(longitud)
     plan = []
     ciclo_interior = ["predominant", "tonic", "predominant", "dominant"]
-    for i in range(longitud):
-        if i == 0:
-            plan.append("tonic")
-        elif i == longitud - 1:
-            plan.append("tonic")
-        elif i == longitud - 2:
-            plan.append("dominant")
-        else:
-            plan.append(ciclo_interior[(i - 1) % len(ciclo_interior)])
+    indice_global = 0
+
+    for frase_len in longitudes_frases:
+        for pos in range(frase_len):
+            if pos == 0:
+                plan.append("tonic")
+            elif pos == frase_len - 1:
+                plan.append("tonic")
+            elif pos == frase_len - 2:
+                plan.append("dominant")
+            else:
+                plan.append(ciclo_interior[(indice_global + pos) % len(ciclo_interior)])
+        indice_global += frase_len
 
     if longitud > 2 and "dominant" not in plan:
         plan[-2] = "dominant"
@@ -305,7 +353,7 @@ def _construir_plan_funcional(longitud, modo="major"):
         plan[-2] = "dominant"
         plan[-1] = "tonic"
 
-    return plan
+    return plan, limites_frases
 
 
 def _ajustar_pesos_por_plan_funcional(eventos, pesos, funcion_objetivo, modo="major"):
@@ -327,6 +375,84 @@ def _ajustar_pesos_por_plan_funcional(eventos, pesos, funcion_objetivo, modo="ma
         return pesos
     return pesos_ajustados
 
+def _ajustar_pesos_por_transicion_musical(eventos, pesos, evento_previo, modo, tonalidad_key_obj, historial_eventos):
+    """Favorece transiciones comunes y evita repeticiones excesivas."""
+    if not eventos or not pesos or not evento_previo:
+        return pesos
+
+    evento_previo_norm = _normalizar_evento_markov(evento_previo)
+    if evento_previo_norm in (None, "0") or (isinstance(evento_previo_norm, str) and evento_previo_norm.startswith("SN_")):
+        return pesos
+
+    run_length_previo = 0
+    for ev_hist in reversed(historial_eventos):
+        if ev_hist is None:
+            continue
+        if _normalizar_evento_markov(ev_hist) == evento_previo_norm:
+            run_length_previo += 1
+        else:
+            break
+
+    try:
+        rn_previo = roman.RomanNumeral(evento_previo_norm, tonalidad_key_obj)
+        grado_previo = rn_previo.scaleDegree
+        es_prev_diatonico = rn_previo.secondaryRomanNumeral is None
+    except Exception:
+        grado_previo = None
+        es_prev_diatonico = False
+
+    pesos_ajustados = []
+    for ev, peso in zip(eventos, pesos):
+        nuevo_peso = float(peso)
+        ev_norm = _normalizar_evento_markov(ev)
+
+        if ev_norm == evento_previo_norm and run_length_previo >= 2:
+            pesos_ajustados.append(0.0)
+            continue
+
+        if ev_norm == "0":
+            nuevo_peso *= 0.35
+            pesos_ajustados.append(nuevo_peso)
+            continue
+        if isinstance(ev_norm, str) and ev_norm.startswith("SN_"):
+            nuevo_peso *= 0.45
+            pesos_ajustados.append(nuevo_peso)
+            continue
+
+        try:
+            rn_cand = roman.RomanNumeral(ev_norm, tonalidad_key_obj)
+            grado_cand = rn_cand.scaleDegree
+            es_cand_diatonico = rn_cand.secondaryRomanNumeral is None
+        except Exception:
+            nuevo_peso *= 0.15
+            pesos_ajustados.append(nuevo_peso)
+            continue
+
+        if not es_cand_diatonico:
+            nuevo_peso *= 0.6
+        if not es_prev_diatonico and not es_cand_diatonico:
+            nuevo_peso *= 0.85
+
+        if grado_previo is not None and grado_cand is not None:
+            preferidos = _COMMON_DEGREE_TRANSITIONS.get(grado_previo, set())
+            if grado_cand in preferidos:
+                nuevo_peso *= 2.3
+            elif grado_cand == grado_previo:
+                nuevo_peso *= 0.4
+            else:
+                nuevo_peso *= 0.9
+
+            distancia = min((grado_cand - grado_previo) % 7, (grado_previo - grado_cand) % 7)
+            if distancia >= 4:
+                nuevo_peso *= 0.7
+
+        if nuevo_peso < 0:
+            nuevo_peso = 0.0
+        pesos_ajustados.append(nuevo_peso)
+
+    if sum(pesos_ajustados) == 0:
+        return pesos
+    return pesos_ajustados
 
 def _obtener_opciones_diatonicas_por_funcion(modo="major"):
     """Devuelve listas de numerales diatónicos representativos por función tonal."""
@@ -369,6 +495,131 @@ def _realizar_evento_a_voicing(evento_func, tonalidad_key_obj, voicings_map):
     except Exception:
         return "0"
 
+def _reforzar_cadencias_por_frase(progresion, eventos_func, limites_frases, modo, tonalidad_key_obj, voicings_map):
+    """Ajusta cada cierre de frase para asegurar respiración tonal."""
+    if not progresion or not eventos_func or not limites_frases:
+        return
+
+    cambios = set()
+    objetivo_tonica = "I" if modo == "major" else "i"
+    objetivo_dominante = "V"
+
+    for inicio, fin in limites_frases:
+        if fin >= len(eventos_func):
+            continue
+        if _clasificar_funcion_armonica(eventos_func[fin], modo) != "tonic":
+            eventos_func[fin] = objetivo_tonica
+            cambios.add(fin)
+        previo = fin - 1
+        if previo >= inicio and previo >= 0:
+            if _clasificar_funcion_armonica(eventos_func[previo], modo) not in ("dominant", "predominant"):
+                eventos_func[previo] = objetivo_dominante
+                cambios.add(previo)
+
+    for idx in sorted(cambios):
+        if idx < len(progresion):
+            progresion[idx] = _realizar_evento_a_voicing(eventos_func[idx], tonalidad_key_obj, voicings_map)
+
+
+def _validar_progresion_markov(eventos_func, modo, tonalidad_key_obj, limites_frases):
+    reales = [ev for ev in eventos_func if isinstance(ev, str) and ev not in ("0", "") and not ev.startswith("SN_")]
+    if len(reales) < 4:
+        return False
+
+    try:
+        for ev in reales:
+            roman.RomanNumeral(ev, tonalidad_key_obj)
+    except Exception:
+        return False
+
+    run = 0
+    ultimo = None
+    for ev in eventos_func:
+        if not isinstance(ev, str) or ev in ("0", "") or ev.startswith("SN_"):
+            continue
+        if ev == ultimo:
+            run += 1
+            if run >= 2:
+                return False
+        else:
+            run = 0
+            ultimo = ev
+
+    if not any(_clasificar_funcion_armonica(ev, modo) == "dominant" for ev in eventos_func if isinstance(ev, str)):
+        return False
+
+    for inicio, fin in limites_frases:
+        if fin < len(eventos_func):
+            if _clasificar_funcion_armonica(eventos_func[fin], modo) != "tonic":
+                return False
+            if fin - 1 >= inicio and _clasificar_funcion_armonica(eventos_func[fin - 1], modo) not in ("dominant", "predominant"):
+                return False
+
+    return True
+
+
+def _reparar_progresion_markov(eventos_func, plan_funcional, modo, tonalidad_key_obj):
+    if not eventos_func:
+        return
+
+    contadores = defaultdict(int)
+    opciones_generales = ['I', 'V', 'vi', 'IV'] if modo == "major" else ['i', 'VI', 'III', 'VII']
+
+    for idx, ev in enumerate(eventos_func):
+        if not isinstance(ev, str) or ev in ("0", "") or ev.startswith("SN_"):
+            continue
+        try:
+            rn_check = roman.RomanNumeral(ev, tonalidad_key_obj)
+            if rn_check.secondaryRomanNumeral is not None:
+                raise Exception("non-diatonic")
+        except Exception:
+            funcion = plan_funcional[idx] if idx < len(plan_funcional) else None
+            eventos_func[idx] = _seleccionar_diatonico_por_funcion(funcion, modo, contadores, opciones_generales, idx)
+
+    run = 0
+    ultimo = None
+    for idx, ev in enumerate(eventos_func):
+        if not isinstance(ev, str) or ev in ("0", "") or ev.startswith("SN_"):
+            continue
+        if ev == ultimo:
+            run += 1
+            if run >= 2:
+                funcion = plan_funcional[idx] if idx < len(plan_funcional) else None
+                nuevo_ev = _seleccionar_diatonico_por_funcion(funcion, modo, contadores, opciones_generales, idx + 3)
+                if nuevo_ev == ev:
+                    alternativas = [opt for opt in opciones_generales if opt != ev]
+                    if alternativas:
+                        nuevo_ev = random.choice(alternativas)
+                eventos_func[idx] = nuevo_ev
+                ultimo = nuevo_ev
+                run = 0
+        else:
+            ultimo = ev
+            run = 0
+
+
+def _reconstruir_voicings_desde_eventos(eventos_func, tonalidad_key_obj, voicings_map):
+    progresion = []
+    ultimo_voicing = None
+    for ev in eventos_func:
+        voicing = _realizar_evento_a_voicing(ev, tonalidad_key_obj, voicings_map)
+        if isinstance(voicing, list) and ultimo_voicing:
+            voicing = suavizar_transicion_voicing(voicing, ultimo_voicing)
+        progresion.append(voicing)
+        if isinstance(voicing, list):
+            ultimo_voicing = voicing
+    return progresion
+
+
+def _construir_progresion_diatonica_desde_plan(plan_funcional, modo, tonalidad_key_obj, voicings_map):
+    eventos = []
+    contadores = defaultdict(int)
+    opciones_generales = ['I', 'V', 'vi', 'IV'] if modo == "major" else ['i', 'VI', 'III', 'VII']
+    for idx, funcion in enumerate(plan_funcional):
+        evento = _seleccionar_diatonico_por_funcion(funcion, modo, contadores, opciones_generales, idx)
+        eventos.append(evento)
+    progresion = _reconstruir_voicings_desde_eventos(eventos, tonalidad_key_obj, voicings_map)
+    return progresion, eventos
 
 def _asegurar_cadencia_final(progresion, eventos_func, modo, tonalidad_key_obj, voicings_map):
     """Ajusta los últimos acordes para garantizar una cadencia dominante-tónica."""
@@ -882,7 +1133,7 @@ def generar_progresion_markov(raiz, modo, estilo="normal", num_acordes_deseado=4
 
     print(f"DEBUG (Markov): Longitud Objetivo Realizada: {longitud_objetivo_realizada}, Mín Acordes Reales Requeridos: {MIN_ACORDES_REALES_OBJETIVO}")
 
-    plan_funcional = _construir_plan_funcional(longitud_objetivo_realizada, canonical_modo_generator)
+    plan_funcional, limites_frases = _construir_plan_funcional(longitud_objetivo_realizada, canonical_modo_generator)
     contadores_funcion_fallback = defaultdict(int)
 
     progresion_realizada_final = []
@@ -1026,6 +1277,7 @@ def generar_progresion_markov(raiz, modo, estilo="normal", num_acordes_deseado=4
         if siguientes_eventos_filtrados and sum(pesos_filtrados) > 0 :
             pesos_filtrados = ajustar_pesos_para_diversidad(siguientes_eventos_filtrados, pesos_filtrados, historial_eventos_recientes, evento_func_previo_loop)
             pesos_filtrados = _ajustar_pesos_por_plan_funcional(siguientes_eventos_filtrados, pesos_filtrados, funcion_objetivo_siguiente, canonical_modo_generator)
+            pesos_filtrados = _ajustar_pesos_por_transicion_musical(siguientes_eventos_filtrados, pesos_filtrados, evento_func_previo_loop, canonical_modo_generator, k_generacion, historial_eventos_recientes)
             pesos_filtrados = ajustar_pesos_por_patron_ritmico(siguientes_eventos_filtrados, pesos_filtrados, duracion_siguiente, evento_previo_norm, fue_nota_individual_anterior)
             if sum(pesos_filtrados) <= 0:
                 pesos_filtrados = [1.0] * len(siguientes_eventos_filtrados)
@@ -1038,7 +1290,7 @@ def generar_progresion_markov(raiz, modo, estilo="normal", num_acordes_deseado=4
             if sum(pesos_transicion_orig) > 0:
                 pesos_transicion_orig = ajustar_pesos_para_diversidad(siguientes_eventos_orig, pesos_transicion_orig, historial_eventos_recientes, evento_func_previo_loop)
                 pesos_transicion_orig = _ajustar_pesos_por_plan_funcional(siguientes_eventos_orig, pesos_transicion_orig, funcion_objetivo_siguiente, canonical_modo_generator)
-                
+                pesos_transicion_orig = _ajustar_pesos_por_transicion_musical(siguientes_eventos_orig, pesos_transicion_orig, evento_func_previo_loop, canonical_modo_generator, k_generacion, historial_eventos_recientes)
                 funcion_actual = _clasificar_funcion_armonica(evento_func_previo_loop, canonical_modo_generator)
                 pesos_validados = []
                 for ev, peso in zip(siguientes_eventos_orig, pesos_transicion_orig):
@@ -1121,8 +1373,20 @@ def generar_progresion_markov(raiz, modo, estilo="normal", num_acordes_deseado=4
                 ritmo_planificado.extend([valor_extendido] * faltantes)
             else:
                 ritmo_planificado = [1.0] * len(progresion_realizada_final)
-        
+
+    _reforzar_cadencias_por_frase(progresion_realizada_final, secuencia_eventos_func_debug, limites_frases, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
+
+    if not _validar_progresion_markov(secuencia_eventos_func_debug, canonical_modo_generator, k_generacion, limites_frases):
+        _reparar_progresion_markov(secuencia_eventos_func_debug, plan_funcional, canonical_modo_generator, k_generacion)
+        progresion_realizada_final = _reconstruir_voicings_desde_eventos(secuencia_eventos_func_debug, k_generacion, voicings_disponibles_rn_map)
+        _reforzar_cadencias_por_frase(progresion_realizada_final, secuencia_eventos_func_debug, limites_frases, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
+
+    if not _validar_progresion_markov(secuencia_eventos_func_debug, canonical_modo_generator, k_generacion, limites_frases):
+        progresion_realizada_final, secuencia_eventos_func_debug = _construir_progresion_diatonica_desde_plan(plan_funcional, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
+        _reforzar_cadencias_por_frase(progresion_realizada_final, secuencia_eventos_func_debug, limites_frases, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
+
     _asegurar_cadencia_final(progresion_realizada_final, secuencia_eventos_func_debug, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
+    acordes_reales_count = sum(1 for ac in progresion_realizada_final if ac != "0" and not (isinstance(ac, str) and ac.startswith("SN_")))
     funciones_usadas = {func for func in (_clasificar_funcion_armonica(ev, canonical_modo_generator) for ev in secuencia_eventos_func_debug if ev) if func and func != "other"}
              
 
