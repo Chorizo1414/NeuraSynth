@@ -88,6 +88,7 @@ private:
     juce::TextButton stopButton;
     juce::TextButton exportChordsButton;
     juce::TextButton exportMelodyButton;
+    class MidiDragHandle;
     std::unique_ptr<MidiDragHandle> chordsDragHandle;
     std::unique_ptr<MidiDragHandle> melodyDragHandle;
 
