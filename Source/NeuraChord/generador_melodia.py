@@ -212,15 +212,22 @@ def _expandir_notas_acorde_en_rango(acorde_data, params: ParametrosMelodicos):
         notas_unicas.setdefault(nota.midi, nota)
     return list(notas_unicas.values())
 
-def _agregar_evento(lista_eventos, pitch_str, duracion):
-    duracion = round(duracion, 3)
-    if duracion <= 0:
+def _agregar_evento(lista_eventos, pitch_str, duracion_ql):
+    # Redondear la duración en Quarter Lengths ANTES de convertir a string
+    duracion_redondeada = round(duracion_ql, 3)
+    if duracion_redondeada <= 0:
         return lista_eventos
+
+    # Convertir a string DESPUÉS de redondear
+    duracion_str = str(duracion_redondeada)
+
     if pitch_str == "0" and lista_eventos and lista_eventos[-1][0] == "0":
+        # Sumar duraciones como floats y redondear el resultado
         ultima_dur = float(lista_eventos[-1][1])
-        lista_eventos[-1] = ("0", str(round(ultima_dur + duracion, 3)))
+        nueva_dur_total = round(ultima_dur + duracion_redondeada, 3)
+        lista_eventos[-1] = ("0", str(nueva_dur_total))
     else:
-        lista_eventos.append((pitch_str, str(duracion)))
+        lista_eventos.append((pitch_str, duracion_str))
     return lista_eventos
 
 # --- NUEVO MOTOR DE COMPOSICIÓN (A-B-A') ---
@@ -274,121 +281,172 @@ def _crear_motivo_musical(notas_acorde_inicial, perfil, escala_obj):
     return notas_base, motivo_ritmico
 
 def _generar_arpegio_melodico(unidades_totales, notas_acorde, ultima_nota, perfil, params):
-    """Genera un arpegio rítmico y melódico."""
+    """Genera un arpegio rítmico y melódico (Quantizado y Seguro)."""
+    # --- ¡NUEVA COMPROBACIÓN! ---
+    if not notas_acorde:
+        print("ADVERTENCIA (_generar_arpegio_melodico): Lista 'notas_acorde' vacía. Generando silencio.")
+        duracion_silencio_total = unidades_totales * params.melodia_grid_unit_ql
+        return [_agregar_evento([], "0", duracion_silencio_total)][0], ultima_nota
+    # --- FIN COMPROBACIÓN ---
+
     eventos_arpegio = []
     unidades_usadas = 0
+    ritmo_arpegio_units = perfil["complejidad_ritmica"]
+
     direccion = random.choice([1, -1])
     notas_arpegio = sorted(notas_acorde, key=lambda p: p.midi * direccion)
+
+    # --- ¡NUEVA COMPROBACIÓN (ZeroDivisionError)! ---
+    if not notas_arpegio: # Doble chequeo por si el sort falla o algo raro pasa
+        print("ADVERTENCIA (_generar_arpegio_melodico): Lista 'notas_arpegio' vacía después de ordenar. Generando silencio.")
+        duracion_silencio_total = unidades_totales * params.melodia_grid_unit_ql
+        return [_agregar_evento([], "0", duracion_silencio_total)][0], ultima_nota
+    # --- FIN COMPROBACIÓN ---
+
     posicion_nota = 0
     while unidades_usadas < unidades_totales:
-        dur_units = perfil["complejidad_ritmica"][posicion_nota % len(perfil["complejidad_ritmica"])]
-        if unidades_usadas + dur_units > unidades_totales: dur_units = unidades_totales - unidades_usadas
-        dur_ql = round(dur_units * params.melodia_grid_unit_ql, 3)
+        dur_units = ritmo_arpegio_units[posicion_nota % len(ritmo_arpegio_units)]
+        if dur_units == 0: dur_units = 1
+
+        unidades_restantes = unidades_totales - unidades_usadas
+        if dur_units > unidades_restantes: dur_units = unidades_restantes
+
+        dur_ql = dur_units * params.melodia_grid_unit_ql
         if dur_ql <= 0: break
-        if random.random() < perfil["densidad_notas"]:
-            nota_actual = notas_arpegio[posicion_nota % len(notas_arpegio)]
-            candidato_pitch = _clamp_pitch_to_range(nota_actual, params)
+
+        poner_nota = (ritmo_arpegio_units[posicion_nota % len(ritmo_arpegio_units)] != 0) and (random.random() < perfil["densidad_notas"])
+
+        if poner_nota:
+             # Ahora es seguro hacer el módulo porque len(notas_arpegio) > 0
+            nota_actual_arp = notas_arpegio[posicion_nota % len(notas_arpegio)]
+            candidato_pitch = _clamp_pitch_to_range(nota_actual_arp, params)
             eventos_arpegio = _agregar_evento(eventos_arpegio, candidato_pitch.nameWithOctave, dur_ql)
             ultima_nota = candidato_pitch
         else:
             eventos_arpegio = _agregar_evento(eventos_arpegio, "0", dur_ql)
+
         unidades_usadas += dur_units
         posicion_nota += 1
+
     return eventos_arpegio, ultima_nota
 
 def _generar_frase(unidades_totales, notas_acorde, notas_escala, ultima_nota, motivo, perfil, params, escala_obj, es_respuesta=False):
-    """Genera una frase musical usando SÓLO notas del acorde actual."""
+    """Genera una frase musical aplicando principios musicales fundamentales (Quantizada y Segura)."""
+    # --- ¡NUEVA COMPROBACIÓN! ---
+    if not notas_acorde:
+        print("ADVERTENCIA (_generar_frase): Lista 'notas_acorde' vacía. Generando silencio.")
+        duracion_silencio_total = unidades_totales * params.melodia_grid_unit_ql
+        return [_agregar_evento([], "0", duracion_silencio_total)][0], ultima_nota # Devuelve lista con el silencio y la última nota sin cambios
+    # --- FIN COMPROBACIÓN ---
+
     eventos_frase = []
-    unidades_usadas = 0
+    unidades_usadas = 0 # Usar enteros para acumular unidades
     posicion_motivo = 0
-    # Ignoramos el motivo melódico base ahora, nos centraremos en el acorde
-    _, ritmo_motivo = motivo
+    notas_motivo_base, ritmo_motivo_units = motivo
 
     repeticiones_nota_actual = 0
     # Empezar desde la última nota si existe Y está en el acorde actual, si no, elegir una del acorde
+    # Asegurarse de que nota_actual no sea None si notas_acorde no está vacía
     if ultima_nota and any(abs(ultima_nota.midi - n.midi) < 0.5 for n in notas_acorde):
          nota_actual = ultima_nota
     else:
-         nota_actual = random.choice(notas_acorde)
+         nota_actual = random.choice(notas_acorde) # Seguro porque ya comprobamos que notas_acorde no está vacía
 
     ultimo_intervalo = 0
 
+    # Variación del motivo
+    variacion_semitonos = random.choice([0, 0, 0, 1, -1, 2]) if not es_respuesta else 0
+    notas_motivo_variado = []
+    for n_base in notas_motivo_base:
+        try:
+            p_variado = pitch.Pitch(n_base.nameWithOctave)
+            p_variado.transpose(variacion_semitonos, inPlace=True)
+            # Ajustar a la escala (si hay notas en la escala)
+            if notas_escala:
+                 p_ajustado = min(notas_escala, key=lambda p_esc: abs(p_esc.midi - p_variado.midi))
+                 notas_motivo_variado.append(p_ajustado)
+            else: # Si no hay escala, usar la nota variada directamente
+                 notas_motivo_variado.append(p_variado)
+        except:
+            notas_motivo_variado.append(n_base)
+
     while unidades_usadas < unidades_totales:
-        # 1. Determinar Ritmo (del motivo)
-        dur_units = ritmo_motivo[posicion_motivo % len(ritmo_motivo)]
+        dur_units = ritmo_motivo_units[posicion_motivo % len(ritmo_motivo_units)]
         es_silencio_ritmico = (dur_units == 0)
         if es_silencio_ritmico: dur_units = 1
 
-        if unidades_usadas + dur_units >= unidades_totales:
-            dur_units = unidades_totales - unidades_usadas
+        unidades_restantes = unidades_totales - unidades_usadas
+        if dur_units > unidades_restantes: dur_units = unidades_restantes
 
-        dur_ql = round(dur_units * params.melodia_grid_unit_ql, 3)
+        dur_ql = dur_units * params.melodia_grid_unit_ql
         if dur_ql <= 0: break
 
-        # 2. Decidir si Poner Nota o Silencio
         poner_nota = (not es_silencio_ritmico) and (random.random() < perfil["densidad_notas"])
 
         if poner_nota:
-            # --- SELECCIÓN DE NOTA v7 (SÓLO ACORDE) ---
             nota_candidata = None
+            es_fuerte = (unidades_usadas * params.melodia_grid_unit_ql) % (params.pulsos_por_compas / 2) < params.melodia_grid_unit_ql
 
-            # A. ¿Resolver salto anterior? Buscar nota del ACORDE en dirección opuesta.
-            if abs(ultimo_intervalo) > 5:
-                direccion_opuesta = -1 if ultimo_intervalo > 0 else 1
-                # Buscar notas del acorde en la dirección opuesta y cercanas
-                candidatas_resolucion = [
-                    n for n in notas_acorde
-                    if 0 < (n.midi - nota_actual.midi) * direccion_opuesta <= 7 # Permitir hasta 5ta para resolver
-                ]
-                if candidatas_resolucion:
-                    nota_candidata = min(candidatas_resolucion, key=lambda n: abs(n.midi - nota_actual.midi)) # La más cercana
+            if es_fuerte:
+                # Ahora seguro llamar a min porque notas_acorde no está vacía
+                nota_candidata = min(notas_acorde, key=lambda n: abs(n.midi - nota_actual.midi))
+            else:
+                 # Resto de la lógica de selección (B.1, B.2, B.3) - necesita notas_escala
+                 # B.1 Resolver salto anterior?
+                if abs(ultimo_intervalo) > 5 and notas_escala: # Solo si hay notas de escala
+                    direccion_opuesta = -1 if ultimo_intervalo > 0 else 1
+                    vecinos_resolucion = [p for p in notas_escala if 0 < (p.midi - nota_actual.midi) * direccion_opuesta <= 2]
+                    if vecinos_resolucion:
+                         nota_candidata = random.choice(vecinos_resolucion)
 
-            # B. Si no se resuelve salto, elegir otra nota del ACORDE
+                # B.2 Seguir motivo variado?
+                if nota_candidata is None and random.random() < 0.6 and notas_motivo_variado:
+                     nota_del_motivo = notas_motivo_variado[posicion_motivo % len(notas_motivo_variado)]
+                     if abs(nota_del_motivo.midi - nota_actual.midi) <= 7:
+                          nota_candidata = nota_del_motivo
+
+                # B.3 Nota de paso/aproximación?
+                if nota_candidata is None and notas_escala: # Solo si hay notas de escala
+                    vecinos = [p for p in notas_escala if 0 < abs(p.midi - nota_actual.midi) <= 2]
+                    nota_cromatica_cercana = pitch.Pitch()
+                    nota_cromatica_cercana.midi = nota_actual.midi + random.choice([-1, 1])
+                    if nota_cromatica_cercana.name not in [p.name for p in notas_escala]:
+                         # Ahora seguro llamar a min porque notas_acorde no está vacía
+                         nota_resolucion = min(notas_acorde, key=lambda n: abs(n.midi - nota_cromatica_cercana.midi))
+                         if abs(nota_resolucion.midi - nota_cromatica_cercana.midi) == 1: vecinos.append(nota_cromatica_cercana)
+                    if vecinos:
+                        nota_candidata = random.choice(vecinos)
+
+
+            # C. Fallback: Nota del acorde más cercana (seguro)
             if nota_candidata is None:
-                 # Intentar moverse a una nota DIFERENTE del acorde, la más cercana
-                 alternativas_acorde = [n for n in notas_acorde if n.midi != nota_actual.midi]
-                 if alternativas_acorde:
-                     nota_candidata = min(alternativas_acorde, key=lambda n: abs(n.midi - nota_actual.midi))
-                 else: # Si el acorde solo tiene una nota en el rango...
-                     nota_candidata = nota_actual # Repetir la misma nota
+                 nota_candidata = min(notas_acorde, key=lambda n: abs(n.midi - nota_actual.midi))
 
-            # C. Fallback por si algo falla (aunque no debería con esta lógica)
-            if nota_candidata is None:
-                 nota_candidata = random.choice(notas_acorde)
-
-            # D. Resolución al final de la frase (asegurar Tónica o Tercera del acorde final)
+            # D. Resolución al final de la frase (seguro)
             if unidades_usadas + dur_units >= unidades_totales:
                  tonica_acorde_final = notas_acorde[0]
-                 try:
-                     # Intentar obtener la tercera real del acorde si es posible
-                     tercera_acorde_final = min([n for n in notas_acorde if n.name != tonica_acorde_final.name], key=lambda x:x.midi)
-                 except:
-                     tercera_acorde_final = notas_acorde[1] if len(notas_acorde) > 1 else notas_acorde[0] # Fallback simple
-
-                 notas_resolucion = [tonica_acorde_final, tercera_acorde_final]
+                 try: tercera_acorde_final = min([n for n in notas_acorde if n.name != tonica_acorde_final.name], key=lambda x:x.midi)
+                 except: tercera_acorde_final = notas_acorde[1] if len(notas_acorde) > 1 else notas_acorde[0]
+                 quinta_acorde_final = max(notas_acorde, key=lambda x:x.midi)
+                 notas_resolucion = [tonica_acorde_final, tercera_acorde_final, quinta_acorde_final]
                  nota_candidata = min(notas_resolucion, key=lambda n: abs(n.midi - nota_actual.midi))
 
-
-            # E. Evitar repetición excesiva (solo si hay alternativas en el acorde)
-            alternativas_disponibles = [n for n in notas_acorde if n.midi != nota_actual.midi]
-            if nota_candidata.midi == nota_actual.midi and alternativas_disponibles:
+            # E. Evitar repetición excesiva (seguro)
+            if nota_candidata.midi == nota_actual.midi:
                 repeticiones_nota_actual += 1
                 if repeticiones_nota_actual >= perfil["max_repeticion_nota"]:
-                    nota_candidata = random.choice(alternativas_disponibles) # Forzar cambio a otra nota del acorde
-            elif nota_candidata.midi != nota_actual.midi:
+                    alternativas = [n for n in notas_escala if n.midi != nota_actual.midi and abs(n.midi-nota_actual.midi)<=2] if notas_escala else []
+                    if not alternativas: alternativas = [n for n in notas_acorde if n.midi != nota_actual.midi]
+                    if alternativas: nota_candidata = random.choice(alternativas)
+            else:
                 repeticiones_nota_actual = 0
                 ultimo_intervalo = nota_candidata.midi - nota_actual.midi
-            else: # Repitiendo pero sin alternativas
-                 repeticiones_nota_actual +=1 # Contar repetición pero no se puede cambiar
-                 ultimo_intervalo = 0
 
-
-            # Clamp final y añadir evento
             nota_final = _clamp_pitch_to_range(nota_candidata, params)
             eventos_frase = _agregar_evento(eventos_frase, nota_final.nameWithOctave, dur_ql)
             nota_actual = nota_final
             ultima_nota = nota_actual
-        else: # Generar silencio
+        else:
             eventos_frase = _agregar_evento(eventos_frase, "0", dur_ql)
             ultimo_intervalo = 0
 
