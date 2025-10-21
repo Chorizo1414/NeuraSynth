@@ -161,8 +161,17 @@ juce::String PythonManager::exportChords(const py::dict& musicData, int bpm)
     {
         py::gil_scoped_acquire acquire;
         // Ahora usamos el BPM que viene como argumento
-        py::object detalles = musicData.contains("acordes_detallados") ? musicData["acordes_detallados"] : py::none();
-        py::object tiempos = musicData.contains("acordes_tiempos") ? musicData["acordes_tiempos"] : py::none();
+        py::object detalles;
+        if (musicData.contains("acordes_detallados"))
+            detalles = py::reinterpret_borrow<py::object>(musicData["acordes_detallados"]);
+        else
+            detalles = py::none();
+
+        py::object tiempos;
+        if (musicData.contains("acordes_tiempos"))
+            tiempos = py::reinterpret_borrow<py::object>(musicData["acordes_tiempos"]);
+        else
+            tiempos = py::none();
 
         py::object resultObj = neuraChordApi.attr("exportar_acordes_midi")(
             musicData["acordes"], musicData["ritmo"], bpm, detalles, tiempos);
