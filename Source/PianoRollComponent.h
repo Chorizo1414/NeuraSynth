@@ -14,6 +14,8 @@ struct NoteInfo
     double duration;  // en beats
     int midiValue; // Para melodía
     std::vector<int> chordMidiValues; // Para acordes
+    std::vector<double> chordNoteOffsets; // Offset por nota respecto al inicio del acorde
+    std::vector<double> chordNoteDurations; // Duración individual por nota de acorde
 };
 
 class PianoRollComponent : public juce::Component, private juce::Timer
@@ -81,6 +83,7 @@ private:
     int primaryDragNoteIndex = -1;
     juce::Array<int> draggedNoteIndices;
     std::vector<int> draggedMidiOffsets;
+    std::vector<double> draggedStartOffsets;
     double dragOffsetBeats = 0.0;
     float dragOffsetNoteY = 0.0f;
 

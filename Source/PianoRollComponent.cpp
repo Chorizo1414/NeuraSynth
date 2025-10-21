@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <utility>
 #include <cmath>
+#include <limits>
 
 namespace
 {
@@ -417,6 +418,7 @@ void PianoRollComponent::setMusicData(const py::dict& data)
     primaryDragNoteIndex = -1;
     draggedNoteIndices.clearQuick();
     draggedMidiOffsets.clear();
+    draggedStartOffsets.clear();
     isResizingNotes = false;
     resizingNoteIndices.clearQuick();
     resizeAnchorBeats = 0.0;
@@ -463,7 +465,10 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                     chordInfo.startTime = static_cast<double>(time);
                     chordInfo.duration = static_cast<double>(duration);
                     chordInfo.midiValue = chordMidiValues.front();
+                    const size_t chordSize = chordMidiValues.size();
                     chordInfo.chordMidiValues = std::move(chordMidiValues);
+                    chordInfo.chordNoteOffsets.assign(chordSize, 0.0);
+                    chordInfo.chordNoteDurations.assign(chordSize, static_cast<double>(duration));
                     musicData.push_back(std::move(chordInfo));
 
                     const int infoIndex = static_cast<int>(musicData.size()) - 1;
@@ -508,6 +513,9 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                         melodyInfo.startTime = static_cast<double>(melodyTime);
                         melodyInfo.duration = static_cast<double>(duration);
                         melodyInfo.midiValue = midiNote;
+                        melodyInfo.chordMidiValues.clear();
+                        melodyInfo.chordNoteOffsets.clear();
+                        melodyInfo.chordNoteDurations.clear();
                         musicData.push_back(std::move(melodyInfo));
 
                         const int infoIndex = static_cast<int>(musicData.size()) - 1;
@@ -700,6 +708,7 @@ void PianoRollComponent::beginNoteDrag(int noteIndex, const juce::MouseEvent& ev
     const int keyWidth = getKeyWidth();
     const float noteX = (float)keyWidth + ((baseNote.startTime - (float)horizontalScrollBeats) * pixelsPerBeat);
     const float noteWidth = baseNote.duration * pixelsPerBeat;
+    const bool shouldGroupChord = baseNote.isChordNote && event.mods.isCommandDown();
 
     const bool nearRightEdge = noteWidth > 0.0f &&
         event.position.x >= noteX + juce::jmax(0.0f, noteWidth - kResizeHandleWidthPixels);
@@ -713,7 +722,7 @@ void PianoRollComponent::beginNoteDrag(int noteIndex, const juce::MouseEvent& ev
         resizingNoteIndices.addIfNotAlreadyThere(noteIndex);
 
         const int infoIndex = baseNote.infoIndex;
-        if (infoIndex >= 0)
+        if (shouldGroupChord && infoIndex >= 0)
         {
             for (int i = 0; i < notes.size(); ++i)
             {
@@ -733,14 +742,16 @@ void PianoRollComponent::beginNoteDrag(int noteIndex, const juce::MouseEvent& ev
 
     draggedNoteIndices.clearQuick();
     draggedMidiOffsets.clear();
+    draggedStartOffsets.clear();
 
     primaryDragNoteIndex = noteIndex;
 
     draggedNoteIndices.add(noteIndex);
     draggedMidiOffsets.push_back(0);
+    draggedStartOffsets.push_back(0.0);
 
     const int infoIndex = baseNote.infoIndex;
-    if (infoIndex >= 0)
+    if (shouldGroupChord && infoIndex >= 0)
     {
         for (int i = 0; i < notes.size(); ++i)
         {
@@ -752,6 +763,7 @@ void PianoRollComponent::beginNoteDrag(int noteIndex, const juce::MouseEvent& ev
             {
                 draggedNoteIndices.add(i);
                 draggedMidiOffsets.push_back(candidate.midiNote - baseNote.midiNote);
+                draggedStartOffsets.push_back(static_cast<double>(candidate.startTime) - static_cast<double>(baseNote.startTime));
             }
         }
     }
@@ -802,7 +814,11 @@ void PianoRollComponent::updateDraggedNotes(const juce::MouseEvent& event)
             continue;
 
         auto& note = notes.getReference(index);
-        note.startTime = (float)newStart;
+        double adjustedStart = newStart;
+        if (i < (int)draggedStartOffsets.size())
+            adjustedStart += draggedStartOffsets[(size_t)i];
+
+        note.startTime = (float)juce::jmax(0.0, adjustedStart);
         const int relative = draggedMidiOffsets[(size_t)i];
         note.midiNote = juce::jlimit(defaultLowestNote, defaultHighestNote, newBaseMidi + relative);
     }
@@ -873,6 +889,7 @@ void PianoRollComponent::endNoteDrag()
     primaryDragNoteIndex = -1;
     draggedNoteIndices.clearQuick();
     draggedMidiOffsets.clear();
+    draggedStartOffsets.clear();
     setMouseCursor(juce::MouseCursor::NormalCursor);
 
     recalculateContentLength();
@@ -905,40 +922,62 @@ void PianoRollComponent::deleteNoteAt(int noteIndex)
     primaryDragNoteIndex = -1;
     draggedNoteIndices.clearQuick();
     draggedMidiOffsets.clear();
+    draggedStartOffsets.clear();
     resizingNoteIndices.clearQuick();
 
     const int infoIndex = notes.getReference(noteIndex).infoIndex;
 
-    if (juce::isPositiveAndBelow(infoIndex, (int)musicData.size()))
+    if (!juce::isPositiveAndBelow(infoIndex, (int)musicData.size()))
     {
-        juce::Array<int> indicesToRemove;
-        for (int i = notes.size(); --i >= 0;)
-        {
-            if (notes.getReference(i).infoIndex == infoIndex)
-                indicesToRemove.add(i);
-        }
-
-        if (indicesToRemove.isEmpty())
-        {
-            notes.remove(noteIndex);
-        }
-        else
-        {
-            for (int idx : indicesToRemove)
-                notes.remove(idx);
-        }
-
-        musicData.erase(musicData.begin() + infoIndex);
-
-        for (auto& note : notes)
-        {
-            if (note.infoIndex > infoIndex)
-                --note.infoIndex;
-        }
+        notes.remove(noteIndex);
     }
     else
     {
-        notes.remove(noteIndex);
+        int chordNoteCount = 0;
+        for (const auto& note : notes)
+        {
+            if (note.infoIndex == infoIndex)
+                ++chordNoteCount;
+        }
+
+        if (chordNoteCount <= 1)
+        {
+            for (int i = notes.size(); --i >= 0;)
+            {
+                if (notes.getReference(i).infoIndex == infoIndex)
+                    notes.remove(i);
+            }
+
+            musicData.erase(musicData.begin() + infoIndex);
+
+            for (auto& remaining : notes)
+            {
+                if (remaining.infoIndex > infoIndex)
+                    --remaining.infoIndex;
+            }
+        }
+        else
+        {
+            notes.remove(noteIndex);
+
+            std::vector<int> remainingIndices;
+            remainingIndices.reserve(notes.size());
+            for (int i = 0; i < notes.size(); ++i)
+            {
+                if (notes.getReference(i).infoIndex == infoIndex)
+                    remainingIndices.push_back(i);
+            }
+
+            std::sort(remainingIndices.begin(), remainingIndices.end(), [&](int a, int b)
+                {
+                    return notes[a].chordNoteSlot < notes[b].chordNoteSlot;
+                });
+
+            for (size_t slot = 0; slot < remainingIndices.size(); ++slot)
+                notes.getReference(remainingIndices[slot]).chordNoteSlot = (int)slot;
+
+            refreshNoteInfo(infoIndex);
+        }
     }
 
     recalculateContentLength();
@@ -963,41 +1002,81 @@ void PianoRollComponent::refreshNoteInfo(int infoIndex)
                 info.duration = note.duration;
                 info.midiValue = note.midiNote;
                 info.chordMidiValues.clear();
+                info.chordNoteOffsets.clear();
+                info.chordNoteDurations.clear();
                 break;
             }
         }
         return;
     }
 
+    struct SlotData
+    {
+        int slot;
+        double start;
+        double duration;
+        int midi;
+    };
+
+    std::vector<SlotData> chordEntries;
+    chordEntries.reserve(notes.size());
+
+    double minStart = std::numeric_limits<double>::infinity();
+    double maxEnd = -std::numeric_limits<double>::infinity();
     int maxSlot = -1;
-    std::vector<Note> chordNotes;
-    chordNotes.reserve(notes.size());
 
     for (const auto& note : notes)
     {
-        if (note.infoIndex == infoIndex)
+        if (note.infoIndex != infoIndex)
+            continue;
+
+        SlotData data
         {
-            chordNotes.push_back(note);
-            maxSlot = std::max(maxSlot, note.chordNoteSlot);
-        }
+            juce::jmax(0, note.chordNoteSlot),
+            static_cast<double>(note.startTime),
+            static_cast<double>(note.duration),
+            note.midiNote
+        };
+
+        chordEntries.push_back(data);
+        maxSlot = std::max(maxSlot, data.slot);
+        minStart = std::min(minStart, data.start);
+        maxEnd = std::max(maxEnd, data.start + data.duration);
     }
 
-    if (chordNotes.empty())
+    if (chordEntries.empty())
+    {
+        info.chordMidiValues.clear();
+        info.chordNoteOffsets.clear();
+        info.chordNoteDurations.clear();
+        info.duration = 0.0;
+        info.midiValue = 0;
+        return;
+    }
+
+    if (!std::isfinite(minStart) || !std::isfinite(maxEnd))
         return;
 
-    std::vector<int> chordValues((size_t)juce::jmax(0, maxSlot) + 1, 0);
-    for (const auto& note : chordNotes)
+    if (maxEnd < minStart)
+        maxEnd = minStart;
+
+    info.startTime = minStart;
+    info.duration = juce::jmax(0.0, maxEnd - minStart);
+
+    const size_t vectorSize = (size_t)juce::jmax(0, maxSlot) + 1;
+    info.chordMidiValues.assign(vectorSize, 0);
+    info.chordNoteOffsets.assign(vectorSize, 0.0);
+    info.chordNoteDurations.assign(vectorSize, info.duration);
+
+    for (const auto& entry : chordEntries)
     {
-        const size_t slot = (size_t)juce::jmax(0, note.chordNoteSlot);
-        if (slot >= chordValues.size())
-            chordValues.resize(slot + 1, 0);
-        chordValues[slot] = note.midiNote;
+        const size_t slot = (size_t)juce::jlimit(0, (int)vectorSize - 1, entry.slot);
+        info.chordMidiValues[slot] = entry.midi;
+        info.chordNoteOffsets[slot] = entry.start - info.startTime;
+        info.chordNoteDurations[slot] = entry.duration;
     }
 
-    info.startTime = chordNotes.front().startTime;
-    info.duration = chordNotes.front().duration;
-    info.chordMidiValues = chordValues;
-    info.midiValue = chordValues.empty() ? 0 : chordValues.front();
+    info.midiValue = info.chordMidiValues.empty() ? 0 : info.chordMidiValues.front();
 }
 
 void PianoRollComponent::recalculateContentLength()

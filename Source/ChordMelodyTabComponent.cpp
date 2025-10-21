@@ -635,13 +635,19 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
         if ((noteInfo.isMelody && !includeMelody) || (!noteInfo.isMelody && !includeChords))
             continue;
 
-        double startTimeSecs = noteInfo.startTime * secondsPerBeat;
-        double endTimeSecs = startTimeSecs + (noteInfo.duration * secondsPerBeat);
-        int startSample = static_cast<int>(startTimeSecs * sampleRate);
-        int endSample = static_cast<int>(endTimeSecs * sampleRate);
-
-        auto createEventsForNote = [&](int midiNote)
+        auto createEventsForNote = [&](int midiNote, double noteStartBeats, double noteDurationBeats)
             {
+                noteDurationBeats = juce::jmax(0.0, noteDurationBeats);
+                if (noteDurationBeats <= 0.0)
+                    return;
+
+                noteStartBeats = juce::jmax(0.0, noteStartBeats);
+
+                double startTimeSecs = noteStartBeats * secondsPerBeat;
+                double endTimeSecs = (noteStartBeats + noteDurationBeats) * secondsPerBeat;
+                int startSample = static_cast<int>(startTimeSecs * sampleRate);
+                int endSample = static_cast<int>(endTimeSecs * sampleRate);
+
                 if (endSample <= startSample)
                     return;
 
@@ -655,13 +661,22 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
 
         if (noteInfo.isMelody)
         {
-            createEventsForNote(noteInfo.midiValue);
+            createEventsForNote(noteInfo.midiValue, noteInfo.startTime, noteInfo.duration);
         }
         else
         {
-            for (int chordNoteMidi : noteInfo.chordMidiValues)
+            const size_t chordSize = noteInfo.chordMidiValues.size();
+            for (size_t slot = 0; slot < chordSize; ++slot)
             {
-                createEventsForNote(chordNoteMidi);
+                double noteStartBeats = noteInfo.startTime;
+                if (slot < noteInfo.chordNoteOffsets.size())
+                    noteStartBeats += noteInfo.chordNoteOffsets[slot];
+
+                double noteDurationBeats = noteInfo.duration;
+                if (slot < noteInfo.chordNoteDurations.size())
+                    noteDurationBeats = noteInfo.chordNoteDurations[slot];
+
+                createEventsForNote(noteInfo.chordMidiValues[slot], noteStartBeats, noteDurationBeats);
             }
         }
     }
