@@ -13,7 +13,7 @@ import importlib.util
 MAPEO_GENERO_BPM = {
     "jazz": (80, 120, 100),
     "lofi": (70, 90, 80),
-    "r&b": (60, 110, 90), # Amplio, 90 como punto medio
+    "rnb": (60, 110, 90), # Amplio, 90 como punto medio
     "vals": (84, 180, 120),
     "pop": (100, 130, 115),
     "techno": (125, 140, 130),

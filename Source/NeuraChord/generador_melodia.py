@@ -43,12 +43,12 @@ PERFILES_GENERO = {
         "prob_nota_especial": 0.15, # Disonancias suaves (ej. 7ª mayor sobre acorde menor)
         "notas_especiales": [11], # Usar 7ª mayor (11 semitonos) a veces
     },
-    "r&b": {
+    "rnb": {
         "tecnicas_preferidas": [("motivo", 0.9), ("arpegio", 0.1)],
         "prob_variacion_A": 0.7,
         "estructura_frase": "pregunta_respuesta",
         "densidad_notas": 0.6,
-        # Ritmo R&B: Sincopado, swing, notas largas + rápidas
+        # Ritmo rnb: Sincopado, swing, notas largas + rápidas
         "complejidad_ritmica": [3, 1, 0, 4, 1, 1, 2, 0, 4], # Tresillo implícito (3) + síncopas
         "complejidad_motivo": 3,
         "max_repeticion_nota": 2,
@@ -867,7 +867,7 @@ if __name__ == "__main__":
 
     print("\n--- Prueba de generación por GÉNERO (Estructura A-B-A') ---")
     
-    for genero_actual in ["pop", "lofi", "reggaeton", "r&b", "techno"]:
+    for genero_actual in ["pop", "lofi", "reggaeton", "rnb", "techno"]:
         print(f"\n--- Generando melodía para: {genero_actual.upper()} ---")
         melodia_resultado = generar_melodia_sobre_acordes(
             acordes_test,

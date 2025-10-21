@@ -23,11 +23,11 @@ MAPEO_ERRORES_GENERO = {
     "jass": "jazz",
     "jas": "jazz",
     "jaz": "jazz",
-    # R&B
-    "r&b": "r&b",
-    "rnb": "r&b",
-    "rhythm and blues": "r&b",
-    "r and b": "r&b",
+    # RnB
+    "rnb": "rnb",
+    "r&b": "rnb",
+    "rhythm and blues": "rnb",
+    "r and b": "rnb",
     # Vals
     "vals": "vals",
     "valz": "vals", 
@@ -50,7 +50,7 @@ MAPEO_ERRORES_GENERO = {
 # Lista de los nombres canónicos de los géneros que el sistema soporta
 # Debes asegurarte de que existan los archivos base_<genero>.py para estos
 # y que el autoentrenador los pueda procesar.
-GENEROS_SOPORTADOS = ["reggaeton", "lofi", "jazz", "r&b", "vals", "pop", "techno"]
+GENEROS_SOPORTADOS = ["reggaeton", "lofi", "jazz", "rnb", "vals", "pop", "techno"]
 
 def normalizar_texto_simple(texto):
     """

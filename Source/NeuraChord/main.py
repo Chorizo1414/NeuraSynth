@@ -57,6 +57,9 @@ COLOR_DIALOGO_FG = "#E0E0E0"
 COLOR_DIALOGO_LISTA_BG = "#303030"
 COLOR_DIALOGO_ERROR_FG = "#FF6B6B"
 
+TEXTO_ACORDES_SIN_GENERAR = "🧾 Acordes: (aún no generados)"
+TEXTO_RITMO_SIN_USO = "Ritmo Usado: N/A"
+
 # --- Variables Globales ---
 bpm_actual = 100 # Valor inicial, se actualizará
 ultima_raiz = None
@@ -71,6 +74,7 @@ botones_instrumento_acordes = []
 boton_instr_acordes_seleccionado = None
 botones_instrumento_melodia = []
 boton_instr_melodia_seleccionado = None
+boton_generar_melodia_widget = None
 transposicion_actual_st = 0
 label_transposicion_var = None
 feedback_status_label = None
@@ -377,7 +381,7 @@ def mostrar_progresion_en_salida(acordes_a_mostrar, texto_informativo, ritmo_par
                     ac_display_strings.append(str(ac_item))
             label_acordes_generados_var.set("🧾 Acordes: " + " - ".join(ac_display_strings))
         else:
-            label_acordes_generados_var.set("🧾 Acordes: (vacío o no generados)")
+            label_acordes_generados_var.set(TEXTO_ACORDES_SIN_GENERAR)
 
     ritmo_final_para_display = ritmo_para_piano_roll if ritmo_para_piano_roll is not None else []
 
@@ -389,7 +393,7 @@ def mostrar_progresion_en_salida(acordes_a_mostrar, texto_informativo, ritmo_par
             ritmo_texto_visible = (ritmo_texto_completo[:max_len_ritmo_texto - 3] + "...") if len(ritmo_texto_completo) > max_len_ritmo_texto else ritmo_texto_completo
             ritmo_seleccionado_label_var.set(f"Ritmo Usado: {ritmo_texto_visible}")
         else:
-            ritmo_seleccionado_label_var.set("Ritmo Usado: N/A")
+            ritmo_seleccionado_label_var.set(TEXTO_RITMO_SIN_USO)
 
     if frame_piano_roll_display:
         if current_piano_roll_instance:
@@ -532,36 +536,62 @@ def accion_generar_desde_prompt(usar_markov_override=False):
     if ventana_principal:
         ventana_principal.focus_set()
 
+def _hay_eventos_musicales(eventos):
+    if not eventos:
+        return False
+    for evento in eventos:
+        if isinstance(evento, (list, tuple)):
+            if any(str(nota).strip() not in ("", "0", "N/A") for nota in evento):
+                return True
+        elif isinstance(evento, str):
+            if evento and evento not in ("0", "N/A") and not evento.startswith("SN_"):
+                return True
+    return False
 
 def accion_generar_melodia():
     global bpm_actual, bpm_control_var, label_bpm_var
     global ultima_melodia_generada_path, label_ruta_guardado_var
     global historial_progresiones, futuro_progresiones, current_piano_roll_instance, _feedback_after_id, ritmo_actual_progresion
+    global ultima_raiz, ultimo_modo, ultimo_estilo_generado
 
-    # El BPM ya debería estar actualizado por accion_generar_desde_prompt
-    # o por el usuario. Si se quiere re-evaluar BPM por género aquí, se podría.
-    # Por ahora, se usa el bpm_actual que ya existe.
-    if bpm_control_var: # Asegurar que la UI refleje el bpm_actual
+    if bpm_control_var:
         if bpm_actual != bpm_control_var.get():
-             bpm_control_var.set(bpm_actual)
+            bpm_control_var.set(bpm_actual)
         if label_bpm_var:
-             label_bpm_var.set(f"BPM: {bpm_actual}")
+            label_bpm_var.set(f"BPM: {bpm_actual}")
+    
+    prompt_usuario_original = entrada_prompt_texto.get() if entrada_prompt_texto else ""
+    prompt_usuario = prompt_usuario_original.strip()
 
+    usar_historial_para_melodia = False
+    raiz_prog_mel = modo_prog_mel = estilo_prog_mel = None
+    acordes_hist_mel = []
+    ritmo_hist_mel = []
 
     if historial_progresiones:
         raiz_prog_mel, modo_prog_mel, estilo_prog_mel, acordes_hist_mel, ritmo_hist_mel, _ = historial_progresiones[-1]
+        if _hay_eventos_musicales(acordes_hist_mel):
+            usar_historial_para_melodia = True
+        else:
+            historial_progresiones.pop()
+            futuro_progresiones.clear()
+            acordes_hist_mel = []
+            ritmo_hist_mel = []
+            raiz_prog_mel = modo_prog_mel = estilo_prog_mel = None
 
+    if usar_historial_para_melodia:
         raiz_para_gen_mel = raiz_prog_mel if raiz_prog_mel else ultima_raiz
         modo_para_gen_mel = modo_prog_mel if modo_prog_mel else ultimo_modo
         if not raiz_para_gen_mel or not modo_para_gen_mel:
             raiz_para_gen_mel, modo_para_gen_mel = "C", "major"
+            genero_para_mel = estilo_prog_mel if estilo_prog_mel else (ultimo_estilo_generado if ultimo_estilo_generado else "default")
 
         melodia_generada_notas_durs, acordes_actualizados, ritmo_actualizado = generar_melodia_sobre_acordes(
             acordes_hist_mel,
             ritmo_hist_mel,
             raiz_para_gen_mel,
             modo_para_gen_mel,
-            genero=estilo_prog_mel if estilo_prog_mel else "default",
+            genero=genero_para_mel,
             bpm=bpm_actual,
             devolver_contexto=True,
         )
@@ -595,7 +625,6 @@ def accion_generar_melodia():
                 label_ruta_guardado_var.set("📁 Falló exportación de melodía")
         return
 
-    prompt_usuario = entrada_prompt_texto.get() if entrada_prompt_texto else ""
     if not prompt_usuario:
         if feedback_status_label_var and feedback_status_label:
             feedback_status_label_var.set("Escribe un prompt para generar la melodía.")
@@ -607,10 +636,10 @@ def accion_generar_melodia():
             messagebox.showinfo("Melodía", "Escribe un prompt con género o tonalidad para generar una melodía.")
         return
 
-    parametros_prompt, genero_valido = analizar_prompt_para_parametros(prompt_usuario)
+    parametros_prompt, genero_valido = analizar_prompt_para_parametros(prompt_usuario_original)
     if not genero_valido:
         mensaje_error = (
-            f"No encontré un género válido en el prompt '{prompt_usuario}'. "
+            f"No encontré un género válido en el prompt '{prompt_usuario_original}'. "
             "Especifica un género entrenado (ej. pop, lofi, reggaeton)."
         )
         if feedback_status_label_var and feedback_status_label:
@@ -630,7 +659,7 @@ def accion_generar_melodia():
     ultimo_estilo_generado = parametros_prompt["estilo"]
 
     acordes_desde_prompt = extraer_progresion_de_prompt(
-        prompt_usuario,
+        prompt_usuario_original,
         parametros_prompt["raiz"],
         parametros_prompt["modo"],
     )
@@ -683,6 +712,45 @@ def accion_generar_melodia():
         if label_ruta_guardado_var:
             label_ruta_guardado_var.set("📁 Falló exportación de melodía")
 
+def accion_limpiar_generacion():
+    global historial_progresiones, futuro_progresiones, ritmo_actual_progresion
+    global current_piano_roll_instance, ultima_melodia_generada_path, ultimo_midi_acordes_path
+    global label_acordes_generados_var, ritmo_seleccionado_label_var, label_ruta_guardado_var
+    global feedback_status_label, feedback_status_label_var, _feedback_after_id
+    global transposicion_actual_st
+
+    detener_reproduccion_actual()
+
+    historial_progresiones.clear()
+    futuro_progresiones.clear()
+    ritmo_actual_progresion = []
+    ultima_melodia_generada_path = None
+    ultimo_midi_acordes_path = None
+
+    if current_piano_roll_instance:
+        try:
+            current_piano_roll_instance.actualizar_datos([], [], [])
+        except Exception as e_clear:
+            print(f"Advertencia: No se pudo limpiar el piano roll: {e_clear}")
+
+    if label_acordes_generados_var:
+        label_acordes_generados_var.set(TEXTO_ACORDES_SIN_GENERAR)
+    if ritmo_seleccionado_label_var:
+        ritmo_seleccionado_label_var.set(TEXTO_RITMO_SIN_USO)
+    if label_ruta_guardado_var:
+        label_ruta_guardado_var.set("🧹 Lienzo limpio. Genera acordes o melodía.")
+
+    transposicion_actual_st = 0
+    actualizar_display_transposicion()
+
+    if feedback_status_label and feedback_status_label_var:
+        if _feedback_after_id:
+            feedback_status_label.after_cancel(_feedback_after_id)
+        feedback_status_label_var.set("Lienzo reiniciado.")
+        feedback_status_label.config(fg=COLOR_FG_TEXT_SECUNDARIO)
+        _feedback_after_id = feedback_status_label.after(2000, lambda: feedback_status_label_var.set(""))
+
+    print("INFO: Estado de generación limpiado manualmente.")
 
 def accion_nuevo_patron_ritmico():
     global ritmo_actual_progresion, historial_progresiones, futuro_progresiones, label_ruta_guardado_var
@@ -804,7 +872,7 @@ def accion_deshacer(event=None):
         mostrar_progresion_en_salida([], "↩ Deshacer. Lienzo vacío.", [], [])
         if label_ruta_guardado_var: label_ruta_guardado_var.set("📁 (Lienzo vacío)")
         if label_acordes_generados_var: label_acordes_generados_var.set("🧾 Acordes: (vacío)")
-        if ritmo_seleccionado_label_var: ritmo_seleccionado_label_var.set("Ritmo Usado: N/A")
+        if ritmo_seleccionado_label_var: ritmo_seleccionado_label_var.set(TEXTO_RITMO_SIN_USO)
 
     else:
         if feedback_status_label and feedback_status_label_var:
@@ -1443,7 +1511,7 @@ def configurar_ventana_principal():
     global ritmo_seleccionado_label_var, label_acordes_generados_var, label_ruta_guardado_var
     global background_label, photo_image, current_piano_roll_instance
     global botones_instrumento_acordes, boton_instr_acordes_seleccionado
-    global botones_instrumento_melodia, boton_instr_melodia_seleccionado
+    global botones_instrumento_melodia, boton_instr_melodia_seleccionado, boton_generar_melodia_widget
     global label_transposicion_var
     global label_bpm_var, bpm_control_var, bpm_frame
     global feedback_status_label, feedback_status_label_var
@@ -1533,6 +1601,7 @@ def configurar_ventana_principal():
     estilos = {
         "crear_acordes": {**estilo_base_boton, "text": "🎼 Crear Acordes", "bg": COLOR_BOTON_ACCENTO_BG, "fg": COLOR_BOTON_ACCENTO_FG, "activebackground": COLOR_BOTON_ACCENTO_ACTIVE_BG, "width": 15},
         "generar_melodia_lado": {**estilo_base_boton, "text": "🎶 Generar Melodía", "bg": COLOR_BOTON_SECUNDARIO_BG, "fg": COLOR_BOTON_SECUNDARIO_FG, "activebackground": COLOR_BOTON_SECUNDARIO_ACTIVE_BG, "width": 15},
+        "limpiar_lienzo": {**estilo_base_boton, "text": "🧹 Limpiar Lienzo", "bg": COLOR_BOTON_CONTROL_BG, "fg": COLOR_BOTON_CONTROL_FG, "activebackground": COLOR_BOTON_CONTROL_ACTIVE_BG, "width": 15},
         "nuevo_ritmo": {**estilo_base_boton, "text": "🔁 Nuevo Ritmo", "bg": COLOR_BOTON_SECUNDARIO_BG, "fg": COLOR_BOTON_SECUNDARIO_FG, "activebackground": COLOR_BOTON_SECUNDARIO_ACTIVE_BG, "width": 15},
         "controles_edicion": {**estilo_base_boton, "bg": COLOR_BOTON_CONTROL_BG, "fg": COLOR_BOTON_CONTROL_FG, "activebackground": COLOR_BOTON_CONTROL_ACTIVE_BG, "width": 12},
         "exportar": {**estilo_base_boton, "text": "💾 Exportar MIDI", "bg": COLOR_BOTON_ACCENTO_BG, "fg": COLOR_BOTON_ACCENTO_FG, "activebackground": COLOR_BOTON_ACCENTO_ACTIVE_BG, "width": 15},
@@ -1575,7 +1644,9 @@ def configurar_ventana_principal():
     entrada_prompt_texto.bind('<Return>', accion_enter_en_prompt)
 
     tk.Button(frame_prompt, command=lambda: accion_generar_desde_prompt(usar_markov_override=False), **estilos["crear_acordes"]).pack(side="left", padx=(5, 2))
-    tk.Button(frame_prompt, command=accion_generar_melodia, **estilos["generar_melodia_lado"]).pack(side="left", padx=(2, 5))
+    boton_generar_melodia_widget = tk.Button(frame_prompt, command=accion_generar_melodia, **estilos["generar_melodia_lado"])
+    boton_generar_melodia_widget.pack(side="left", padx=(2, 2))
+    tk.Button(frame_prompt, command=accion_limpiar_generacion, **estilos["limpiar_lienzo"]).pack(side="left", padx=(2, 5))
 
     boton_like = tk.Button(frame_prompt, command=lambda: accion_feedback(True), **estilos["feedback_positivo"])
     boton_like.pack(side="left", padx=(5, 2), pady=2)
@@ -1645,7 +1716,7 @@ def configurar_ventana_principal():
 
     alternos_container = tk.Frame(frame_reproduccion_instrumentos_principal, bg=COLOR_BG_FRAMES)
 
-    ritmo_seleccionado_label_var = StringVar(master=ventana_principal, value="Ritmo Usado: N/A")
+    ritmo_seleccionado_label_var = StringVar(master=ventana_principal, value=TEXTO_RITMO_SIN_USO)
     frame_ritmo_display = tk.Frame(alternos_container, pady=0, padx=0, bg=COLOR_BG_FRAMES)
     frame_ritmo_display.pack(fill="x")
     frame_ritmo_display.bind("<Button-1>", quitar_foco_de_entradas_al_clic_fondo)
@@ -1659,7 +1730,7 @@ def configurar_ventana_principal():
     frame_info_salida.pack(fill="x")
     frame_info_salida.bind("<Button-1>", quitar_foco_de_entradas_al_clic_fondo)
 
-    label_acordes_generados_var = StringVar(master=ventana_principal, value="🧾 Acordes: (aún no generados)")
+    label_acordes_generados_var = StringVar(master=ventana_principal, value=TEXTO_ACORDES_SIN_GENERAR)
     label_acordes_widget = tk.Label(frame_info_salida, textvariable=label_acordes_generados_var, font=("Consolas", 9),
                                    anchor="w", justify=tk.LEFT, bg=COLOR_BG_FRAMES, fg=COLOR_FG_TEXT_PRINCIPAL)
     label_acordes_widget.pack(fill="x", padx=10)

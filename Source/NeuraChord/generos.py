@@ -14,8 +14,8 @@ except ImportError:
             return "lofi"
         if "jazz" in prompt_lower or "jass" in prompt_lower:
             return "jazz"
-        if "r&b" in prompt_lower or "rnb" in prompt_lower or "r and b" in prompt_lower:
-            return "r&b"
+        if "rnb" in prompt_lower or "r&b" in prompt_lower or "r and b" in prompt_lower:
+            return "rnb"
         if "vals" in prompt_lower or "waltz" in prompt_lower:
             return "vals"
         if "pop" in prompt_lower:

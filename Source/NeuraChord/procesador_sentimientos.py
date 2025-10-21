@@ -49,7 +49,7 @@ MAPEO_SENTIMIENTO_A_PARAMETROS = {
     "inocencia": {"modo": "major", "tonalidades": ["C"], "generos": ["pop"]},
     "brillantez": {"modo": "major", "tonalidades": ["C#", "B", "D#"], "generos": []},
     "festividad": {"modo": "major", "tonalidades": ["C#", "B", "D", "E"], "generos": ["reggaeton", "techno", "pop", "vals"]},
-    "romance": {"modo": "major", "tonalidades": ["D", "F", "A", "Eb"], "generos": ["r&b", "pop", "vals", "jazz"]},
+    "romance": {"modo": "major", "tonalidades": ["D", "F", "A", "Eb"], "generos": ["rnb", "pop", "vals", "jazz"]},
     "júbilo": {"modo": "major", "tonalidades": ["D", "G", "B"], "generos": ["pop", "vals"]},
     "energia": {"modo": "major", "tonalidades": ["D#", "E", "G#", "B"], "generos": ["techno", "reggaeton", "pop"]},
     "extasis": {"modo": "major", "tonalidades": ["D#", "E"], "generos": ["techno", "pop"]},
@@ -63,13 +63,13 @@ MAPEO_SENTIMIENTO_A_PARAMETROS = {
     "esperanza": {"modo": "major", "tonalidades": ["G", "C", "D"], "generos": ["pop"]},
     "patriotismo": {"modo": "major", "tonalidades": ["G", "C", "F"], "generos": []},
     "belleza": {"modo": "major", "tonalidades": ["A", "E", "F#"], "generos": []},
-    "amor": {"modo": "major", "tonalidades": ["A", "D", "E", "F"], "generos": ["pop", "r&b", "vals"]},
+    "amor": {"modo": "major", "tonalidades": ["A", "D", "E", "F"], "generos": ["pop", "rnb", "vals"]},
     "majestuosidad": {"modo": "major", "tonalidades": ["A#", "D#", "F"], "generos": []},
     "asombro": {"modo": "major", "tonalidades": ["A#", "E"], "generos": []},
     "celebracion": {"modo": "major", "tonalidades": ["B", "C#", "D", "G"], "generos": ["reggaeton", "pop", "techno"]},
-    "sensualidad": {"modo": "major", "tonalidades": ["D", "F#", "A", "C#"], "generos": ["r&b", "reggaeton", "jazz", "lofi"]},
+    "sensualidad": {"modo": "major", "tonalidades": ["D", "F#", "A", "C#"], "generos": ["rnb", "reggaeton", "jazz", "lofi"]},
 
-    "tristeza": {"modo": "minor", "tonalidades": ["C", "D", "A", "E", "G"], "generos": ["lofi", "pop", "vals", "r&b", "jazz"]},
+    "tristeza": {"modo": "minor", "tonalidades": ["C", "D", "A", "E", "G"], "generos": ["lofi", "pop", "vals", "rnb", "jazz"]},
     "tristeza profunda": {"modo": "minor", "tonalidades": ["C", "D#", "Fm"], "generos": ["vals", "lofi"]},
     "lamento": {"modo": "minor", "tonalidades": ["C", "Fm"], "generos": []},
     "misterio": {"modo": "minor", "tonalidades": ["C#", "F#m"], "generos": []},
@@ -78,9 +78,9 @@ MAPEO_SENTIMIENTO_A_PARAMETROS = {
     "nostalgia": {"modo": "minor", "tonalidades": ["D", "A", "Am"], "generos": ["jazz", "lofi", "vals", "pop"]},
     "angustia": {"modo": "minor", "tonalidades": ["D#", "G#m"], "generos": []},
     "desesperacion": {"modo": "minor", "tonalidades": ["D#", "Cm"], "generos": []},
-    "dolor emocional": {"modo": "minor", "tonalidades": ["E", "Am", "Bm"], "generos": ["lofi", "pop", "r&b"]},
-    "vulnerabilidad": {"modo": "minor", "tonalidades": ["E", "Am"], "generos": ["r&b", "lofi", "pop"]},
-    "pasion": {"modo": "minor", "tonalidades": ["F", "Cm", "Dm"], "generos": ["r&b", "vals", "reggaeton"]},
+    "dolor emocional": {"modo": "minor", "tonalidades": ["E", "Am", "Bm"], "generos": ["lofi", "pop", "rnb"]},
+    "vulnerabilidad": {"modo": "minor", "tonalidades": ["E", "Am"], "generos": ["rnb", "lofi", "pop"]},
+    "pasion": {"modo": "minor", "tonalidades": ["F", "Cm", "Dm"], "generos": ["rnb", "vals", "reggaeton"]},
     "trascendencia": {"modo": "minor", "tonalidades": ["F#", "Bm"], "generos": []},
     "espiritualidad": {"modo": "minor", "tonalidades": ["F#", "Am"], "generos": []},
     "rebeldia": {"modo": "minor", "tonalidades": ["G", "Em"], "generos": []},
@@ -99,8 +99,8 @@ MAPEO_SENTIMIENTO_A_PARAMETROS = {
     "reflexion existencial": {"modo": "minor", "tonalidades": ["E", "A#", "Dm"], "generos": ["lofi"]},
     "hipnosis": {"modo": "minor", "tonalidades": ["G", "Am"], "generos": ["techno"]},
     "industrial": {"modo": "minor", "tonalidades": ["G", "C#", "D#m"], "generos": ["techno"]},
-    "seduccion": {"modo": "major", "tonalidades": ["D","A", "F#", "Eb"], "generos": ["r&b", "jazz"]},
-    "desamor": {"modo": "minor", "tonalidades": ["E","D", "A", "Cm"], "generos": ["r&b", "pop", "vals"]},
+    "seduccion": {"modo": "major", "tonalidades": ["D","A", "F#", "Eb"], "generos": ["rnb", "jazz"]},
+    "desamor": {"modo": "minor", "tonalidades": ["E","D", "A", "Cm"], "generos": ["rnb", "pop", "vals"]},
     "entusiasmo": {"modo": "major", "tonalidades": ["C","G","D", "E", "B"], "generos": ["pop", "reggaeton"]},
     "drama": {"modo": "minor", "tonalidades": ["F", "D", "C", "Gm"], "generos": ["vals"]},
     "melancolia bittersweet": {"modo": "minor", "tonalidades": ["D", "A", "E", "Am"], "generos": ["pop", "lofi"]},
@@ -113,7 +113,7 @@ MAPEO_SENTIMIENTO_A_PARAMETROS = {
 MAPEO_GENERO_SENTIMIENTO_MODO = {
     "jazz": {"melancolia": "minor", "nostalgia": "minor", "blues": "minor", "glamour": "major", "sofisticacion": "major", "alegria": "major", "calma": "major", "romance": "major", "sensualidad": "major"},
     "lofi": {"calma": "major", "relajacion": "major", "soledad": "minor", "reflexion": "minor", "melancolia": "minor", "tristeza": "minor", "añoranza": "minor", "dolor emocional": "minor", "vulnerabilidad": "minor"},
-    "r&b": {"romance": "major", "pasion": "major", "seduccion": "major", "vulnerabilidad": "minor", "desamor": "minor", "tristeza": "minor", "dolor emocional": "minor", "amor": "major"},
+    "rnb": {"romance": "major", "pasion": "major", "seduccion": "major", "vulnerabilidad": "minor", "desamor": "minor", "tristeza": "minor", "dolor emocional": "minor", "amor": "major"},
     "techno": {"euforia": "major", "energia": "major", "tension": "minor", "hipnosis": "minor", "industrial": "minor", "oscuro": "minor", "ira": "minor"},
     "reggaeton": {"festividad": "major", "diversion": "major", "sensualidad": "major", "rabia": "minor", "frustracion": "minor", "rabia callejera": "minor", "oscuro": "minor", "energia": "major", "alegria": "major"},
     "pop": {"alegria": "major", "entusiasmo": "major", "amor": "major", "melancolia": "minor", "tristeza": "minor", "desamor": "minor", "añoranza": "minor", "diversion": "major", "energia": "major"},
@@ -238,12 +238,12 @@ if __name__ == '__main__':
         "jazz melancolico en Re menor",
         "Quiero algo triste",
         "Reggaeton triste",
-        "r&b romántico",
-        "r&b romantico",
+        "rnb romántico",
+        "rnb romantico",
         "feliz",
         "pasion"
     ]
-    generos_entrenados_test = {"pop", "jazz", "reggaeton", "lofi", "techno", "vals", "r&b"}
+    generos_entrenados_test = {"pop", "jazz", "reggaeton", "lofi", "techno", "vals", "rnb"}
 
     from generos import detectar_estilo as detectar_estilo_generos
     from generador_acordes import extraer_tonalidad as extraer_tonalidad_acordes
