@@ -19,6 +19,8 @@ public:
     juce::StringArray getAvailableGenres();
     juce::String exportChords(const py::dict& musicData, int bpm);
     juce::String exportMelody(const py::dict& musicData, int bpm);
+    juce::File getLastExportedChordsFile() const;
+    juce::File getLastExportedMelodyFile() const;
     py::dict transposeMusic(const py::dict& musicData, int semitones);
     void like();
     void dislike();
@@ -34,4 +36,6 @@ public:
 
 private:
     py::module neuraChordApi;
+    juce::File lastExportedChordsFile;
+    juce::File lastExportedMelodyFile;
 };

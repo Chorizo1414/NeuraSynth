@@ -182,6 +182,7 @@ juce::String PythonManager::exportChords(const py::dict& musicData, int bpm)
     try
     {
         py::gil_scoped_acquire acquire;
+        lastExportedChordsFile = juce::File();
         // Ahora usamos el BPM que viene como argumento
         py::object detalles;
         if (musicData.contains("acordes_detallados"))
@@ -209,14 +210,21 @@ juce::String PythonManager::exportChords(const py::dict& musicData, int bpm)
         if (result.contains("error") && !result["error"].cast<std::string>().empty())
             return "Error en Python: " + juce::String(result["error"].cast<std::string>());
 
-        return "Acordes exportados a: " + juce::String(result["ruta"].cast<std::string>());
+        auto ruta = result.contains("ruta") ? result["ruta"].cast<std::string>() : std::string();
+        if (!ruta.empty())
+            lastExportedChordsFile = juce::File(ruta);
+
+        return ruta.empty() ? juce::String("Acordes exportados.")
+            : juce::String("Acordes exportados a: ") + ruta;
     }
     catch (const py::type_error& e)
     {
+        lastExportedChordsFile = juce::File();
         return juce::String("Error de tipo al exportar acordes: ") + e.what();
     }
     catch (const py::error_already_set& e)
     {
+        lastExportedChordsFile = juce::File();
         return juce::String("Error de Python al exportar acordes: ") + e.what();
     }
 }
@@ -229,6 +237,7 @@ juce::String PythonManager::exportMelody(const py::dict& musicData, int bpm)
     try
     {
         py::gil_scoped_acquire acquire;
+        lastExportedMelodyFile = juce::File();
         // Ahora usamos el BPM que viene como argumento
         py::object resultObj = neuraChordApi.attr("exportar_melodia_midi")(
             musicData["melodia"], bpm);
@@ -244,16 +253,33 @@ juce::String PythonManager::exportMelody(const py::dict& musicData, int bpm)
         if (result.contains("error") && !result["error"].cast<std::string>().empty())
             return "Error en Python: " + juce::String(result["error"].cast<std::string>());
 
-        return "Melodia exportada a: " + juce::String(result["ruta"].cast<std::string>());
+        auto ruta = result.contains("ruta") ? result["ruta"].cast<std::string>() : std::string();
+        if (!ruta.empty())
+            lastExportedMelodyFile = juce::File(ruta);
+
+        return ruta.empty() ? juce::String("Melodia exportada.")
+            : juce::String("Melodia exportada a: ") + ruta;
     }
     catch (const py::type_error& e)
     {
+        lastExportedMelodyFile = juce::File();
         return juce::String("Error de tipo al exportar melodia: ") + e.what();
     }
     catch (const py::error_already_set& e)
     {
+        lastExportedMelodyFile = juce::File();
         return juce::String("Error de Python al exportar melodia: ") + e.what();
     }
+}
+
+juce::File PythonManager::getLastExportedChordsFile() const
+{
+    return lastExportedChordsFile;
+}
+
+juce::File PythonManager::getLastExportedMelodyFile() const
+{
+    return lastExportedMelodyFile;
 }
 
 py::dict PythonManager::transposeMusic(const py::dict& musicData, int semitones)

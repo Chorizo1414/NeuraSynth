@@ -2,12 +2,14 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <memory>
+#include <functional>
 #include "PythonManager.h"
 #include "PianoRollComponent.h" // Incluimos nuestro nuevo componente
 
 class NeuraSynthAudioProcessor;
 
-class ChordMelodyTabComponent : public juce::Component, private juce::MultiTimer
+class ChordMelodyTabComponent : public juce::Component, public juce::DragAndDropContainer, private juce::MultiTimer
 {
 public:
     ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor);
@@ -44,6 +46,10 @@ private:
     int getSelectedChordLimit() const;
     bool hasUsableChordContent(const py::dict& data) const;
     void applyMusicResult(py::dict data, bool pushHistory);
+    juce::File exportChordsToFile(bool showDialog, bool notifyOnFailure);
+    juce::File exportMelodyToFile(bool showDialog, bool notifyOnFailure);
+    juce::File prepareChordMidiFileForDrag();
+    juce::File prepareMelodyMidiFileForDrag();
 
     NeuraSynthAudioProcessor& audioProcessor;
 
@@ -82,6 +88,8 @@ private:
     juce::TextButton stopButton;
     juce::TextButton exportChordsButton;
     juce::TextButton exportMelodyButton;
+    std::unique_ptr<MidiDragHandle> chordsDragHandle;
+    std::unique_ptr<MidiDragHandle> melodyDragHandle;
 
     juce::TextButton* activePlaybackButton = nullptr;
 

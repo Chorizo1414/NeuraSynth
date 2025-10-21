@@ -43,6 +43,176 @@ namespace
     {
         return juce::String::fromUTF8(text.c_str());
     }
+
+    class MidiDragHandle : public juce::Component
+    {
+    public:
+        MidiDragHandle(juce::DragAndDropContainer& containerRef,
+            const juce::String& labelText,
+            std::function<juce::File()> prepareFn)
+            : container(containerRef)
+            , text(labelText)
+            , prepareFileCallback(std::move(prepareFn))
+        {
+            setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+            setRepaintsOnMouseActivity(true);
+        }
+
+        void setText(const juce::String& newText)
+        {
+            if (text == newText)
+                return;
+
+            text = newText;
+            repaint();
+        }
+
+        juce::String getText() const
+        {
+            return text;
+        }
+
+        void paint(juce::Graphics& g) override
+        {
+            auto area = getLocalBounds().toFloat();
+            const float cornerRadius = 6.0f;
+
+            juce::Colour fill = buttonBaseColour;
+            if (!isEnabled())
+                fill = fill.withMultipliedAlpha(0.35f);
+            else if (isMouseDown || dragStarted)
+                fill = buttonDownColour;
+            else if (isHover)
+                fill = buttonBaseColour.brighter(0.25f);
+
+            g.setColour(fill);
+            g.fillRoundedRectangle(area, cornerRadius);
+
+            g.setColour(panelOutlineColour.withAlpha(isEnabled() ? 0.45f : 0.2f));
+            g.drawRoundedRectangle(area, cornerRadius, 1.0f);
+
+            auto textColour = isEnabled() ? mainTextColour : mainTextColour.withMultipliedAlpha(0.4f);
+            g.setColour(textColour);
+            g.setFont(juce::Font(14.0f, juce::Font::bold));
+            g.drawFittedText(text, getLocalBounds().reduced(10, 0), juce::Justification::centred, 2);
+
+            auto iconArea = getLocalBounds().reduced(12, 8).removeFromLeft(24).toFloat();
+            juce::Path arrows;
+            const float centreX = iconArea.getCentreX();
+            const float centreY = iconArea.getCentreY();
+            const float arrowLength = juce::jmin(iconArea.getWidth(), iconArea.getHeight()) * 0.45f;
+            const float arrowHead = arrowLength * 0.45f;
+
+            auto drawArrow = [&](float dx, float dy)
+                {
+                    juce::Path p;
+                    juce::Point<float> start(centreX - dx * arrowLength, centreY - dy * arrowLength);
+                    juce::Point<float> end(centreX + dx * arrowLength, centreY + dy * arrowLength);
+                    p.startNewSubPath(start);
+                    p.lineTo(end);
+
+                    juce::Point<float> head1 = end - juce::Point<float>(dx * arrowHead - dy * arrowHead, dy * arrowHead + dx * arrowHead);
+                    juce::Point<float> head2 = end - juce::Point<float>(dx * arrowHead + dy * arrowHead, dy * arrowHead - dx * arrowHead);
+                    p.startNewSubPath(end);
+                    p.lineTo(head1);
+                    p.startNewSubPath(end);
+                    p.lineTo(head2);
+                    arrows.addPath(p);
+                };
+
+            drawArrow(1.0f, 0.0f);
+            drawArrow(-1.0f, 0.0f);
+            drawArrow(0.0f, 1.0f);
+            drawArrow(0.0f, -1.0f);
+
+            g.setColour(textColour.withMultipliedAlpha(0.7f));
+            g.strokePath(arrows, juce::PathStrokeType(1.3f));
+        }
+
+        void mouseEnter(const juce::MouseEvent&) override
+        {
+            if (!isEnabled())
+                return;
+
+            isHover = true;
+            repaint();
+        }
+
+        void mouseExit(const juce::MouseEvent&) override
+        {
+            isHover = false;
+            isMouseDown = false;
+            repaint();
+        }
+
+        void mouseDown(const juce::MouseEvent&) override
+        {
+            if (!isEnabled())
+                return;
+
+            isMouseDown = true;
+            dragStarted = false;
+            repaint();
+        }
+
+        void mouseUp(const juce::MouseEvent&) override
+        {
+            isMouseDown = false;
+            dragStarted = false;
+            repaint();
+        }
+
+        void mouseDrag(const juce::MouseEvent& event) override
+        {
+            if (!isEnabled() || dragStarted || !isMouseDown)
+                return;
+
+            if (event.getDistanceFromDragStart() < getLookAndFeel().getMouseDragDistanceForPopupMenu())
+    return;
+                return;
+
+            dragStarted = true;
+            isMouseDown = false;
+            repaint();
+            beginExternalDrag();
+        }
+
+        void setEnabled(bool shouldBeEnabled) override
+        {
+            juce::Component::setEnabled(shouldBeEnabled);
+            setMouseCursor(shouldBeEnabled ? juce::MouseCursor::DraggingHandCursor
+                : juce::MouseCursor::NormalCursor);
+            if (!shouldBeEnabled)
+            {
+                isHover = false;
+                isMouseDown = false;
+                dragStarted = false;
+            }
+            repaint();
+        }
+
+    private:
+        void beginExternalDrag()
+        {
+            if (!prepareFileCallback)
+                return;
+
+            juce::File file = prepareFileCallback();
+            if (!file.existsAsFile())
+                return;
+
+            juce::StringArray files;
+            files.add(file.getFullPathName());
+            container.performExternalDragDropOfFiles(files, false);
+        }
+
+        juce::DragAndDropContainer& container;
+        juce::String text;
+        std::function<juce::File()> prepareFileCallback;
+        bool isHover = false;
+        bool isMouseDown = false;
+        bool dragStarted = false;
+    };
 }
 
 ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor)
@@ -183,6 +353,18 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     exportMelodyButton.setButtonText("Exportar Melodia");
     exportMelodyButton.setEnabled(false);
     stylizeButton(exportMelodyButton);
+
+    chordsDragHandle = std::make_unique<MidiDragHandle>(*this,
+        juce::String::fromUTF8("Arrastrar Acordes"),
+        [this]() { return prepareChordMidiFileForDrag(); });
+    chordsDragHandle->setTooltip(juce::String::fromUTF8("Exporta y arrastra el MIDI de acordes."));
+    addAndMakeVisible(*chordsDragHandle);
+
+    melodyDragHandle = std::make_unique<MidiDragHandle>(*this,
+        juce::String::fromUTF8("Arrastrar Melodia"),
+        [this]() { return prepareMelodyMidiFileForDrag(); });
+    melodyDragHandle->setTooltip(juce::String::fromUTF8("Exporta y arrastra el MIDI de melodía."));
+    addAndMakeVisible(*melodyDragHandle);
 
     // === PIANO ROLL ===
     addAndMakeVisible(pianoRollComponent);
@@ -376,55 +558,16 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     exportChordsButton.onClick = [this]
         {
-            const auto& musicEntries = pianoRollComponent.getMusicData();
-            const bool hasChordNotes = std::any_of(musicEntries.begin(), musicEntries.end(), [](const NoteInfo& info)
-                {
-                    if (info.isMelody)
-                        return false;
-
-                    for (int midi : info.chordMidiValues)
-                        if (midi > 0)
-                            return true;
-
-                    return false;
-                });
-
-            if (!hasChordNotes)
-            {
-                showNotification(juce::String::fromUTF8("No hay acordes para exportar."));
-                return;
-            }
-
-            lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
-            sendEditedMusicToPython();
-
-            int currentBpm = (int)bpmSlider.getValue();
-            juce::String result = audioProcessor.pythonManager->exportChords(lastGeneratedChordsData, currentBpm);
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Acordes", result);
-            DBG(result);
+            auto file = exportChordsToFile(true, true);
+            if (file.existsAsFile())
+                DBG("Acordes exportados a " + file.getFullPathName());
         };
 
     exportMelodyButton.onClick = [this]
         {
-            const auto& musicEntries = pianoRollComponent.getMusicData();
-            const bool hasMelodyNotes = std::any_of(musicEntries.begin(), musicEntries.end(), [](const NoteInfo& info)
-                {
-                    return info.isMelody && info.midiValue > 0 && info.duration > 0.0;
-                });
-
-            if (!hasMelodyNotes)
-            {
-                showNotification(juce::String::fromUTF8("No hay melodías para exportar."));
-                return;
-            }
-
-            lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
-            sendEditedMusicToPython();
-
-            int currentBpm = (int)bpmSlider.getValue();
-            juce::String result = audioProcessor.pythonManager->exportMelody(lastGeneratedChordsData, currentBpm);
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Melodia", result);
-            DBG(result);
+            auto file = exportMelodyToFile(true, true);
+            if (file.existsAsFile())
+                DBG("Melodia exportada a " + file.getFullPathName());
         };
 
     updateUiForCurrentState();
@@ -549,10 +692,34 @@ void ChordMelodyTabComponent::resized()
     playMelodyButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 2));
     stopButton.setBounds(playbackRow.reduced(5, 2));
 
-    // Distribuimos los botones de Exportar
-    int exportButtonWidth = exportRow.getWidth() / 2;
-    exportChordsButton.setBounds(exportRow.removeFromLeft(exportButtonWidth).reduced(5, 2));
-    exportMelodyButton.setBounds(exportRow.reduced(5, 2));
+    // Distribuimos los controles de Exportar con botones más compactos y manijas de arrastre
+    auto chordsExportArea = exportRow.removeFromLeft(exportRow.getWidth() / 2);
+    auto melodyExportArea = exportRow;
+
+    auto layoutExportSection = [](juce::Rectangle<int> area, juce::Component& button, MidiDragHandle* dragHandle)
+        {
+            if (area.isEmpty())
+            {
+                button.setBounds({});
+                if (dragHandle)
+                    dragHandle->setBounds({});
+                return;
+            }
+
+            const int minWidth = 90;
+            const int maxWidth = 150;
+            int buttonWidth = juce::jmax(minWidth, juce::jmin(maxWidth, area.getWidth() / 3));
+            buttonWidth = juce::jmin(buttonWidth, area.getWidth());
+            auto buttonArea = area.removeFromLeft(buttonWidth);
+            button.setBounds(buttonArea.reduced(5, 2));
+
+            area.removeFromLeft(4);
+            if (dragHandle)
+                dragHandle->setBounds(area.reduced(5, 2));
+        };
+
+    layoutExportSection(chordsExportArea, exportChordsButton, chordsDragHandle ? chordsDragHandle.get() : nullptr);
+    layoutExportSection(melodyExportArea, exportMelodyButton, melodyDragHandle ? melodyDragHandle.get() : nullptr);
 
 
     // --- 2. ÁREA SUPERIOR: Prompt y todos los controles ---
@@ -936,9 +1103,100 @@ void ChordMelodyTabComponent::updateUiForCurrentState()
     generateMelodyButton.setEnabled(hasChordContent || promptAvailable);
     exportChordsButton.setEnabled(hasChordContent);
     exportMelodyButton.setEnabled(hasMelody);
+    if (chordsDragHandle)
+        chordsDragHandle->setEnabled(hasChordContent);
+    if (melodyDragHandle)
+        melodyDragHandle->setEnabled(hasMelody);
     transposeUpButton.setEnabled(hasData);
     transposeDownButton.setEnabled(hasData);
     clearCanvasButton.setEnabled(hasData || !pianoRollComponent.getNotes().isEmpty() || promptAvailable);
+}
+
+juce::File ChordMelodyTabComponent::exportChordsToFile(bool showDialog, bool notifyOnFailure)
+{
+    const auto& musicEntries = pianoRollComponent.getMusicData();
+    const bool hasChordNotes = std::any_of(musicEntries.begin(), musicEntries.end(), [](const NoteInfo& info)
+        {
+            if (info.isMelody)
+                return false;
+
+            for (int midi : info.chordMidiValues)
+                if (midi > 0)
+                    return true;
+
+            return false;
+        });
+
+    if (!hasChordNotes)
+    {
+        if (notifyOnFailure)
+            showNotification(juce::String::fromUTF8("No hay acordes para exportar."));
+        return {};
+    }
+
+    lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
+    sendEditedMusicToPython();
+
+    const int currentBpm = (int)bpmSlider.getValue();
+    juce::String result = audioProcessor.pythonManager->exportChords(lastGeneratedChordsData, currentBpm);
+
+    if (showDialog)
+        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Acordes", result);
+
+    auto exportedFile = audioProcessor.pythonManager->getLastExportedChordsFile();
+    if (!exportedFile.existsAsFile())
+    {
+        if (notifyOnFailure && !showDialog)
+            showNotification(result);
+        return {};
+    }
+
+    return exportedFile;
+}
+
+juce::File ChordMelodyTabComponent::exportMelodyToFile(bool showDialog, bool notifyOnFailure)
+{
+    const auto& musicEntries = pianoRollComponent.getMusicData();
+    const bool hasMelodyNotes = std::any_of(musicEntries.begin(), musicEntries.end(), [](const NoteInfo& info)
+        {
+            return info.isMelody && info.midiValue > 0 && info.duration > 0.0;
+        });
+
+    if (!hasMelodyNotes)
+    {
+        if (notifyOnFailure)
+            showNotification(juce::String::fromUTF8("No hay melodías para exportar."));
+        return {};
+    }
+
+    lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
+    sendEditedMusicToPython();
+
+    const int currentBpm = (int)bpmSlider.getValue();
+    juce::String result = audioProcessor.pythonManager->exportMelody(lastGeneratedChordsData, currentBpm);
+
+    if (showDialog)
+        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Melodia", result);
+
+    auto exportedFile = audioProcessor.pythonManager->getLastExportedMelodyFile();
+    if (!exportedFile.existsAsFile())
+    {
+        if (notifyOnFailure && !showDialog)
+            showNotification(result);
+        return {};
+    }
+
+    return exportedFile;
+}
+
+juce::File ChordMelodyTabComponent::prepareChordMidiFileForDrag()
+{
+    return exportChordsToFile(false, true);
+}
+
+juce::File ChordMelodyTabComponent::prepareMelodyMidiFileForDrag()
+{
+    return exportMelodyToFile(false, true);
 }
 
 py::dict ChordMelodyTabComponent::rebuildMusicDictFromPianoRoll()
