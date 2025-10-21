@@ -106,6 +106,27 @@ py::dict PythonManager::generateMelodyData(const py::list& chords, const py::lis
     return result;
 }
 
+py::dict PythonManager::generateMelodyFromPrompt(const juce::String& prompt, int numChords, int bpm)
+{
+    py::dict result;
+    if (!neuraChordApi) {
+        DBG("ERROR: Modulo neurachord_api no cargado.");
+        return result;
+    }
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        result = neuraChordApi.attr("generar_melodia_desde_prompt")(prompt.toStdString(), numChords, bpm);
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("Error de Python en generateMelodyFromPrompt: " << e.what());
+    }
+
+    return result;
+}
+
 juce::StringArray PythonManager::getAvailableGenres()
 {
     juce::StringArray genres;

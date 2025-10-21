@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <JuceHeader.h>
 #include <vector>
@@ -19,9 +19,11 @@ public:
     void timerCallback(int timerId) override;
 
 private:
+    void handlePlaybackFinished();
     void transpose(int semitones);
     bool prepareAndPlaySequence(bool includeChords, bool includeMelody);
     void resetPlaybackButtonStates();
+    void setActivePlaybackButton(juce::TextButton* newButton);
     void adjustBpmValue(int delta);
     void commitBpmEditorText();
     void updateBpmDisplayFromSlider();
@@ -33,7 +35,11 @@ private:
     void applyStateFromHistory(int newIndex);
     void updateUndoRedoButtonStates();
     py::dict deepCopyMusicDict(const py::dict& source);
-    void handlePlaybackFinished();
+    void clearGeneratedContent();
+    juce::String buildPromptForRequest() const;
+    int getSelectedChordLimit() const;
+    bool hasUsableChordContent(const py::dict& data) const;
+    void applyMusicResult(py::dict data, bool pushHistory);
 
     NeuraSynthAudioProcessor& audioProcessor;
 
@@ -48,7 +54,8 @@ private:
     juce::Label chordCountLabel;
 
     juce::TextButton generateChordsButton;
-    juce::TextButton generateMelodyButton; // Bot�n nuevo
+    juce::TextButton generateMelodyButton; // Botón nuevo
+    juce::TextButton clearCanvasButton;
 
     juce::TextButton transposeUpButton;
     juce::TextButton transposeDownButton;
@@ -99,6 +106,11 @@ private:
 
     // Almacenamos el resultado de la generacion de acordes
     py::dict lastGeneratedChordsData;
+
+    juce::String lastPromptText;
+    juce::String lastDetectedRoot;
+    juce::String lastDetectedMode;
+    juce::String lastDetectedStyle;
 
     struct MusicState
     {

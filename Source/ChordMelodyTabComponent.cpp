@@ -1,5 +1,6 @@
 #include "ChordMelodyTabComponent.h"
 #include "PluginProcessor.h"
+#include <utility>
 
 namespace
 {
@@ -80,6 +81,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     promptLabel.setText("Escribe tu prompt aqui (ej: 'C minor', 'triste en Am')", juce::dontSendNotification);
     addAndMakeVisible(promptEditor);
     promptEditor.setMultiLine(true);
+    promptEditor.onTextChange = [this]() { updateUiForCurrentState(); };
 
     // === MENU DE GENERO ===
     addAndMakeVisible(genreLabel);
@@ -137,6 +139,11 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     generateMelodyButton.setEnabled(false);
     stylizeButton(generateMelodyButton);
 
+    addAndMakeVisible(clearCanvasButton);
+    clearCanvasButton.setButtonText("Limpiar Lienzo");
+    stylizeButton(clearCanvasButton);
+    clearCanvasButton.setTooltip(juce::String::fromUTF8("Detiene la reproducción y borra acordes/melodías actuales."));
+
     addAndMakeVisible(transposeUpButton);
     transposeUpButton.setButtonText("+1 Semitono");
     transposeUpButton.setEnabled(false);
@@ -175,6 +182,11 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     generateChordsButton.onClick = [this]
         {
             generateChordsFromCurrentPrompt();
+        };
+
+    clearCanvasButton.onClick = [this]
+        {
+            clearGeneratedContent();
         };
 
     // Crear y configurar el botón "Me gusta"
@@ -231,35 +243,65 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     generateMelodyButton.onClick = [this]
         {
-            if (lastGeneratedChordsData.empty() || !lastGeneratedChordsData.contains("acordes"))
+            const bool hasChordData = hasUsableChordContent(lastGeneratedChordsData);
+            const int bpm = (int)bpmSlider.getValue();
+
+            if (hasChordData)
             {
-                DBG("Error: No hay acordes generados para crear una melodia.");
-                return;
+                DBG("Enviando datos a Python para generar melodia...");
+
+                py::list chords = lastGeneratedChordsData["acordes"];
+                py::list rhythm = lastGeneratedChordsData["ritmo"];
+
+                juce::String root = lastDetectedRoot.isNotEmpty() ? lastDetectedRoot : juce::String("C");
+                juce::String mode = lastDetectedMode.isNotEmpty() ? lastDetectedMode : juce::String("major");
+
+                if (lastGeneratedChordsData.contains("raiz"))
+                    root = utf8String(lastGeneratedChordsData["raiz"].cast<std::string>());
+                if (lastGeneratedChordsData.contains("modo"))
+                    mode = utf8String(lastGeneratedChordsData["modo"].cast<std::string>());
+
+                auto melodyData = audioProcessor.pythonManager->generateMelodyData(chords, rhythm, root, mode, bpm);
+
+                if (melodyData.empty() || (melodyData.contains("error") && !melodyData["error"].cast<std::string>().empty()))
+                {
+                    std::string errorMessage = melodyData.contains("error") ? melodyData["error"].cast<std::string>() : "Diccionario vacio";
+                    DBG("!!! Error al generar la melodia desde Python: " + utf8String(errorMessage));
+                    showNotification(juce::String::fromUTF8("No se pudo generar la melodía. Revisa la progresión."));
+                    return;
+                }
+
+                DBG("Melodia generada con exito!");
+                py::dict updatedData = deepCopyMusicDict(lastGeneratedChordsData);
+                updatedData["melodia"] = melodyData["melodia"];
+                applyMusicResult(std::move(updatedData), true);
             }
-
-            DBG("Enviando datos a Python para generar melodia...");
-
-            py::list chords = lastGeneratedChordsData["acordes"];
-            py::list rhythm = lastGeneratedChordsData["ritmo"];
-            std::string root = lastGeneratedChordsData["raiz"].cast<std::string>();
-            std::string mode = lastGeneratedChordsData["modo"].cast<std::string>();
-            int bpm = (int)bpmSlider.getValue();
-            auto melodyData = audioProcessor.pythonManager->generateMelodyData(chords, rhythm, root, mode, bpm);
-
-            if (melodyData.empty() || (melodyData.contains("error") && !melodyData["error"].cast<std::string>().empty()))
+            else
             {
-                std::string errorMessage = melodyData.contains("error") ? melodyData["error"].cast<std::string>() : "Diccionario vacio";
-                DBG("!!! Error al generar la melodia desde Python: " + utf8String(errorMessage));
-                return;
+                auto finalPrompt = buildPromptForRequest();
+                if (finalPrompt.isEmpty())
+                {
+                    showNotification(juce::String::fromUTF8("Escribe un prompt o genera acordes primero."));
+                    return;
+                }
+
+                lastPromptText = promptEditor.getText();
+                DBG("Generando melodía únicamente desde el prompt: " + finalPrompt);
+
+                const int chordLimit = getSelectedChordLimit();
+                auto melodyResult = audioProcessor.pythonManager->generateMelodyFromPrompt(finalPrompt, chordLimit, bpm);
+
+                if (melodyResult.empty() || (melodyResult.contains("error") && !melodyResult["error"].cast<std::string>().empty()))
+                {
+                    std::string errorMessage = melodyResult.contains("error") ? melodyResult["error"].cast<std::string>() : "Diccionario vacio";
+                    DBG("!!! Error al generar la melodia desde prompt: " + utf8String(errorMessage));
+                    showNotification(juce::String::fromUTF8("No se pudo generar la melodía desde el prompt."));
+                    return;
+                }
+
+                DBG("Melodia generada con exito desde el prompt!");
+                applyMusicResult(std::move(melodyResult), true);
             }
-
-            DBG("Melodia generada con exito!");
-
-            lastGeneratedChordsData["melodia"] = melodyData["melodia"];
-            pianoRollComponent.setMusicData(lastGeneratedChordsData);
-            updateUiForCurrentState();
-            pushStateToHistory(lastGeneratedChordsData);
-            repaint();
         };
 
     auto configurePlaybackButton = [this](juce::TextButton& targetButton, bool includeChords, bool includeMelody)
@@ -270,15 +312,13 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
                     if (audioProcessor.isPlayingSequence())
                     {
                         audioProcessor.stopPlayback();
-                        stopTimer(playbackMonitorTimerId);
+                        stopTimer(ChordMelodyTabComponent::playbackMonitorTimerId);
                         handlePlaybackFinished();
 
                     }
 
                     if (prepareAndPlaySequence(includeChords, includeMelody))
-                    {
-                        activePlaybackButton = buttonPtr;
-                    }
+                        setActivePlaybackButton(buttonPtr);
                 };
         };
 
@@ -289,7 +329,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     stopButton.onClick = [this]
         {
             audioProcessor.stopPlayback();
-            stopTimer(playbackMonitorTimerId);
+            stopTimer(ChordMelodyTabComponent::playbackMonitorTimerId);
             handlePlaybackFinished();
         };
 
@@ -466,6 +506,10 @@ void ChordMelodyTabComponent::resized()
     undoButton.setBounds(historyArea.removeFromLeft(historyArea.getWidth() / 2).reduced(2));
     redoButton.setBounds(historyArea.reduced(2));
 
+    rightColumn.removeFromTop(5);
+    auto clearAreaRight = rightColumn.removeFromTop(25);
+    clearCanvasButton.setBounds(clearAreaRight.reduced(2));
+
     // --- Lado Izquierdo: Prompt y Botones de Generación ---
     leftColumn.removeFromRight(10); // Espacio entre columnas
 
@@ -476,7 +520,9 @@ void ChordMelodyTabComponent::resized()
 
     // Los botones de generar van debajo del prompt
     auto generationArea = leftColumn;
-    generateChordsButton.setBounds(generationArea.removeFromLeft(generationArea.getWidth() / 2).reduced(5, 2));
+    const int generationButtonWidth = juce::jmax(1, generationArea.getWidth() / 2);
+    auto chordsArea = generationArea.removeFromLeft(generationButtonWidth);
+    generateChordsButton.setBounds(chordsArea.reduced(5, 2));
     generateMelodyButton.setBounds(generationArea.reduced(5, 2));
 
 
@@ -615,7 +661,7 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
 
     audioProcessor.startPlaybackWithSequence(midiSequence);
     pianoRollComponent.startPlayback(bpm);
-    startTimer(playbackMonitorTimerId, 30);
+    startTimer(ChordMelodyTabComponent::playbackMonitorTimerId, 30);
     return true;
 }
 
@@ -625,6 +671,28 @@ void ChordMelodyTabComponent::resetPlaybackButtonStates()
     playAllButton.setButtonText("Reproducir Todo");
     playChordsButton.setButtonText("Reproducir Acordes");
     playMelodyButton.setButtonText("Reproducir Melodia");
+}
+
+void ChordMelodyTabComponent::setActivePlaybackButton(juce::TextButton* newButton)
+{
+    if (activePlaybackButton == newButton && newButton != nullptr)
+        return;
+
+    resetPlaybackButtonStates();
+
+    if (newButton == nullptr)
+        return;
+
+    activePlaybackButton = newButton;
+
+    if (activePlaybackButton == &playAllButton)
+        activePlaybackButton->setButtonText("Reproduciendo Todo...");
+    else if (activePlaybackButton == &playChordsButton)
+        activePlaybackButton->setButtonText("Reproduciendo Acordes...");
+    else if (activePlaybackButton == &playMelodyButton)
+        activePlaybackButton->setButtonText("Reproduciendo Melodia...");
+    else
+        activePlaybackButton->setButtonText("Reproduciendo...");
 }
 
 void ChordMelodyTabComponent::setBpmValue(double newValue, juce::NotificationType notification)
@@ -639,21 +707,21 @@ void ChordMelodyTabComponent::showNotification(const juce::String& message)
 {
     notificationLabel.setText(message, juce::dontSendNotification);
     notificationLabel.setAlpha(1.0f); // Hacemos visible la etiqueta
-    startTimer(notificationTimerId, 2000); // Iniciamos un temporizador de 2 segundos (2000 ms)
+    startTimer(ChordMelodyTabComponent::notificationTimerId, 2000); // Iniciamos un temporizador de 2 segundos (2000 ms)
 }
 
 void ChordMelodyTabComponent::timerCallback(int timerId)
 {
-    if (timerId == notificationTimerId)
+    if (timerId == ChordMelodyTabComponent::notificationTimerId)
     {
         notificationLabel.setAlpha(0.0f); // Ocultamos la etiqueta
-        stopTimer(notificationTimerId); // Detenemos el temporizador
+        stopTimer(ChordMelodyTabComponent::notificationTimerId); // Detenemos el temporizador
     }
-    else if (timerId == playbackMonitorTimerId)
+    else if (timerId == ChordMelodyTabComponent::playbackMonitorTimerId)
     {
         if (!audioProcessor.isPlayingSequence())
         {
-            stopTimer(playbackMonitorTimerId);
+            stopTimer(ChordMelodyTabComponent::playbackMonitorTimerId);
             handlePlaybackFinished();
         }
     }
@@ -662,50 +730,37 @@ void ChordMelodyTabComponent::timerCallback(int timerId)
 void ChordMelodyTabComponent::handlePlaybackFinished()
 {
     pianoRollComponent.stopPlayback();
-    if (activePlaybackButton != nullptr)
-        resetPlaybackButtonStates();
+    setActivePlaybackButton(nullptr);
+    showNotification(juce::String::fromUTF8("Reproducción finalizada."));
 }
 
 void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
 {
-    juce::String userPrompt = promptEditor.getText();
-    if (userPrompt.isEmpty())
-        return;
-
-    juce::String selectedGenre = genreComboBox.getText();
-    juce::String finalPrompt = userPrompt;
-
-    if (genreComboBox.getSelectedId() != 1 && !userPrompt.containsIgnoreCase(selectedGenre))
+    auto finalPrompt = buildPromptForRequest();
+    if (finalPrompt.isEmpty())
     {
-        finalPrompt = selectedGenre + " " + userPrompt;
+        showNotification(juce::String::fromUTF8("Escribe un prompt para generar acordes."));
+        return;
     }
 
+    lastPromptText = promptEditor.getText();
     DBG("Prompt final enviado a Python: " + finalPrompt);
 
-    int chordLimit = -1;
-    switch (chordCountComboBox.getSelectedId())
-    {
-    case 2: chordLimit = 4; break;
-    case 3: chordLimit = 6; break;
-    case 4: chordLimit = 8; break;
-    default: break;
-    }
+    const int chordLimit = getSelectedChordLimit();
+    auto chordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt, chordLimit);
 
-    lastGeneratedChordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt, chordLimit);
-
-    if (lastGeneratedChordsData.empty() || (lastGeneratedChordsData.contains("error") && !lastGeneratedChordsData["error"].cast<std::string>().empty()))
+    if (chordsData.empty() || (chordsData.contains("error") && !chordsData["error"].cast<std::string>().empty()))
     {
-        std::string errorMessage = lastGeneratedChordsData.contains("error") ? lastGeneratedChordsData["error"].cast<std::string>() : "Diccionario vacio";
+        std::string errorMessage = chordsData.contains("error") ? chordsData["error"].cast<std::string>() : "Diccionario vacio";
         DBG("!!! Error desde Python: " + utf8String(errorMessage));
+        showNotification(juce::String::fromUTF8("No se pudieron generar acordes. Revisa el prompt."));
         return;
     }
 
-    DBG("Acordes generados desde Python con exito!");
-
     juce::String modeSummary;
-    if (lastGeneratedChordsData.contains("tipo_generacion"))
+    if (chordsData.contains("tipo_generacion"))
     {
-        py::object modeObj = lastGeneratedChordsData["tipo_generacion"];
+        py::object modeObj = chordsData["tipo_generacion"];
         if (!modeObj.is_none())
         {
             const std::string modeType = modeObj.cast<std::string>();
@@ -723,9 +778,9 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
     if (modeSummary.isNotEmpty())
         DBG(modeSummary);
 
-    if (lastGeneratedChordsData.contains("fuente_generacion"))
+    if (chordsData.contains("fuente_generacion"))
     {
-        py::object detailObj = lastGeneratedChordsData["fuente_generacion"];
+        py::object detailObj = chordsData["fuente_generacion"];
         if (!detailObj.is_none())
         {
             const std::string detail = detailObj.cast<std::string>();
@@ -734,28 +789,22 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
         }
     }
 
-    if (lastGeneratedChordsData.contains("bpm"))
-    {
-        int suggestedBpm = lastGeneratedChordsData["bpm"].cast<int>();
-        setBpmValue(suggestedBpm);
-    }
-
-    pianoRollComponent.setMusicData(lastGeneratedChordsData);
-    updateUiForCurrentState();
-    pushStateToHistory(lastGeneratedChordsData);
-    repaint();
+    applyMusicResult(std::move(chordsData), true);
 }
 
 void ChordMelodyTabComponent::updateUiForCurrentState()
 {
     const bool hasData = !lastGeneratedChordsData.empty();
-    const bool hasChords = hasData && lastGeneratedChordsData.contains("acordes");
+    const bool hasChordContent = hasUsableChordContent(lastGeneratedChordsData);
     const bool hasMelody = hasData && lastGeneratedChordsData.contains("melodia");
+    const bool promptAvailable = promptEditor.getText().trim().isNotEmpty();
 
-    generateMelodyButton.setEnabled(hasChords);
+    generateMelodyButton.setEnabled(hasChordContent || promptAvailable);
+    exportChordsButton.setEnabled(hasChordContent);
     exportMelodyButton.setEnabled(hasMelody);
     transposeUpButton.setEnabled(hasData);
     transposeDownButton.setEnabled(hasData);
+    clearCanvasButton.setEnabled(hasData || !pianoRollComponent.getNotes().isEmpty() || promptAvailable);
 }
 
 void ChordMelodyTabComponent::pushStateToHistory(const py::dict& data)
@@ -797,6 +846,156 @@ void ChordMelodyTabComponent::updateUndoRedoButtonStates()
     undoButton.setEnabled(historyCurrentIndex > 0);
     redoButton.setEnabled(historyCurrentIndex >= 0 && historyCurrentIndex < (int)historyStates.size() - 1);
 }
+
+void ChordMelodyTabComponent::clearGeneratedContent()
+{
+    audioProcessor.stopPlayback();
+    stopTimer(playbackMonitorTimerId);
+    pianoRollComponent.stopPlayback();
+    resetPlaybackButtonStates();
+
+    historyStates.clear();
+    historyCurrentIndex = -1;
+    lastGeneratedChordsData = py::dict();
+    lastDetectedRoot.clear();
+    lastDetectedMode.clear();
+    lastDetectedStyle.clear();
+
+    py::dict empty;
+    pianoRollComponent.setMusicData(empty);
+
+    updateUiForCurrentState();
+    updateUndoRedoButtonStates();
+    repaint();
+
+    showNotification(juce::String::fromUTF8("Lienzo limpio. Genera acordes o melodía."));
+}
+
+juce::String ChordMelodyTabComponent::buildPromptForRequest() const
+{
+    juce::String prompt = promptEditor.getText().trim();
+    if (prompt.isEmpty())
+        return {};
+
+    if (genreComboBox.getSelectedId() != 1)
+    {
+        juce::String selectedGenre = genreComboBox.getText();
+        if (!prompt.containsIgnoreCase(selectedGenre))
+            prompt = selectedGenre + " " + prompt;
+    }
+
+    return prompt;
+}
+
+int ChordMelodyTabComponent::getSelectedChordLimit() const
+{
+    switch (chordCountComboBox.getSelectedId())
+    {
+    case 2: return 4;
+    case 3: return 6;
+    case 4: return 8;
+    default: break;
+    }
+    return -1;
+}
+
+bool ChordMelodyTabComponent::hasUsableChordContent(const py::dict& data) const
+{
+    if (data.empty() || !data.contains("acordes") || !data.contains("ritmo"))
+        return false;
+
+    py::list chords = data["acordes"];
+    for (auto item : chords)
+    {
+        if (py::isinstance<py::list>(item))
+        {
+            py::list noteList = item.cast<py::list>();
+            for (auto noteObj : noteList)
+            {
+                std::string noteStr = noteObj.cast<std::string>();
+                if (!noteStr.empty() && noteStr != "0")
+                    return true;
+            }
+        }
+        else if (py::isinstance<py::tuple>(item))
+        {
+            py::tuple noteTuple = item.cast<py::tuple>();
+            for (auto noteObj : noteTuple)
+            {
+                std::string noteStr = noteObj.cast<std::string>();
+                if (!noteStr.empty() && noteStr != "0")
+                    return true;
+            }
+        }
+        else if (py::isinstance<py::dict>(item))
+        {
+            py::dict chordDict = item.cast<py::dict>();
+            if (chordDict.contains("voicing"))
+            {
+                py::object voicing = chordDict["voicing"];
+                if (py::isinstance<py::list>(voicing))
+                {
+                    for (auto noteObj : voicing.cast<py::list>())
+                    {
+                        std::string noteStr = noteObj.cast<std::string>();
+                        if (!noteStr.empty() && noteStr != "0")
+                            return true;
+                    }
+                }
+            }
+        }
+        else if (py::isinstance<py::str>(item))
+        {
+            std::string chordStr = item.cast<std::string>();
+            if (!chordStr.empty() && chordStr != "0" && chordStr.rfind("SN_", 0) != 0)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+void ChordMelodyTabComponent::applyMusicResult(py::dict data, bool pushHistory)
+{
+    lastGeneratedChordsData = std::move(data);
+
+    auto extractField = [&](const char* key) -> juce::String
+        {
+            if (lastGeneratedChordsData.contains(key))
+            {
+                py::object obj = lastGeneratedChordsData[key];
+                if (!obj.is_none())
+                    return utf8String(obj.cast<std::string>());
+            }
+            return {};
+        };
+
+    lastDetectedRoot = extractField("raiz");
+    lastDetectedMode = extractField("modo");
+    lastDetectedStyle = extractField("estilo");
+
+    if (lastGeneratedChordsData.contains("bpm"))
+    {
+        try
+        {
+            setBpmValue(lastGeneratedChordsData["bpm"].cast<int>());
+        }
+        catch (...)
+        {
+        }
+    }
+
+    pianoRollComponent.setMusicData(lastGeneratedChordsData);
+    updateUiForCurrentState();
+
+    if (pushHistory)
+        pushStateToHistory(lastGeneratedChordsData);
+    else
+        updateUndoRedoButtonStates();
+
+    repaint();
+}
+
 
 py::dict ChordMelodyTabComponent::deepCopyMusicDict(const py::dict& source)
 {
