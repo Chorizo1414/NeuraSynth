@@ -304,7 +304,14 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
                 DBG("Melodia generada con exito!");
                 py::dict updatedData = deepCopyMusicDict(currentSnapshot);
-                updatedData["melodia"] = melodyData["melodia"];
+                py::object newMelody = melodyData.contains("melodia") ? deepCopyPyObject(melodyData["melodia"]) : py::object();
+
+                if (!newMelody.is_none())
+                {
+                    py::gil_scoped_acquire acquire;
+                    updatedData["melodia"] = newMelody;
+                }
+
                 applyMusicResult(std::move(updatedData), true);
             }
             else
@@ -838,7 +845,7 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
 
     const int chordLimit = getSelectedChordLimit();
     py::list melodyForRequest;
-    py::list preservedMelody;
+    py::object preservedMelody;
     bool hasActiveMelody = false;
 
     py::dict currentSnapshot = rebuildMusicDictFromPianoRoll();
@@ -850,21 +857,16 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
             py::object melodyObject = currentSnapshot["melodia"];
             if (!melodyObject.is_none() && py::isinstance<py::list>(melodyObject))
             {
-                py::list melodyList = melodyObject.cast<py::list>();
-                if (melodyList.size() > 0)
-                {
-                    py::list requestCopy;
-                    py::list resultCopy;
-                    for (auto entry : melodyList)
-                    {
-                        requestCopy.append(entry);
-                        resultCopy.append(entry);
-                    }
+                py::object requestCopy = deepCopyPyObject(melodyObject);
+                py::object preservedCopy = deepCopyPyObject(melodyObject);
 
-                    melodyForRequest = requestCopy;
-                    preservedMelody = resultCopy;
-                    hasActiveMelody = true;
+                if (!requestCopy.is_none())
+                {
+                    melodyForRequest = requestCopy.cast<py::list>();
+                    hasActiveMelody = melodyForRequest.size() > 0;
                 }
+
+                preservedMelody = preservedCopy;
             }
         }
     }
@@ -882,16 +884,17 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
         return;
     }
 
-    if (hasActiveMelody)
+    py::dict finalChordData = deepCopyMusicDict(chordsData);
+    if (hasActiveMelody && !preservedMelody.is_none())
     {
         py::gil_scoped_acquire acquire;
-        chordsData["melodia"] = preservedMelody;
+        finalChordData["melodia"] = preservedMelody;
     }
 
     juce::String modeSummary;
-    if (chordsData.contains("tipo_generacion"))
+    if (finalChordData.contains("tipo_generacion"))
     {
-        py::object modeObj = chordsData["tipo_generacion"];
+        py::object modeObj = finalChordData["tipo_generacion"];
         if (!modeObj.is_none())
         {
             const std::string modeType = modeObj.cast<std::string>();
@@ -909,9 +912,9 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
     if (modeSummary.isNotEmpty())
         DBG(modeSummary);
 
-    if (chordsData.contains("fuente_generacion"))
+    if (finalChordData.contains("fuente_generacion"))
     {
-        py::object detailObj = chordsData["fuente_generacion"];
+        py::object detailObj = finalChordData["fuente_generacion"];
         if (!detailObj.is_none())
         {
             const std::string detail = detailObj.cast<std::string>();
@@ -920,7 +923,7 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
         }
     }
 
-    applyMusicResult(std::move(chordsData), true);
+    applyMusicResult(std::move(finalChordData), true);
 }
 
 void ChordMelodyTabComponent::updateUiForCurrentState()
@@ -1156,6 +1159,13 @@ py::dict ChordMelodyTabComponent::deepCopyMusicDict(const py::dict& source)
     static py::object deepcopyFunc = py::module::import("copy").attr("deepcopy");
     py::object result = deepcopyFunc(source);
     return result.cast<py::dict>();
+}
+
+py::object ChordMelodyTabComponent::deepCopyPyObject(const py::object& source)
+{
+    py::gil_scoped_acquire acquire;
+    static py::object deepcopyFunc = py::module::import("copy").attr("deepcopy");
+    return deepcopyFunc(source);
 }
 
 void ChordMelodyTabComponent::sendEditedMusicToPython()

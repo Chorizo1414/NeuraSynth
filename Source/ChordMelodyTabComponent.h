@@ -35,6 +35,7 @@ private:
     void applyStateFromHistory(int newIndex);
     void updateUndoRedoButtonStates();
     py::dict deepCopyMusicDict(const py::dict& source);
+    py::object deepCopyPyObject(const py::object& source);
     void clearGeneratedContent();
     void handlePianoRollContentChanged();
     py::dict rebuildMusicDictFromPianoRoll();
