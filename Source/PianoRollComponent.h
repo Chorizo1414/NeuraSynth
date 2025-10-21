@@ -28,9 +28,11 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
     void mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override;
+    void mouseMove(const juce::MouseEvent& event) override;
     void mouseDown(const juce::MouseEvent& event) override;
     void mouseDrag(const juce::MouseEvent& event) override;
     void mouseUp(const juce::MouseEvent& event) override;
+    bool keyPressed(const juce::KeyPress& key) override;
     void setMusicData(const py::dict& chords, const py::dict& melody);
 
     // Esta función nos permitirá leer las notas de forma segura.
@@ -93,7 +95,16 @@ private:
 
     bool isResizingNotes = false;
     juce::Array<int> resizingNoteIndices;
+    std::vector<double> resizingOriginalDurations;
     double resizeAnchorBeats = 0.0;
+    double resizeBaseOriginalDuration = 0.0;
+
+    juce::Array<int> selectedNoteIndices;
+    bool isSelecting = false;
+    bool selectionAdditive = false;
+    juce::Point<float> selectionStart;
+    juce::Rectangle<float> selectionRect;
+
 
     void clampHorizontalScroll();
     void clampVerticalScroll();
@@ -108,6 +119,16 @@ private:
     void updateResizedNotes(const juce::MouseEvent& event);
     void endNoteResize();
     void deleteNoteAt(int noteIndex);
+    void deleteSelectedNotes();
+    void refreshInfosForIndices(const juce::Array<int>& noteIndices);
+    juce::Rectangle<float> getNoteBounds(int noteIndex) const;
+    bool isNoteSelected(int noteIndex) const;
+    void selectNote(int noteIndex, bool additive);
+    void deselectNote(int noteIndex);
+    void clearSelection(bool repaintNow = true);
+    void setSelectionFromRectangle(const juce::Rectangle<float>& area, bool additive);
+    void removeNoteIndexFromSelection(int noteIndex);
+    void updateCursorForPosition(juce::Point<float> position);
     void refreshNoteInfo(int infoIndex);
     void recalculateContentLength();
     void markContentDirty();

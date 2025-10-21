@@ -80,7 +80,10 @@ juce::String midiToNoteName(int midiNote)
     return noteNames[index] + juce::String(octave);
 }
 
-PianoRollComponent::PianoRollComponent() {}
+PianoRollComponent::PianoRollComponent()
+{
+    setWantsKeyboardFocus(true);
+}
 PianoRollComponent::~PianoRollComponent() {}
 
 void PianoRollComponent::setContentChangedCallback(std::function<void()> callback)
@@ -189,22 +192,26 @@ void PianoRollComponent::paint(juce::Graphics& g)
 
     if (hasNotes)
     {
-        for (const auto& note : notes)
+        for (int i = 0; i < notes.size(); ++i)
         {
-            if (note.midiNote < lowestNote || note.midiNote > highestNote) continue;
-
-            float x = (float)keyWidth + ((note.startTime - (float)horizontalScrollBeats) * pixelsPerBeat);
-            // La 'y' y la 'altura' del rectángulo de la nota también usan la nueva altura escalada
-            float y = (highestNote - note.midiNote) * noteHeight;
-            float width = note.duration * pixelsPerBeat;
-
-            if (x + width < (float)keyWidth || x >(float)getWidth())
+            const auto& note = notes.getReference(i);
+            if (note.midiNote < lowestNote || note.midiNote > highestNote)
                 continue;
 
-            g.setColour(note.isChordNote ? juce::Colours::cornflowerblue : juce::Colours::mediumspringgreen);
-            g.fillRect(x, y, width, noteHeight);
-            g.setColour(juce::Colours::black);
-            g.drawRect(x, y, width, noteHeight, 1.0f);
+            auto bounds = getNoteBounds(i);
+            if (bounds.getRight() < (float)keyWidth || bounds.getX() > (float)getWidth())
+                continue;
+
+            const bool selected = isNoteSelected(i);
+            juce::Colour fillColour = note.isChordNote ? juce::Colours::cornflowerblue : juce::Colours::mediumspringgreen;
+            if (selected)
+                fillColour = fillColour.brighter(0.35f);
+
+            g.setColour(fillColour);
+            g.fillRect(bounds);
+
+            g.setColour(selected ? juce::Colours::whitesmoke : juce::Colours::black);
+            g.drawRect(bounds, selected ? 2.0f : 1.0f);
         }
     }
 
@@ -266,6 +273,16 @@ void PianoRollComponent::paint(juce::Graphics& g)
             g.drawLine(playbackX, 0.0f, playbackX, (float)getHeight(), 2.0f);
         }
     }
+
+    if (isSelecting && selectionRect.getWidth() > 1.0f && selectionRect.getHeight() > 1.0f)
+    {
+        auto normalised = selectionRect;
+        normalised = normalised.getIntersection(getLocalBounds().toFloat());
+        g.setColour(juce::Colours::deepskyblue.withAlpha(0.18f));
+        g.fillRect(normalised);
+        g.setColour(juce::Colours::deepskyblue.withAlpha(0.8f));
+        g.drawRect(normalised, 1.5f);
+    }
 }
 
 void PianoRollComponent::resized()
@@ -322,8 +339,21 @@ void PianoRollComponent::mouseWheelMove(const juce::MouseEvent& event, const juc
     }
 }
 
+void PianoRollComponent::mouseMove(const juce::MouseEvent& event)
+{
+    juce::ignoreUnused(event);
+
+    if (isDraggingNotes || isResizingNotes || isPanning || isSelecting)
+        return;
+
+    updateCursorForPosition(event.position);
+}
+
 void PianoRollComponent::mouseDown(const juce::MouseEvent& event)
 {
+    if (!hasKeyboardFocus(true))
+        grabKeyboardFocus();
+
     if (event.mods.isAltDown() || event.mods.isMiddleButtonDown())
     {
         isPanning = true;
@@ -342,7 +372,10 @@ void PianoRollComponent::mouseDown(const juce::MouseEvent& event)
             if (isResizingNotes)
                 endNoteResize();
 
-            deleteNoteAt(noteIndex);
+            if (isNoteSelected(noteIndex) && selectedNoteIndices.size() > 1)
+                deleteSelectedNotes();
+            else
+                deleteNoteAt(noteIndex);
             return;
         }
 
@@ -359,20 +392,45 @@ void PianoRollComponent::mouseDown(const juce::MouseEvent& event)
         if (isResizingNotes)
             endNoteResize();
 
+        const bool additive = event.mods.isShiftDown();
         const int noteIndex = hitTestNote(event.position);
         if (noteIndex >= 0)
         {
+            if (!isNoteSelected(noteIndex) || additive)
+                selectNote(noteIndex, additive);
+
             beginNoteDrag(noteIndex, event);
             return;
         }
 
-        endNoteDrag();
-        endNoteResize();
+        if (!additive)
+            clearSelection(false);
+
+        isSelecting = true;
+        selectionAdditive = additive;
+        selectionStart = event.position;
+        selectionRect = juce::Rectangle<float>(selectionStart, selectionStart);
+        setMouseCursor(juce::MouseCursor::CrosshairCursor);
+        if (!additive)
+            repaint();
     }
 }
 
 void PianoRollComponent::mouseDrag(const juce::MouseEvent& event)
 {
+    if (isSelecting)
+    {
+        const auto current = event.position;
+        selectionRect = juce::Rectangle<float>::leftTopRightBottom(
+            juce::jmin(selectionStart.x, current.x),
+            juce::jmin(selectionStart.y, current.y),
+            juce::jmax(selectionStart.x, current.x),
+            juce::jmax(selectionStart.y, current.y));
+
+        setSelectionFromRectangle(selectionRect, selectionAdditive);
+        return;
+    }
+
     if (isPanning)
     {
         const auto delta = event.getPosition() - lastPanPosition;
@@ -411,7 +469,14 @@ void PianoRollComponent::mouseDrag(const juce::MouseEvent& event)
 
 void PianoRollComponent::mouseUp(const juce::MouseEvent& event)
 {
-    juce::ignoreUnused(event);
+    if (isSelecting)
+    {
+        isSelecting = false;
+        selectionRect = {};
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+        repaint();
+    }
+
     if (isPanning)
     {
         isPanning = false;
@@ -423,6 +488,20 @@ void PianoRollComponent::mouseUp(const juce::MouseEvent& event)
 
     if (isResizingNotes)
         endNoteResize();
+
+    updateCursorForPosition(event.position);
+}
+
+bool PianoRollComponent::keyPressed(const juce::KeyPress& key)
+{
+    const int keyCode = key.getKeyCode();
+    if (keyCode == juce::KeyPress::deleteKey || keyCode == juce::KeyPress::backspaceKey)
+    {
+        deleteSelectedNotes();
+        return true;
+    }
+
+    return false;
 }
 
 
@@ -439,7 +518,13 @@ void PianoRollComponent::setMusicData(const py::dict& data)
     draggedStartOffsets.clear();
     isResizingNotes = false;
     resizingNoteIndices.clearQuick();
+    resizingOriginalDurations.clear();
     resizeAnchorBeats = 0.0;
+    resizeBaseOriginalDuration = 0.0;
+    clearSelection(false);
+    isSelecting = false;
+    selectionAdditive = false;
+    selectionRect = {};
     hasPendingContentChange = false;
     float sequentialChordTime = 0.0f;
 
@@ -832,6 +917,7 @@ void PianoRollComponent::beginNoteDrag(int noteIndex, const juce::MouseEvent& ev
     const float noteX = (float)keyWidth + ((baseNote.startTime - (float)horizontalScrollBeats) * pixelsPerBeat);
     const float noteWidth = baseNote.duration * pixelsPerBeat;
     const bool shouldGroupChord = baseNote.isChordNote && event.mods.isCommandDown();
+    const bool useSelectionGroup = !shouldGroupChord && isNoteSelected(noteIndex) && selectedNoteIndices.size() > 1;
 
     const bool nearRightEdge = noteWidth > 0.0f &&
         event.position.x >= noteX + juce::jmax(0.0f, noteWidth - kResizeHandleWidthPixels);
@@ -839,6 +925,7 @@ void PianoRollComponent::beginNoteDrag(int noteIndex, const juce::MouseEvent& ev
     if (nearRightEdge)
     {
         resizingNoteIndices.clearQuick();
+        resizingOriginalDurations.clear();
         primaryDragNoteIndex = noteIndex;
         resizeAnchorBeats = baseNote.startTime;
 
@@ -857,6 +944,27 @@ void PianoRollComponent::beginNoteDrag(int noteIndex, const juce::MouseEvent& ev
                     resizingNoteIndices.addIfNotAlreadyThere(i);
             }
         }
+        else if (useSelectionGroup)
+        {
+            for (int sel = 0; sel < selectedNoteIndices.size(); ++sel)
+            {
+                const int idx = selectedNoteIndices[sel];
+                if (idx == noteIndex || !juce::isPositiveAndBelow(idx, notes.size()))
+                    continue;
+
+                resizingNoteIndices.addIfNotAlreadyThere(idx);
+            }
+        }
+
+        resizingOriginalDurations.reserve(resizingNoteIndices.size());
+        for (int idx : resizingNoteIndices)
+        {
+            if (juce::isPositiveAndBelow(idx, notes.size()))
+                resizingOriginalDurations.push_back(notes.getReference(idx).duration);
+            else
+                resizingOriginalDurations.push_back(baseNote.duration);
+        }
+        resizeBaseOriginalDuration = baseNote.duration;
 
         isResizingNotes = true;
         setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
@@ -884,7 +992,25 @@ void PianoRollComponent::beginNoteDrag(int noteIndex, const juce::MouseEvent& ev
             const auto& candidate = notes.getReference(i);
             if (candidate.infoIndex == infoIndex)
             {
-                draggedNoteIndices.add(i);
+                if (draggedNoteIndices.addIfNotAlreadyThere(i))
+                {
+                    draggedMidiOffsets.push_back(candidate.midiNote - baseNote.midiNote);
+                    draggedStartOffsets.push_back(static_cast<double>(candidate.startTime) - static_cast<double>(baseNote.startTime));
+                }
+            }
+        }
+    }
+    else if (useSelectionGroup)
+    {
+        for (int sel = 0; sel < selectedNoteIndices.size(); ++sel)
+        {
+            const int idx = selectedNoteIndices[sel];
+            if (idx == noteIndex || !juce::isPositiveAndBelow(idx, notes.size()))
+                continue;
+
+            const auto& candidate = notes.getReference(idx);
+            if (draggedNoteIndices.addIfNotAlreadyThere(idx))
+            {
                 draggedMidiOffsets.push_back(candidate.midiNote - baseNote.midiNote);
                 draggedStartOffsets.push_back(static_cast<double>(candidate.startTime) - static_cast<double>(baseNote.startTime));
             }
@@ -957,9 +1083,7 @@ void PianoRollComponent::updateDraggedNotes(const juce::MouseEvent& event)
         }
     }
 
-    const int infoIndex = notes.getReference(primaryDragNoteIndex).infoIndex;
-    if (infoIndex >= 0)
-        refreshNoteInfo(infoIndex);
+    refreshInfosForIndices(draggedNoteIndices);
 
     recalculateContentLength();
     clampHorizontalScroll();
@@ -998,6 +1122,9 @@ void PianoRollComponent::updateResizedNotes(const juce::MouseEvent& event)
 
     newDuration = juce::jmax(minDuration, newDuration);
 
+    const double baseOriginal = resizeBaseOriginalDuration;
+    const double durationDelta = newDuration - baseOriginal;
+
     bool anyChanged = false;
     for (int i = 0; i < resizingNoteIndices.size(); ++i)
     {
@@ -1005,8 +1132,13 @@ void PianoRollComponent::updateResizedNotes(const juce::MouseEvent& event)
         if (!juce::isPositiveAndBelow(index, notes.size()))
             continue;
 
+        double original = baseOriginal;
+        if (i < (int)resizingOriginalDurations.size())
+            original = resizingOriginalDurations[(size_t)i];
+
+        double targetDuration = juce::jmax(minDuration, original + durationDelta);
         auto& note = notes.getReference(index);
-        const float newDurFloat = (float)newDuration;
+        const float newDurFloat = (float)targetDuration;
         if (std::abs(note.duration - newDurFloat) > 1.0e-4f)
         {
             note.duration = newDurFloat;
@@ -1014,9 +1146,7 @@ void PianoRollComponent::updateResizedNotes(const juce::MouseEvent& event)
         }
     }
 
-    const int infoIndex = notes.getReference(primaryDragNoteIndex).infoIndex;
-    if (infoIndex >= 0)
-        refreshNoteInfo(infoIndex);
+    refreshInfosForIndices(resizingNoteIndices);
 
     recalculateContentLength();
     clampHorizontalScroll();
@@ -1053,6 +1183,7 @@ void PianoRollComponent::endNoteResize()
     isResizingNotes = false;
     primaryDragNoteIndex = -1;
     resizingNoteIndices.clearQuick();
+    resizingOriginalDurations.clear();
     setMouseCursor(juce::MouseCursor::NormalCursor);
 
     recalculateContentLength();
@@ -1074,30 +1205,38 @@ void PianoRollComponent::deleteNoteAt(int noteIndex)
     draggedMidiOffsets.clear();
     draggedStartOffsets.clear();
     resizingNoteIndices.clearQuick();
+    resizingOriginalDurations.clear();
 
     const int infoIndex = notes.getReference(noteIndex).infoIndex;
     bool modified = false;
 
     if (!juce::isPositiveAndBelow(infoIndex, (int)musicData.size()))
     {
+        removeNoteIndexFromSelection(noteIndex);
         notes.remove(noteIndex);
         modified = true;
     }
     else
     {
-        int chordNoteCount = 0;
-        for (const auto& note : notes)
+        juce::Array<int> relatedIndices;
+        for (int i = 0; i < notes.size(); ++i)
         {
-            if (note.infoIndex == infoIndex)
-                ++chordNoteCount;
+            if (notes.getReference(i).infoIndex == infoIndex)
+                relatedIndices.add(i);
         }
 
-        if (chordNoteCount <= 1)
+        if (relatedIndices.size() <= 1)
         {
-            for (int i = notes.size(); --i >= 0;)
+            std::vector<int> toRemove;
+            toRemove.reserve(relatedIndices.size());
+            for (int idx : relatedIndices)
+                toRemove.push_back(idx);
+
+            std::sort(toRemove.begin(), toRemove.end());
+            for (auto it = toRemove.rbegin(); it != toRemove.rend(); ++it)
             {
-                if (notes.getReference(i).infoIndex == infoIndex)
-                    notes.remove(i);
+                removeNoteIndexFromSelection(*it);
+                notes.remove(*it);
             }
 
             musicData.erase(musicData.begin() + infoIndex);
@@ -1111,6 +1250,7 @@ void PianoRollComponent::deleteNoteAt(int noteIndex)
         }
         else
         {
+            removeNoteIndexFromSelection(noteIndex);
             notes.remove(noteIndex);
             modified = true;
 
@@ -1143,6 +1283,192 @@ void PianoRollComponent::deleteNoteAt(int noteIndex)
         markContentDirty();
         commitContentChange();
     }
+}
+
+void PianoRollComponent::deleteSelectedNotes()
+{
+    if (selectedNoteIndices.isEmpty())
+        return;
+
+    std::vector<int> toDelete;
+    toDelete.reserve((size_t)selectedNoteIndices.size());
+    for (int i = 0; i < selectedNoteIndices.size(); ++i)
+    {
+        const int idx = selectedNoteIndices[i];
+        if (juce::isPositiveAndBelow(idx, notes.size()))
+            toDelete.push_back(idx);
+    }
+
+    if (toDelete.empty())
+        return;
+
+    std::sort(toDelete.begin(), toDelete.end());
+    for (auto it = toDelete.rbegin(); it != toDelete.rend(); ++it)
+        deleteNoteAt(*it);
+
+    repaint();
+}
+
+void PianoRollComponent::refreshInfosForIndices(const juce::Array<int>& noteIndices)
+{
+    juce::Array<int> uniqueInfos;
+    for (int i = 0; i < noteIndices.size(); ++i)
+    {
+        const int noteIndex = noteIndices[i];
+        if (!juce::isPositiveAndBelow(noteIndex, notes.size()))
+            continue;
+
+        const int infoIndex = notes.getReference(noteIndex).infoIndex;
+        if (infoIndex >= 0)
+            uniqueInfos.addIfNotAlreadyThere(infoIndex);
+    }
+
+    for (int i = 0; i < uniqueInfos.size(); ++i)
+        refreshNoteInfo(uniqueInfos[i]);
+}
+
+juce::Rectangle<float> PianoRollComponent::getNoteBounds(int noteIndex) const
+{
+    juce::Rectangle<float> bounds;
+    if (!juce::isPositiveAndBelow(noteIndex, notes.size()))
+        return bounds;
+
+    const auto& note = notes.getReference(noteIndex);
+    const int keyWidth = getKeyWidth();
+    const float pixelsPerBeat = kBasePixelsPerBeat * horizontalZoom;
+    const int numNotes = juce::jmax(1, visibleNoteCount);
+    const float noteHeight = numNotes > 0 ? (float)getHeight() / (float)numNotes : 0.0f;
+
+    if (pixelsPerBeat <= 0.0f || noteHeight <= 0.0f)
+        return bounds;
+
+    const float x = (float)keyWidth + ((note.startTime - (float)horizontalScrollBeats) * pixelsPerBeat);
+    const float width = juce::jmax(0.0f, note.duration * pixelsPerBeat);
+    const float y = (displayHighestNote - note.midiNote) * noteHeight;
+
+    bounds.setBounds(x, y, width, noteHeight);
+    return bounds;
+}
+
+bool PianoRollComponent::isNoteSelected(int noteIndex) const
+{
+    return selectedNoteIndices.contains(noteIndex);
+}
+
+void PianoRollComponent::selectNote(int noteIndex, bool additive)
+{
+    if (!juce::isPositiveAndBelow(noteIndex, notes.size()))
+        return;
+
+    bool changed = false;
+
+    if (!additive)
+    {
+        if (selectedNoteIndices.size() != 1 || selectedNoteIndices[0] != noteIndex)
+        {
+            selectedNoteIndices.clearQuick();
+            changed = true;
+        }
+    }
+
+    if (!isNoteSelected(noteIndex))
+    {
+        selectedNoteIndices.add(noteIndex);
+        changed = true;
+    }
+
+    if (changed)
+        repaint();
+}
+
+void PianoRollComponent::deselectNote(int noteIndex)
+{
+    for (int i = selectedNoteIndices.size(); --i >= 0;)
+    {
+        if (selectedNoteIndices[i] == noteIndex)
+        {
+            selectedNoteIndices.remove(i);
+            repaint();
+            return;
+        }
+    }
+}
+
+void PianoRollComponent::clearSelection(bool repaintNow)
+{
+    if (selectedNoteIndices.isEmpty())
+        return;
+
+    selectedNoteIndices.clearQuick();
+    if (repaintNow)
+        repaint();
+}
+
+void PianoRollComponent::setSelectionFromRectangle(const juce::Rectangle<float>& area, bool additive)
+{
+    juce::Rectangle<float> rect = area;
+    rect = rect.getIntersection(getLocalBounds().toFloat());
+
+    if (!additive)
+        selectedNoteIndices.clearQuick();
+
+    if (rect.getWidth() <= 0.0f || rect.getHeight() <= 0.0f)
+    {
+        if (!additive)
+            repaint();
+        return;
+    }
+
+    for (int i = 0; i < notes.size(); ++i)
+    {
+        auto bounds = getNoteBounds(i);
+        if (bounds.isEmpty())
+            continue;
+
+        if (bounds.intersects(rect))
+            selectedNoteIndices.addIfNotAlreadyThere(i);
+    }
+
+    repaint();
+}
+
+void PianoRollComponent::removeNoteIndexFromSelection(int noteIndex)
+{
+    for (int i = selectedNoteIndices.size(); --i >= 0;)
+    {
+        int current = selectedNoteIndices[i];
+        if (current == noteIndex)
+        {
+            selectedNoteIndices.remove(i);
+        }
+        else if (current > noteIndex)
+        {
+            selectedNoteIndices.set(i, current - 1);
+        }
+    }
+}
+
+void PianoRollComponent::updateCursorForPosition(juce::Point<float> position)
+{
+    const int noteIndex = hitTestNote(position);
+    if (noteIndex < 0)
+    {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+        return;
+    }
+
+    auto bounds = getNoteBounds(noteIndex);
+    if (bounds.getWidth() <= 0.0f)
+    {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+        return;
+    }
+
+    const float handleWidth = juce::jmin(bounds.getWidth(), kResizeHandleWidthPixels);
+    if (position.x >= bounds.getRight() - handleWidth)
+        setMouseCursor(juce::MouseCursor::LeftRightResizeCursor);
+    else
+        setMouseCursor(juce::MouseCursor::NormalCursor);
 }
 
 void PianoRollComponent::refreshNoteInfo(int infoIndex)

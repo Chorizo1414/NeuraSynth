@@ -164,8 +164,16 @@ juce::String PythonManager::exportChords(const py::dict& musicData, int bpm)
         py::object detalles = musicData.contains("acordes_detallados") ? musicData["acordes_detallados"] : py::none();
         py::object tiempos = musicData.contains("acordes_tiempos") ? musicData["acordes_tiempos"] : py::none();
 
-        py::dict result = neuraChordApi.attr("exportar_acordes_midi")(
+        py::object resultObj = neuraChordApi.attr("exportar_acordes_midi")(
             musicData["acordes"], musicData["ritmo"], bpm, detalles, tiempos);
+
+        if (resultObj.is_none())
+            return "Error de Python al exportar acordes: sin respuesta.";
+
+        if (!py::isinstance<py::dict>(resultObj))
+            return "Error de Python al exportar acordes: resultado inesperado.";
+
+        py::dict result = resultObj.cast<py::dict>();
 
         if (result.contains("error") && !result["error"].cast<std::string>().empty())
             return "Error en Python: " + juce::String(result["error"].cast<std::string>());
@@ -187,8 +195,16 @@ juce::String PythonManager::exportMelody(const py::dict& musicData, int bpm)
     {
         py::gil_scoped_acquire acquire;
         // Ahora usamos el BPM que viene como argumento
-        py::dict result = neuraChordApi.attr("exportar_melodia_midi")(
+        py::object resultObj = neuraChordApi.attr("exportar_melodia_midi")(
             musicData["melodia"], bpm);
+
+        if (resultObj.is_none())
+            return "Error de Python al exportar melodia: sin respuesta.";
+
+        if (!py::isinstance<py::dict>(resultObj))
+            return "Error de Python al exportar melodia: resultado inesperado.";
+
+        py::dict result = resultObj.cast<py::dict>();
 
         if (result.contains("error") && !result["error"].cast<std::string>().empty())
             return "Error en Python: " + juce::String(result["error"].cast<std::string>());
