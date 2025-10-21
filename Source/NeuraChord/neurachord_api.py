@@ -103,6 +103,27 @@ def _ensure_melody_note_in_chord(notas, nota_melodia):
     return notas
 
 
+def _transpose_note_name(note_name, semitones):
+    """Devuelve el nombre de nota transpuesto en semitonos (con límites MIDI)."""
+    if not note_name or note_name == "0":
+        return note_name
+
+    try:
+        original_pitch = pitch.Pitch(note_name)
+        new_midi = int(round(original_pitch.midi + semitones))
+    except Exception:
+        return note_name
+
+    # Limita el rango MIDI válido
+    new_midi = max(0, min(127, new_midi))
+
+    try:
+        transposed_pitch = pitch.Pitch(midi=new_midi)
+        return transposed_pitch.nameWithOctave
+    except Exception:
+        return note_name
+
+
 def _triad_from_root(raiz, modo):
     """Construye una triada básica a partir de la raíz y modo."""
     try:
@@ -448,16 +469,32 @@ def exportar_acordes_midi(acordes, ritmo, bpm, acordes_detallados=None, acordes_
                     offset = float(detalle[1]) if len(detalle) > 1 else 0.0
                     dur_detalle = float(detalle[2]) if len(detalle) > 2 else duracion
                     if nombre_nota and nombre_nota != "0":
-                        nota_obj = note.Note(nombre_nota, quarterLength=dur_detalle)
-                        s.insert(base_offset + offset, nota_obj)
+                        transposed_name = _transpose_note_name(nombre_nota, -12)
+                        if transposed_name and transposed_name != "0":
+                            nota_obj = note.Note(transposed_name, quarterLength=dur_detalle)
+                            s.insert(base_offset + offset, nota_obj)
+                        else:
+                            nota_obj = note.Note(nombre_nota, quarterLength=dur_detalle)
+                            s.insert(base_offset + offset, nota_obj)
                 except Exception as e_det:
                     print(f"Advertencia (exportar_acordes_midi): detalle inválido {detalle}: {e_det}")
         else:
             if isinstance(ac_data, list):
-                acorde_obj = chord.Chord(ac_data, quarterLength=duracion)
-                s.insert(base_offset, acorde_obj)
+                notas_transpuestas = []
+                for nombre in ac_data:
+                    transposed_name = _transpose_note_name(nombre, -12)
+                    if transposed_name and transposed_name != "0":
+                        notas_transpuestas.append(transposed_name)
+                if not notas_transpuestas:
+                    notas_transpuestas = [str(nombre) for nombre in ac_data if nombre not in (None, "", "0")]
+                if notas_transpuestas:
+                    acorde_obj = chord.Chord(notas_transpuestas, quarterLength=duracion)
+                    s.insert(base_offset, acorde_obj)
             elif ac_data not in (None, "", "0"):
-                acorde_obj = chord.Chord([ac_data], quarterLength=duracion)
+                transposed_name = _transpose_note_name(ac_data, -12)
+                if not transposed_name or transposed_name == "0":
+                    transposed_name = str(ac_data)
+                acorde_obj = chord.Chord([transposed_name], quarterLength=duracion)
                 s.insert(base_offset, acorde_obj)
 
         if acordes_tiempos and i + 1 < len(acordes_tiempos):
@@ -485,8 +522,11 @@ def exportar_melodia_midi(melodia, bpm):
         if nombre_nota == "0":
             elemento = note.Rest(quarterLength=duracion)
         else:
-            elemento = note.Note(nombre_nota, quarterLength=duracion)
-        
+            transposed_name = _transpose_note_name(nombre_nota, -12)
+            if not transposed_name or transposed_name == "0":
+                transposed_name = nombre_nota
+            elemento = note.Note(transposed_name, quarterLength=duracion)
+
         s.insert(offset_actual, elemento)
         offset_actual += duracion
 
