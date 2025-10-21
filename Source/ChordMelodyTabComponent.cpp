@@ -649,8 +649,8 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
     if (!includeChords && !includeMelody)
         return false;
 
-    const auto& musicData = pianoRollComponent.getMusicData();
-    if (musicData.empty())
+    const auto& noteList = pianoRollComponent.getNotes();
+    if (noteList.isEmpty())
     {
         juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Reproduccion", "No hay datos para reproducir.");
         return false;
@@ -666,12 +666,16 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
     bool hasChordData = false;
     bool hasMelodyData = false;
 
-    for (const auto& noteInfo : musicData)
+    for (int i = 0; i < noteList.size(); ++i)
     {
-        if (noteInfo.isMelody)
-            hasMelodyData = true;
-        else
+        const auto& note = noteList.getReference(i);
+        if (note.midiNote <= 0 || note.duration <= 0.0f)
+            continue;
+
+        if (note.isChordNote)
             hasChordData = true;
+        else
+            hasMelodyData = true;
     }
 
     if (includeChords && !hasChordData)
@@ -693,55 +697,41 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
     };
     std::vector<MidiEventInfo> eventList;
 
-    for (const auto& noteInfo : musicData)
+    auto createEventsForNote = [&](int midiNote, double noteStartBeats, double noteDurationBeats)
+        {
+            noteDurationBeats = juce::jmax(0.0, noteDurationBeats);
+            if (noteDurationBeats <= 0.0)
+                return;
+
+            noteStartBeats = juce::jmax(0.0, noteStartBeats);
+
+            double startTimeSecs = noteStartBeats * secondsPerBeat;
+            double endTimeSecs = (noteStartBeats + noteDurationBeats) * secondsPerBeat;
+            int startSample = static_cast<int>(startTimeSecs * sampleRate);
+            int endSample = static_cast<int>(endTimeSecs * sampleRate);
+
+            if (endSample <= startSample)
+                return;
+
+            const int safeMidiNote = juce::jlimit(0, 127, midiNote);
+            if (safeMidiNote <= 0)
+                return;
+
+            eventList.push_back({ startSample, juce::MidiMessage::noteOn(1, safeMidiNote, (juce::uint8)100) });
+            eventList.push_back({ endSample, juce::MidiMessage::noteOff(1, safeMidiNote) });
+        };
+
+    for (int i = 0; i < noteList.size(); ++i)
     {
-        if ((noteInfo.isMelody && !includeMelody) || (!noteInfo.isMelody && !includeChords))
+        const auto& note = noteList.getReference(i);
+
+        if (note.midiNote <= 0 || note.duration <= 0.0f)
             continue;
 
-        auto createEventsForNote = [&](int midiNote, double noteStartBeats, double noteDurationBeats)
-            {
-                noteDurationBeats = juce::jmax(0.0, noteDurationBeats);
-                if (noteDurationBeats <= 0.0)
-                    return;
+        if ((note.isChordNote && !includeChords) || (!note.isChordNote && !includeMelody))
+            continue;
 
-                noteStartBeats = juce::jmax(0.0, noteStartBeats);
-
-                double startTimeSecs = noteStartBeats * secondsPerBeat;
-                double endTimeSecs = (noteStartBeats + noteDurationBeats) * secondsPerBeat;
-                int startSample = static_cast<int>(startTimeSecs * sampleRate);
-                int endSample = static_cast<int>(endTimeSecs * sampleRate);
-
-                if (endSample <= startSample)
-                    return;
-
-                const int safeMidiNote = juce::jlimit(0, 127, midiNote);
-                if (safeMidiNote <= 0)
-                    return;
-
-                eventList.push_back({ startSample, juce::MidiMessage::noteOn(1, safeMidiNote, (juce::uint8)100) });
-                eventList.push_back({ endSample, juce::MidiMessage::noteOff(1, safeMidiNote) });
-            };
-
-        if (noteInfo.isMelody)
-        {
-            createEventsForNote(noteInfo.midiValue, noteInfo.startTime, noteInfo.duration);
-        }
-        else
-        {
-            const size_t chordSize = noteInfo.chordMidiValues.size();
-            for (size_t slot = 0; slot < chordSize; ++slot)
-            {
-                double noteStartBeats = noteInfo.startTime;
-                if (slot < noteInfo.chordNoteOffsets.size())
-                    noteStartBeats += noteInfo.chordNoteOffsets[slot];
-
-                double noteDurationBeats = noteInfo.duration;
-                if (slot < noteInfo.chordNoteDurations.size())
-                    noteDurationBeats = noteInfo.chordNoteDurations[slot];
-
-                createEventsForNote(noteInfo.chordMidiValues[slot], noteStartBeats, noteDurationBeats);
-            }
-        }
+        createEventsForNote(note.midiNote, (double)note.startTime, (double)note.duration);
     }
 
     if (eventList.empty())
