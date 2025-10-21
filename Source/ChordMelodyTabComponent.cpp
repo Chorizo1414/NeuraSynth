@@ -212,7 +212,7 @@ void ChordMelodyTabComponent::MidiDragHandle::enablementChanged()
     repaint();
 }
 
-juce::String ChordMelodyTabComponent::MidiDragHandle::getTooltip()
+juce::String ChordMelodyTabComponent::MidiDragHandle::getTooltip() const
 {
     return tooltipText;
 }

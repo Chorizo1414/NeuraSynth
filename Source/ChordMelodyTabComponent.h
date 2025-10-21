@@ -109,7 +109,7 @@ private:
         void mouseUp(const juce::MouseEvent&) override;
         void mouseDrag(const juce::MouseEvent&) override;
         void enablementChanged() override;
-        juce::String getTooltip() override;
+        juce::String getTooltip() const override;
 
     private:
         void beginExternalDrag();
