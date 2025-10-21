@@ -26,7 +26,7 @@ from generador_acordes import (
     obtener_ultima_fuente_generada,
     obtener_ultimo_tipo_generacion
 )
-from generador_melodia import generar_melodia_sobre_acordes
+from generador_melodia import generar_melodia_sobre_acordes, extraer_progresion_de_prompt
 from procesador_sentimientos import detectar_sentimiento_en_prompt, inferir_parametros_desde_sentimiento
 from sound_prompt_processor import parse_sound_prompt
 
@@ -128,6 +128,81 @@ def generar_melodia(acordes, ritmo, raiz, modo, bpm):
         print(error_message)
         return {"error": error_message}
 
+def generar_melodia_desde_prompt(prompt, num_acordes=-1, bpm=0):
+    """Genera una melodía únicamente a partir del prompt del usuario."""
+    try:
+        if not prompt or not str(prompt).strip():
+            return {"error": "Prompt vacío."}
+
+        estilo_explicito = detectar_estilo(prompt)
+        raiz_explicita, modo_explicito = extraer_tonalidad(prompt, estilo_detectado_param=estilo_explicito)
+        sentimiento_detectado = detectar_sentimiento_en_prompt(prompt)
+
+        generos_entrenados = {
+            g
+            for g in INFO_GENERO.keys()
+            if g != "patrones_ritmicos"
+            and isinstance(INFO_GENERO.get(g), dict)
+            and any(INFO_GENERO[g].get(k) for k in INFO_GENERO[g] if k != "patrones_ritmicos")
+        }
+        if not generos_entrenados and INFO_GENERO:
+            generos_entrenados = {g for g in INFO_GENERO.keys() if g != "patrones_ritmicos"}
+
+        estilo_final, raiz_final, modo_final = inferir_parametros_desde_sentimiento(
+            sentimiento_detectado,
+            estilo_explicito,
+            raiz_explicita,
+            modo_explicito,
+            generos_entrenados,
+        )
+
+        if not estilo_final or estilo_final == "normal" or estilo_final not in INFO_GENERO or not INFO_GENERO.get(estilo_final):
+            estilo_ref = estilo_explicito or estilo_final or "desconocido"
+            return {"error": f"No se encontró un género válido para '{estilo_ref}'."}
+
+        if not raiz_final:
+            raiz_final = "C"
+        if not modo_final:
+            modo_final = "major"
+
+        bpm_utilizado = int(bpm) if bpm and int(bpm) > 0 else MAPEO_GENERO_BPM.get(estilo_final, MAPEO_GENERO_BPM["normal"])[2]
+
+        acordes_prompt = extraer_progresion_de_prompt(prompt, raiz_final, modo_final)
+        ritmo_prompt = [2.0] * len(acordes_prompt) if acordes_prompt else []
+
+        longitud_objetivo = num_acordes if num_acordes and num_acordes > 0 else None
+
+        melodia_generada, acordes_generados, ritmo_generado = generar_melodia_sobre_acordes(
+            acordes_prompt,
+            ritmo_prompt,
+            raiz_final,
+            modo_final,
+            genero=estilo_final,
+            bpm=bpm_utilizado,
+            longitud_objetivo=longitud_objetivo,
+            devolver_contexto=True,
+        )
+
+        if not melodia_generada:
+            return {"error": "No se pudo generar la melodía."}
+
+        return {
+            "acordes": acordes_generados,
+            "ritmo": ritmo_generado,
+            "melodia": melodia_generada,
+            "raiz": raiz_final,
+            "modo": modo_final,
+            "estilo": estilo_final,
+            "bpm": bpm_utilizado,
+            "tipo_generacion": "melody_prompt",
+            "fuente_generacion": "Melodía generada desde prompt",
+            "error": ""
+        }
+    except Exception as e:
+        error_message = f"Error en generar_melodia_desde_prompt: {str(e)}\n{traceback.format_exc()}"
+        print(error_message)
+        return {"error": error_message}
+    
 def get_available_genres():
     """
     Devuelve una lista con los nombres de todos los géneros entrenados

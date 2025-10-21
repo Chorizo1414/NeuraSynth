@@ -298,7 +298,13 @@ def _generar_progresion_base_para_melodia(raiz, modo, longitud_objetivo=None):
 def notas_del_acorde_music21(acorde_data_o_lista_str):
     pitches_obj_list = []
     lista_notas_str = []
-    if isinstance(acorde_data_o_lista_str, list):
+    if isinstance(acorde_data_o_lista_str, dict):
+        posibles_claves = ("voicing", "notas", "notes")
+        for clave in posibles_claves:
+            if clave in acorde_data_o_lista_str and isinstance(acorde_data_o_lista_str[clave], (list, tuple)):
+                lista_notas_str = list(acorde_data_o_lista_str[clave])
+                break
+    elif isinstance(acorde_data_o_lista_str, list):
         lista_notas_str = acorde_data_o_lista_str
     elif isinstance(acorde_data_o_lista_str, str) and acorde_data_o_lista_str not in ["0", "N/A"]:
         try:
@@ -776,10 +782,33 @@ def generar_melodia_sobre_acordes(
             ultimo_valor = ritmo_para_melodia[-1] if ritmo_para_melodia else 1.0
             ritmo_alineado.extend([ultimo_valor] * (len(acordes_para_melodia) - len(ritmo_alineado)))
         ritmo_para_melodia = ritmo_alineado
+    
+    acordes_originales = list(acordes_para_melodia)
+    ritmo_originales = list(ritmo_para_melodia)
+
+    leading_silence_events = []
+    pares_acorde_ritmo = list(zip(acordes_para_melodia, ritmo_para_melodia))
+    while pares_acorde_ritmo and not notas_del_acorde_music21(pares_acorde_ritmo[0][0]):
+        acorde_inicial, duracion_inicial = pares_acorde_ritmo.pop(0)
+        try:
+            dur_float = float(duracion_inicial)
+        except (TypeError, ValueError):
+            dur_float = 0.0
+        if dur_float > 0:
+            leading_silence_events = _agregar_evento(leading_silence_events, "0", dur_float)
+
+    if pares_acorde_ritmo:
+        acordes_para_melodia = [par[0] for par in pares_acorde_ritmo]
+        ritmo_para_melodia = [par[1] for par in pares_acorde_ritmo]
+    else:
+        acordes_para_melodia = []
+        ritmo_para_melodia = []
 
     if not acordes_para_melodia:
-        resultado_vacio = []
-        return (resultado_vacio, acordes_para_melodia, ritmo_para_melodia) if devolver_contexto else resultado_vacio
+        resultado_vacio = leading_silence_events
+        if devolver_contexto:
+            return resultado_vacio, acordes_originales, ritmo_originales
+        return resultado_vacio
 
     if len(acordes_para_melodia) < 4:
         melodia_simple = _generar_melodia_simple(
@@ -792,7 +821,11 @@ def generar_melodia_sobre_acordes(
             octava_melodia_min,
             octava_melodia_max,
         )
-        return (melodia_simple, acordes_para_melodia, ritmo_para_melodia) if devolver_contexto else melodia_simple
+        if leading_silence_events:
+            melodia_simple = leading_silence_events + melodia_simple
+        if devolver_contexto:
+            return melodia_simple, acordes_originales, ritmo_originales
+        return melodia_simple
 
     perfil_actual = PERFILES_GENERO.get(str(genero).lower(), PERFILES_GENERO["default"])
     params_mel = ParametrosMelodicos(bpm=bpm, octava_melodia_min=octava_melodia_min, octava_melodia_max=octava_melodia_max)
@@ -829,13 +862,21 @@ def generar_melodia_sobre_acordes(
              octava_melodia_min,
              octava_melodia_max,
          )
-         return (melodia_simple, acordes_para_melodia, ritmo_para_melodia) if devolver_contexto else melodia_simple
+         if leading_silence_events:
+             melodia_simple = leading_silence_events + melodia_simple
+         if devolver_contexto:
+             return melodia_simple, acordes_originales, ritmo_originales
+         return melodia_simple
 
     notas_primer_acorde = _expandir_notas_acorde_en_rango(segmento_A_acordes[0], params_mel)
     if not notas_primer_acorde:
         total_dur = sum(float(r) for r in ritmo_para_melodia)
         melodia_silencio = [("0", str(total_dur))] if total_dur > 0 else []
-        return (melodia_silencio, acordes_para_melodia, ritmo_para_melodia) if devolver_contexto else melodia_silencio
+        if leading_silence_events:
+            melodia_silencio = leading_silence_events + melodia_silencio
+        if devolver_contexto:
+            return melodia_silencio, acordes_originales, ritmo_originales
+        return melodia_silencio
 
     motivo_principal = _crear_motivo_musical(notas_primer_acorde, perfil_actual, escala_actual)
     melodia_A, ultima_nota_A = _generar_seccion_melodica(segmento_A_acordes, segmento_A_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)
@@ -852,9 +893,9 @@ def generar_melodia_sobre_acordes(
         print("DEBUG (Melodia): Repitiendo sección A")
         melodia_A2, _ = _generar_seccion_melodica(segmento_A2_acordes, segmento_A2_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)
 
-    melodia_final = melodia_A + melodia_B + melodia_A2
+    melodia_final = leading_silence_events + melodia_A + melodia_B + melodia_A2
     if devolver_contexto:
-        return melodia_final, acordes_para_melodia, ritmo_para_melodia
+        return melodia_final, acordes_originales, ritmo_originales
     return melodia_final
 
 
