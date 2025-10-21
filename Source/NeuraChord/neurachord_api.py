@@ -30,7 +30,158 @@ from generador_melodia import generar_melodia_sobre_acordes, extraer_progresion_
 from procesador_sentimientos import detectar_sentimiento_en_prompt, inferir_parametros_desde_sentimiento
 from sound_prompt_processor import parse_sound_prompt
 
-def generar_progresion(prompt: str, num_acordes: int = -1):
+
+def _parse_melody_events(melodia):
+    """Convierte una lista de (nota, duracion) en eventos temporales absolutos."""
+    eventos = []
+    if not melodia:
+        return eventos
+
+    tiempo_actual = 0.0
+    for entrada in melodia:
+        try:
+            nombre = entrada[0]
+            dur = float(entrada[1])
+        except Exception:
+            tiempo_actual += 0.0
+            continue
+
+        if dur <= 0:
+            continue
+
+        inicio = tiempo_actual
+        fin = tiempo_actual + dur
+        tiempo_actual = fin
+
+        if nombre and nombre != "0":
+            eventos.append((inicio, fin, nombre))
+    return eventos
+
+
+def _normalize_chord_voicing(acorde):
+    """Devuelve una lista de nombres de nota a partir de un acorde en distintos formatos."""
+    if acorde in (None, "", "0"):
+        return []
+
+    notas = []
+    if isinstance(acorde, (list, tuple)):
+        for elemento in acorde:
+            if not elemento or elemento == "0":
+                continue
+            if isinstance(elemento, str) and elemento.startswith("SN_"):
+                elemento = elemento[3:]
+            notas.append(str(elemento))
+    elif isinstance(acorde, str):
+        valor = acorde
+        if valor.startswith("SN_"):
+            valor = valor[3:]
+        if valor not in ("", "0"):
+            notas.append(valor)
+    else:
+        notas.append(str(acorde))
+
+    return notas
+
+
+def _ensure_melody_note_in_chord(notas, nota_melodia):
+    """Añade la nota de melodía al acorde si no comparte clase de pitch."""
+    try:
+        pitch_mel = pitch.Pitch(nota_melodia)
+        objetivo_pc = pitch_mel.pitchClass
+        nota_canonica = pitch_mel.nameWithOctave
+    except Exception:
+        return notas
+
+    for nota_existente in notas:
+        try:
+            if pitch.Pitch(nota_existente).pitchClass == objetivo_pc:
+                return notas
+        except Exception:
+            continue
+
+    notas.append(nota_canonica)
+    return notas
+
+
+def _triad_from_root(raiz, modo):
+    """Construye una triada básica a partir de la raíz y modo."""
+    try:
+        base_pitch = pitch.Pitch(raiz if raiz else "C")
+    except Exception:
+        base_pitch = pitch.Pitch("C")
+
+    modo_norm = (modo or "major").lower()
+    if "dim" in modo_norm:
+        intervalos = [0, 3, 6]
+    elif "min" in modo_norm and "maj" not in modo_norm:
+        intervalos = [0, 3, 7]
+    else:
+        intervalos = [0, 4, 7]
+
+    resultado = []
+    for semitonos in intervalos:
+        try:
+            resultado.append(base_pitch.transpose(semitonos).nameWithOctave)
+        except Exception:
+            continue
+    return resultado
+
+
+def ajustar_acordes_a_melodia(acordes, ritmo, melodia, raiz, modo):
+    """Devuelve acordes ajustados para incluir las notas importantes de la melodía."""
+    if not melodia or not acordes:
+        return acordes, ritmo, None, None
+
+    eventos = _parse_melody_events(melodia)
+    if not eventos:
+        return acordes, ritmo, None, None
+
+    ritmo_seguro = list(ritmo) if ritmo else []
+    if len(ritmo_seguro) < len(acordes):
+        ultimo = ritmo_seguro[-1] if ritmo_seguro else 1.0
+        ritmo_seguro.extend([ultimo] * (len(acordes) - len(ritmo_seguro)))
+    elif len(ritmo_seguro) > len(acordes):
+        ritmo_seguro = ritmo_seguro[:len(acordes)]
+
+    acordes_ajustados = []
+    detalles = []
+    tiempos = []
+    cursor = 0.0
+
+    for indice, acorde in enumerate(acordes):
+        duracion = float(ritmo_seguro[indice]) if indice < len(ritmo_seguro) else 1.0
+        inicio = cursor
+        cursor += duracion
+        tiempos.append(inicio)
+
+        notas = _normalize_chord_voicing(acorde)
+        if not notas:
+            notas = _triad_from_root(raiz, modo)
+        if not notas:
+            notas = ["C4", "E4", "G4"]
+
+        notas_melodia = [evento[2] for evento in eventos if evento[0] < inicio + duracion and evento[1] > inicio]
+        for nota_mel in notas_melodia:
+            notas = _ensure_melody_note_in_chord(notas, nota_mel)
+
+        notas_finales = []
+        vistos = set()
+        for nota in notas:
+            try:
+                canon = pitch.Pitch(nota).nameWithOctave
+            except Exception:
+                canon = str(nota)
+            if canon in vistos:
+                continue
+            vistos.add(canon)
+            notas_finales.append(canon)
+
+        acordes_ajustados.append(notas_finales)
+        detalles.append([(nota, 0.0, float(duracion)) for nota in notas_finales])
+
+    return acordes_ajustados, ritmo_seguro, detalles, tiempos
+
+def generar_progresion(prompt: str, num_acordes: int = -1, melodia=None, bpm: int = 0):
     """
     Función principal para generar acordes desde JUCE.
     Ahora también devuelve el BPM sugerido para el género.
@@ -81,24 +232,49 @@ def generar_progresion(prompt: str, num_acordes: int = -1):
         # Buscamos el BPM sugerido del diccionario MAPEO_GENERO_BPM
         # El [2] corresponde al valor "default_bpm_sugerido" en la tupla
         bpm_sugerido = MAPEO_GENERO_BPM.get(estilo_final, MAPEO_GENERO_BPM["normal"])[2]
-        
+
+        acordes_detallados = None
+        acordes_tiempos = None
+
+        if melodia:
+            try:
+                acordes_generados, ritmo_obtenido, acordes_detallados, acordes_tiempos = ajustar_acordes_a_melodia(
+                    acordes_generados,
+                    ritmo_obtenido,
+                    melodia,
+                    raiz_final,
+                    modo_final,
+                )
+            except Exception as ajuste_ex:
+                print(f"Advertencia: no se pudo ajustar acordes a la melodía: {ajuste_ex}")
+
         # Devolvemos el resultado incluyendo el BPM
-        return {
+        resultado = {
             "acordes": acordes_generados,
             "ritmo": ritmo_obtenido,
             "raiz": raiz_final,
             "modo": modo_final,
             "estilo": estilo_final,
-            "bpm": bpm_sugerido, 
+            "bpm": bpm if bpm > 0 else bpm_sugerido,
             "tipo_generacion": obtener_ultimo_tipo_generacion(),
             "fuente_generacion": obtener_ultima_fuente_generada(),
-            "error": ""
+            "error": "",
         }
+
+        if melodia:
+            resultado["melodia"] = melodia
+            if acordes_detallados is not None:
+                resultado["acordes_detallados"] = acordes_detallados
+            if acordes_tiempos is not None:
+                resultado["acordes_tiempos"] = acordes_tiempos
+
+        return resultado
 
     except Exception as e:
         error_message = f"Error en generar_progresion: {str(e)}\n{traceback.format_exc()}"
         print(error_message)
         return {"error": error_message}
+
 
 def generar_melodia(acordes, ritmo, raiz, modo, bpm):
     """

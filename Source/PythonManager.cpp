@@ -86,6 +86,28 @@ py::dict PythonManager::generateMusicData(const juce::String& prompt, int numCho
     return result;
 }
 
+py::dict PythonManager::generateMusicData(const juce::String& prompt, int numChords, const py::list& melody, int bpm)
+{
+    py::dict result;
+    if (!neuraChordApi)
+    {
+        DBG("ERROR: Modulo neurachord_api no cargado.");
+        return result;
+    }
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        result = neuraChordApi.attr("generar_progresion")(prompt.toStdString(), numChords, melody, bpm);
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("Error de Python en generateMusicData (melodia): " << e.what());
+    }
+
+    return result;
+}
+
 // Implementación de la función para melodía
 py::dict PythonManager::generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode, int bpm)
 {

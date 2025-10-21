@@ -13,6 +13,7 @@ public:
 
     // --- Funciones de NeuraChord ---
     py::dict generateMusicData(const juce::String& prompt, int numChords = -1);
+    py::dict generateMusicData(const juce::String& prompt, int numChords, const py::list& melody, int bpm);
     py::dict generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode, int bpm);
     py::dict generateMelodyFromPrompt(const juce::String& prompt, int numChords, int bpm);
     juce::StringArray getAvailableGenres();

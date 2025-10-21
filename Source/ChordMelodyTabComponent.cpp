@@ -271,23 +271,26 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     generateMelodyButton.onClick = [this]
         {
-            const bool hasChordData = hasUsableChordContent(lastGeneratedChordsData);
+            py::dict currentSnapshot = rebuildMusicDictFromPianoRoll();
+            lastGeneratedChordsData = currentSnapshot;
+
+            const bool hasChordData = hasUsableChordContent(currentSnapshot);
             const int bpm = (int)bpmSlider.getValue();
 
             if (hasChordData)
             {
                 DBG("Enviando datos a Python para generar melodia...");
 
-                py::list chords = lastGeneratedChordsData["acordes"];
-                py::list rhythm = lastGeneratedChordsData["ritmo"];
+                py::list chords = currentSnapshot["acordes"];
+                py::list rhythm = currentSnapshot["ritmo"];
 
                 juce::String root = lastDetectedRoot.isNotEmpty() ? lastDetectedRoot : juce::String("C");
                 juce::String mode = lastDetectedMode.isNotEmpty() ? lastDetectedMode : juce::String("major");
 
-                if (lastGeneratedChordsData.contains("raiz"))
-                    root = utf8String(lastGeneratedChordsData["raiz"].cast<std::string>());
-                if (lastGeneratedChordsData.contains("modo"))
-                    mode = utf8String(lastGeneratedChordsData["modo"].cast<std::string>());
+                if (currentSnapshot.contains("raiz"))
+                    root = utf8String(currentSnapshot["raiz"].cast<std::string>());
+                if (currentSnapshot.contains("modo"))
+                    mode = utf8String(currentSnapshot["modo"].cast<std::string>());
 
                 auto melodyData = audioProcessor.pythonManager->generateMelodyData(chords, rhythm, root, mode, bpm);
 
@@ -300,7 +303,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
                 }
 
                 DBG("Melodia generada con exito!");
-                py::dict updatedData = deepCopyMusicDict(lastGeneratedChordsData);
+                py::dict updatedData = deepCopyMusicDict(currentSnapshot);
                 updatedData["melodia"] = melodyData["melodia"];
                 applyMusicResult(std::move(updatedData), true);
             }
@@ -834,7 +837,42 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
     DBG("Prompt final enviado a Python: " + finalPrompt);
 
     const int chordLimit = getSelectedChordLimit();
-    auto chordsData = audioProcessor.pythonManager->generateMusicData(finalPrompt, chordLimit);
+    py::list melodyForRequest;
+    py::list preservedMelody;
+    bool hasActiveMelody = false;
+
+    py::dict currentSnapshot = rebuildMusicDictFromPianoRoll();
+    lastGeneratedChordsData = currentSnapshot;
+    {
+        py::gil_scoped_acquire acquire;
+        if (!currentSnapshot.is_none() && currentSnapshot.contains("melodia"))
+        {
+            py::object melodyObject = currentSnapshot["melodia"];
+            if (!melodyObject.is_none() && py::isinstance<py::list>(melodyObject))
+            {
+                py::list melodyList = melodyObject.cast<py::list>();
+                if (melodyList.size() > 0)
+                {
+                    py::list requestCopy;
+                    py::list resultCopy;
+                    for (auto entry : melodyList)
+                    {
+                        requestCopy.append(entry);
+                        resultCopy.append(entry);
+                    }
+
+                    melodyForRequest = requestCopy;
+                    preservedMelody = resultCopy;
+                    hasActiveMelody = true;
+                }
+            }
+        }
+    }
+
+    const int bpmForRequest = (int)bpmSlider.getValue();
+    auto chordsData = hasActiveMelody
+        ? audioProcessor.pythonManager->generateMusicData(finalPrompt, chordLimit, melodyForRequest, bpmForRequest)
+        : audioProcessor.pythonManager->generateMusicData(finalPrompt, chordLimit);
 
     if (chordsData.empty() || (chordsData.contains("error") && !chordsData["error"].cast<std::string>().empty()))
     {
@@ -842,6 +880,12 @@ void ChordMelodyTabComponent::generateChordsFromCurrentPrompt()
         DBG("!!! Error desde Python: " + utf8String(errorMessage));
         showNotification(juce::String::fromUTF8("No se pudieron generar acordes. Revisa el prompt."));
         return;
+    }
+
+    if (hasActiveMelody)
+    {
+        py::gil_scoped_acquire acquire;
+        chordsData["melodia"] = preservedMelody;
     }
 
     juce::String modeSummary;
