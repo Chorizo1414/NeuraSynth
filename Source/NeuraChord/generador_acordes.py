@@ -1255,61 +1255,69 @@ def extraer_tonalidad(prompt_texto, estilo_detectado_param="normal"):
     return raiz_encontrada, modo_explicito_detectado
 
 
-def cargar_patron_ritmico_acordes(estilo, num_acordes_deseado=4, preferir_ritmos_simples_para_markov=False):
-    """Carga o genera un patrón rítmico para un estilo y número de acordes dado."""
+def cargar_patron_ritmico_acordes(
+    estilo,
+    num_acordes_deseado=4,
+    preferir_ritmos_simples_para_markov=False,
+    longitud_minima=None,
+    longitud_maxima=None,
+):
+    """Selecciona un patrón rítmico entrenado sin combinar fragmentos de progresiones distintas."""
+
     info_estilo_completo = INFO_GENERO.get(estilo, {})
     patrones_ritmicos_disponibles_tuplas = info_estilo_completo.get("patrones_ritmicos", [])
-    # Convertir tuplas a listas para el procesamiento interno si vienen como tuplas del archivo
-    patrones_ritmicos_disponibles = [list(p) for p in patrones_ritmicos_disponibles_tuplas if isinstance(p, tuple)]
+
+    patrones_ritmicos_disponibles = []
+    for patron in patrones_ritmicos_disponibles_tuplas:
+        if not isinstance(patron, (list, tuple)):
+            continue
+        try:
+            patron_convertido = tuple(float(d) for d in patron)
+        except (TypeError, ValueError):
+            continue
+        if not patron_convertido:
+            continue
+        patrones_ritmicos_disponibles.append(patron_convertido)
 
     if not patrones_ritmicos_disponibles:
-        default_len = num_acordes_deseado if num_acordes_deseado is not None else 4
-        return [1.0] * default_len # Fallback a ritmo de 1.0 por acorde
+        default_len = num_acordes_deseado if num_acordes_deseado is not None else (longitud_minima or 4)
+        default_len = max(1, default_len)
+        return [1.0] * default_len
 
-    ritmo_final_seleccionado = None
+    def _filtrar_simples(candidatos):
+        if not preferir_ritmos_simples_para_markov:
+            return candidatos
+        simples = [p for p in candidatos if all(d >= 0.5 for d in p)]
+        return simples if simples else candidatos
 
-    # Si se desea un número específico de acordes
     if num_acordes_deseado is not None:
-        patrones_compatibles = [p for p in patrones_ritmicos_disponibles if len(p) == num_acordes_deseado]
-        if preferir_ritmos_simples_para_markov and patrones_compatibles:
-            # Priorizar ritmos donde todas las duraciones son >= 0.5 (corchea o más)
-            patrones_simples_compatibles = [p for p in patrones_compatibles if all(float(d) >= 0.5 for d in p)]
-            if patrones_simples_compatibles: ritmo_final_seleccionado = random.choice(patrones_simples_compatibles)
-            elif patrones_compatibles: ritmo_final_seleccionado = random.choice(patrones_compatibles) # Si no hay simples, tomar cualquiera compatible
-        elif patrones_compatibles: # Si no se prefiere simple, o no hay simples, tomar cualquiera compatible
-            ritmo_final_seleccionado = random.choice(patrones_compatibles)
+        candidatos = [p for p in patrones_ritmicos_disponibles if len(p) == num_acordes_deseado]
+        candidatos = _filtrar_simples(candidatos)
+        if candidatos:
+            return list(random.choice(candidatos))
 
-        # Si no se encontró un patrón compatible exacto, intentar adaptar uno existente
-        if not ritmo_final_seleccionado and patrones_ritmicos_disponibles:
-            chosen_pattern = random.choice(patrones_ritmicos_disponibles)
-            if len(chosen_pattern) < num_acordes_deseado: # Repetir si es más corto
-                ritmo_final_seleccionado = (chosen_pattern * (num_acordes_deseado // len(chosen_pattern) + 1))[:num_acordes_deseado]
-            else: # Truncar si es más largo
-                ritmo_final_seleccionado = chosen_pattern[:num_acordes_deseado]
-        elif not ritmo_final_seleccionado: # Fallback si todo falla
-             ritmo_final_seleccionado = [1.0] * num_acordes_deseado
+        longitud_objetivo = max(1, num_acordes_deseado)
+        return [1.0] * longitud_objetivo
 
-    # Si no se desea un número específico de acordes (num_acordes_deseado es None)
-    if ritmo_final_seleccionado is None:
-        if preferir_ritmos_simples_para_markov and patrones_ritmicos_disponibles:
-            patrones_simples = [p for p in patrones_ritmicos_disponibles if all(float(d) >= 0.5 for d in p)]
-            if patrones_simples: ritmo_final_seleccionado = random.choice(patrones_simples)
-            elif patrones_ritmicos_disponibles: ritmo_final_seleccionado = random.choice(patrones_ritmicos_disponibles)
-        elif patrones_ritmicos_disponibles:
-            ritmo_final_seleccionado = random.choice(patrones_ritmicos_disponibles)
-        else: # Fallback si no hay patrones disponibles
-            ritmo_final_seleccionado = [1.0] * 4 # Default a 4 acordes de 1.0
+    candidatos = patrones_ritmicos_disponibles
+    if longitud_minima is not None:
+        candidatos = [p for p in candidatos if len(p) >= longitud_minima]
+    if longitud_maxima is not None:
+        candidatos = [p for p in candidatos if len(p) <= longitud_maxima]
 
-    # Asegurar que el resultado sea una lista de floats
-    if ritmo_final_seleccionado:
-        try: return [float(d) for d in ritmo_final_seleccionado]
-        except (TypeError, ValueError): # Si algo sale mal en la conversión
-            default_len_final = num_acordes_deseado if num_acordes_deseado is not None else len(ritmo_final_seleccionado) if ritmo_final_seleccionado else 4
-            return [1.0] * default_len_final
+    if not candidatos:
+        candidatos = patrones_ritmicos_disponibles
 
-    # Último fallback
-    default_len_final_fallback = num_acordes_deseado if num_acordes_deseado is not None else 4
-    return [1.0] * default_len_final_fallback
+    candidatos = _filtrar_simples(candidatos)
+
+    if candidatos:
+        patron_elegido = random.choice(candidatos)
+        return list(patron_elegido)
+
+    default_len = longitud_minima if longitud_minima is not None else 4
+    default_len = max(1, default_len)
+    return [1.0] * default_len
+
 
 def obtener_progresion_aprendida(estilo, raiz, modo, num_acordes_deseado=None):
     """
@@ -1412,40 +1420,40 @@ def generar_progresion_markov(raiz, modo, estilo="normal", num_acordes_deseado=4
                 fallback_prog.append(["C4", "E4", "G4"])
         return fallback_prog, [1.0] * len(fallback_prog)
 
-    # Determinar la longitud objetivo de la progresión
+    # Determinar la longitud objetivo de la progresión y el patrón rítmico base
     if num_acordes_deseado is None:
-        patrones_ritmo_genero = INFO_GENERO.get(estilo, {}).get("patrones_ritmicos", [])
-        patrones_ritmo_listas = [list(p) for p in patrones_ritmo_genero if isinstance(p, tuple)]
-        longitudes_patrones = [
-            len(p)
-            for p in patrones_ritmo_listas
-            if isinstance(p, list) and p and len(p) >= MIN_ACORDES_REALES_OBJETIVO
-        ]
-        if longitudes_patrones:
-            longitud_objetivo_realizada = random.choice(longitudes_patrones)
-        else:
-            longitud_objetivo_realizada = random.choice(
-                [l for l in [4, 5, 6, 7, 8] if l >= MIN_ACORDES_REALES_OBJETIVO]
-            )
+        ritmo_planificado = cargar_patron_ritmico_acordes(
+            estilo,
+            None,
+            True,
+            longitud_minima=MIN_ACORDES_REALES_OBJETIVO,
+            longitud_maxima=MAX_PROG_LENGTH_GENERAL,
+        )
+        longitud_objetivo_realizada = len(ritmo_planificado) if ritmo_planificado else MIN_ACORDES_REALES_OBJETIVO
     else:
         longitud_objetivo_realizada = num_acordes_deseado
+        ritmo_planificado = cargar_patron_ritmico_acordes(
+            estilo,
+            longitud_objetivo_realizada,
+            True,
+        )
 
     if num_acordes_deseado is None or num_acordes_deseado >= MIN_ACORDES_REALES_OBJETIVO:
         longitud_objetivo_realizada = max(longitud_objetivo_realizada, MIN_ACORDES_REALES_OBJETIVO)
 
     longitud_objetivo_realizada = min(longitud_objetivo_realizada, MAX_PROG_LENGTH_GENERAL)
 
-    ritmo_planificado = cargar_patron_ritmico_acordes(estilo, longitud_objetivo_realizada, True)
-    if ritmo_planificado and isinstance(ritmo_planificado, list):
-        if len(ritmo_planificado) >= MIN_ACORDES_REALES_OBJETIVO:
-            longitud_objetivo_realizada = min(len(ritmo_planificado), MAX_PROG_LENGTH_GENERAL)
-        else:
-            ritmo_planificado = ritmo_planificado + [1.0] * (MIN_ACORDES_REALES_OBJETIVO - len(ritmo_planificado))
-            longitud_objetivo_realizada = MIN_ACORDES_REALES_OBJETIVO
-    else:
-        ritmo_planificado = [1.0] * longitud_objetivo_realizada
+    if not ritmo_planificado or len(ritmo_planificado) != longitud_objetivo_realizada:
+        ritmo_planificado = cargar_patron_ritmico_acordes(
+            estilo,
+            longitud_objetivo_realizada,
+            True,
+        )
 
-    ritmo_planificado = ritmo_planificado[:longitud_objetivo_realizada]
+    if not ritmo_planificado:
+        ritmo_planificado = [1.0] * longitud_objetivo_realizada
+    else:
+        ritmo_planificado = list(ritmo_planificado[:longitud_objetivo_realizada])
 
     print(
         "DEBUG (Markov): Longitud Objetivo Realizada: "
@@ -1575,15 +1583,16 @@ def generar_progresion_markov(raiz, modo, estilo="normal", num_acordes_deseado=4
         secuencia_eventos_func_debug = secuencia_eventos_func_debug[:num_acordes_deseado]
         funciones_generadas = funciones_generadas[:num_acordes_deseado]
 
-    if ritmo_planificado:
-        if len(ritmo_planificado) < len(progresion_realizada_final):
-            ultimo_valor_ritmo = ritmo_planificado[-1] if ritmo_planificado else 1.0
-            ritmo_planificado.extend(
-                [ultimo_valor_ritmo] * (len(progresion_realizada_final) - len(ritmo_planificado))
-            )
-        ritmo_final = ritmo_planificado[:len(progresion_realizada_final)]
+    if ritmo_planificado and len(ritmo_planificado) == len(progresion_realizada_final):
+        ritmo_final = list(ritmo_planificado)
     else:
-        ritmo_final = [1.0] * len(progresion_realizada_final)
+        ritmo_final = cargar_patron_ritmico_acordes(
+            estilo,
+            len(progresion_realizada_final),
+            True,
+        )
+        if not ritmo_final or len(ritmo_final) != len(progresion_realizada_final):
+            ritmo_final = [1.0] * len(progresion_realizada_final)
 
     acordes_reales_count = sum(
         1
