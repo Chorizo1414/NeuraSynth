@@ -180,6 +180,10 @@ juce::String PythonManager::exportChords(const py::dict& musicData, int bpm)
 
         return "Acordes exportados a: " + juce::String(result["ruta"].cast<std::string>());
     }
+    catch (const py::type_error& e)
+    {
+        return juce::String("Error de tipo al exportar acordes: ") + e.what();
+    }
     catch (const py::error_already_set& e)
     {
         return juce::String("Error de Python al exportar acordes: ") + e.what();
@@ -210,6 +214,10 @@ juce::String PythonManager::exportMelody(const py::dict& musicData, int bpm)
             return "Error en Python: " + juce::String(result["error"].cast<std::string>());
 
         return "Melodia exportada a: " + juce::String(result["ruta"].cast<std::string>());
+    }
+    catch (const py::type_error& e)
+    {
+        return juce::String("Error de tipo al exportar melodia: ") + e.what();
     }
     catch (const py::error_already_set& e)
     {
@@ -281,9 +289,17 @@ void PythonManager::updateEditedMusic(const py::dict& musicData)
         py::gil_scoped_acquire acquire;
         neuraChordApi.attr("actualizar_progresion_editada")(musicData);
     }
+    catch (const py::type_error& e)
+    {
+        DBG("Python type_error en updateEditedMusic(): " << e.what());
+    }
     catch (const py::error_already_set& e)
     {
         DBG("Python Error en updateEditedMusic(): " << e.what());
+    }
+    catch (const std::exception& e)
+    {
+        DBG("Excepcion en updateEditedMusic(): " << e.what());
     }
 }
 

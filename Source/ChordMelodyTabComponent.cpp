@@ -265,6 +265,8 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     notificationLabel.setColour(juce::Label::outlineColourId, panelOutlineColour.withAlpha(0.45f));
     notificationLabel.setColour(juce::Label::textColourId, mainTextColour);
     notificationLabel.setJustificationType(juce::Justification::centred);
+    notificationLabel.setInterceptsMouseClicks(false, false);
+    notificationLabel.setMouseClickGrabsKeyboardFocus(false);
     notificationLabel.setAlpha(0.0f);
 
     generateMelodyButton.onClick = [this]
