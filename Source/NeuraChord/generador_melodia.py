@@ -11,60 +11,83 @@ class ParametrosMelodicos:
         self.pulsos_por_compas = pulsos_por_compas
         self.melodia_grid_unit_ql = 0.25  # Semicorchea como base
 
+# --- ¡NUEVO! CEREBRO MUSICAL: PERFILES DE GÉNERO v5 ---
 PERFILES_GENERO = {
     "pop": {
-        "densidad_notas": 0.6,          # Reducido para más espacio.
-        "prob_paso_conjunto": 0.8,
-        "rango_ritmico_units": [4, 2, 2], # Ritmo más simple y abierto (negra, corchea, corchea).
-        "prob_silencio_frase": 0.7,     # Más probable que respire entre frases.
-        "complejidad_motivo": 2,        # Motivos más simples.
-        "max_salto": 7,
-        "prob_nota_de_paso": 0.2,       # Probabilidad de usar una nota de adorno fuera del acorde.
+        "tecnicas_preferidas": [("motivo", 0.85), ("arpegio", 0.15)],
+        "prob_variacion_A": 0.5,
+        "estructura_frase": "pregunta_respuesta",
+        "densidad_notas": 0.7, # Ligeramente más denso
+        # Ritmo Pop: Pegadizo, mezcla corcheas, semis, negras y silencios
+        "complejidad_ritmica": [2, 1, 1, 2, 0, 2, 4, 1, 1, 2, 0, 4], # 0 representa silencio de semicorchea
+        "complejidad_motivo": 3,
+        "max_repeticion_nota": 2,
+        "prob_nota_de_paso": 0.3, # Más notas de paso para fluidez
+        "intervalos_preferidos": [(1, 0.4), (2, 0.4), (3, 0.1), (4, 0.05), (5, 0.05)], # Favorece pasos (1, 2 semitonos)
+        "prob_nota_especial": 0.0, # Sin notas especiales
     },
     "lofi": {
-        "densidad_notas": 0.4,          # Muy minimalista.
-        "prob_paso_conjunto": 0.6,
-        "rango_ritmico_units": [8, 4, 4], # Ritmos muy lentos y espaciados.
-        "prob_silencio_frase": 0.9,     # Casi siempre respira.
+        "tecnicas_preferidas": [("motivo", 0.95), ("arpegio", 0.05)],
+        "prob_variacion_A": 0.6,
+        "estructura_frase": "continua",
+        "densidad_notas": 0.4, # Muy espaciado
+        # Ritmo Lofi: Lento, notas largas, silencios, algo de swing/shuffle implícito
+        "complejidad_ritmica": [4, 4, 0, 8, 2, 2, 0, 4, 8],
         "complejidad_motivo": 2,
-        "max_salto": 5,
-        "prob_nota_de_paso": 0.25,      # Un poco más "jazzy" con notas de paso.
+        "max_repeticion_nota": 2,
+        "prob_nota_de_paso": 0.2,
+        "intervalos_preferidos": [(1, 0.3), (2, 0.3), (3, 0.15), (4, 0.1), (5, 0.1), (7, 0.05)], # Mezcla pasos y saltos
+        "prob_nota_especial": 0.15, # Disonancias suaves (ej. 7ª mayor sobre acorde menor)
+        "notas_especiales": [11], # Usar 7ª mayor (11 semitonos) a veces
     },
     "r&b": {
-        "densidad_notas": 0.55,         # Más aireado y suave.
-        "prob_paso_conjunto": 0.85,
-        "rango_ritmico_units": [4, 1, 3], # Ritmos más sincopados y con silencios implícitos.
-        "prob_silencio_frase": 0.8,
-        "complejidad_motivo": 2,
-        "max_salto": 7,
-        "prob_nota_de_paso": 0.3,       # Permite más adornos vocales.
+        "tecnicas_preferidas": [("motivo", 0.9), ("arpegio", 0.1)],
+        "prob_variacion_A": 0.7,
+        "estructura_frase": "pregunta_respuesta",
+        "densidad_notas": 0.6,
+        # Ritmo R&B: Sincopado, swing, notas largas + rápidas
+        "complejidad_ritmica": [3, 1, 0, 4, 1, 1, 2, 0, 4], # Tresillo implícito (3) + síncopas
+        "complejidad_motivo": 3,
+        "max_repeticion_nota": 2,
+        "prob_nota_de_paso": 0.4, # Más adornos
+        "intervalos_preferidos": [(1, 0.4), (2, 0.3), (3, 0.15), (4, 0.1), (5, 0.05)], # Principalmente pasos, algunos saltos
+        "prob_nota_especial": 0.25, # Uso frecuente de blue notes
+        "notas_especiales": [3, 6, 10], # Blue notes (b3, b5, b7 en semitonos relativos a la tónica del acorde)
     },
     "reggaeton": {
-        "densidad_notas": 0.65,         # Menos notas, más enfocado en el ritmo clave.
-        "prob_paso_conjunto": 0.4,
-        "rango_ritmico_units": [2, 2, 4], # Corchea, Corchea, Silencio de Negra (clásico).
-        "prob_silencio_frase": 0.6,
-        "complejidad_motivo": 1,        # Motivos de una sola nota que se repiten.
-        "max_salto": 5,
-        "prob_nota_de_paso": 0.1,       # Muy pocas notas de paso, se pega al acorde.
+        "tecnicas_preferidas": [("motivo", 0.85), ("arpegio", 0.15)],
+        "prob_variacion_A": 0.3,
+        "estructura_frase": "continua", # Frases cortas y repetitivas
+        "densidad_notas": 0.75, # Bastante lleno rítmicamente
+        # Ritmo Reggaeton: Dembow variado, énfasis en upbeat
+        "complejidad_ritmica": [1, 1, 2, 0, 1, 1, 2, 0, 1, 1, 1, 1, 4],
+        "complejidad_motivo": 2, # Motivos muy cortos
+        "max_repeticion_nota": 3,
+        "prob_nota_de_paso": 0.15, # Principalmente notas del acorde
+        "intervalos_preferidos": [(3, 0.4), (4, 0.3), (2, 0.1), (5, 0.1), (1, 0.1)], # Favorece saltos de tercera
     },
     "techno": {
-        "densidad_notas": 0.75,         # Sigue siendo activo, pero con más pausas.
-        "prob_paso_conjunto": 0.5,
-        "rango_ritmico_units": [1, 1, 1, 1, 4], # Flujo con silencios ocasionales.
-        "prob_silencio_frase": 0.3,
-        "complejidad_motivo": 2,
-        "max_salto": 12,
-        "prob_nota_de_paso": 0.05,      # Casi exclusivamente notas del acorde (arpegios).
+        "tecnicas_preferidas": [("arpegio", 0.9), ("motivo", 0.1)],
+        "prob_variacion_A": 0.2,
+        "estructura_frase": "continua",
+        "densidad_notas": 0.9, # Muy denso
+        # Ritmo Techno: Flujo constante de semis con acentos y silencios ocasionales
+        "complejidad_ritmica": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+        "complejidad_motivo": 3, # Para arpegios
+        "max_repeticion_nota": 2,
+        "prob_nota_de_paso": 0.05, # Casi solo notas del acorde
+        "intervalos_preferidos": [(12, 0.5), (7, 0.3), (5, 0.1), (2, 0.1)], # Saltos de octava, quinta, tercera para arpegios
     },
-    "default": { # Perfil de fallback
-        "densidad_notas": 0.5,
-        "prob_paso_conjunto": 0.7,
-        "rango_ritmico_units": [4, 4],
-        "prob_silencio_frase": 0.6,
+    "default": { # Fallback más musical
+        "tecnicas_preferidas": [("motivo", 0.7), ("arpegio", 0.3)],
+        "prob_variacion_A": 0.4,
+        "estructura_frase": "pregunta_respuesta",
+        "densidad_notas": 0.6,
+        "complejidad_ritmica": [4, 2, 2, 4, 0, 2, 2, 4],
         "complejidad_motivo": 2,
-        "max_salto": 5,
-        "prob_nota_de_paso": 0.15,
+        "max_repeticion_nota": 2,
+        "prob_nota_de_paso": 0.2,
+        "intervalos_preferidos": [(1, 0.3), (2, 0.3), (3, 0.2), (5, 0.1), (7, 0.1)],
     }
 }
 
@@ -105,23 +128,10 @@ def obtener_escala_actual(raiz_str, modo_str):
     except Exception as exc:  # noqa: BLE001
         print(f"Error obteniendo escala para {raiz_str} {modo_str}: {exc}. Usando C Mayor.")
         return scale.MajorScale("C")
+    
+# --- INICIO DEL BLOQUE PARA PEGAR ---
 
-
-LISTA_TECNICAS_MELODICAS = [
-    "default",
-    "esqueleto_pasos_vecinos",
-    "guia_terceras_septimas",
-    "contornos_clasicos_variados",
-    "pregunta_respuesta",
-    "secuencias_motivo",
-    "arpegio_hibrido_mejorado",
-    "intervalos_3_1_relleno",
-    "envoltura_ritmica_fija",
-    "envoltura_melodica_fija_ritmo_libre",
-    "tension_relajacion_target",
-    "transformaciones_motivicas",
-]
-
+# --- Funciones Auxiliares (Helpers) ---
 
 def _pitch_from_midi(midi_val):
     p = pitch.Pitch()
@@ -149,7 +159,6 @@ def _extraer_midi_de_acordes(acordes_progresion):
                 midi_vals.append(nota.midi)
     return midi_vals
 
-
 def _ajustar_rango_melodia_a_progresion(params: ParametrosMelodicos, acordes_progresion):
     midi_vals = _extraer_midi_de_acordes(acordes_progresion)
     if not midi_vals:
@@ -170,7 +179,6 @@ def _calcular_rango_midi(params: ParametrosMelodicos):
         max_pitch = min_pitch
     return min_pitch, max_pitch
 
-
 def _clamp_pitch_to_range(p_obj, params: ParametrosMelodicos):
     if p_obj is None:
         return None
@@ -183,7 +191,6 @@ def _clamp_pitch_to_range(p_obj, params: ParametrosMelodicos):
     clamped = pitch.Pitch()
     clamped.midi = midi_val
     return clamped
-
 
 def _expandir_notas_acorde_en_rango(acorde_data, params: ParametrosMelodicos):
     notas_base = notas_del_acorde_music21(acorde_data)
@@ -205,231 +212,6 @@ def _expandir_notas_acorde_en_rango(acorde_data, params: ParametrosMelodicos):
         notas_unicas.setdefault(nota.midi, nota)
     return list(notas_unicas.values())
 
-
-def _ajustar_a_escala_mas_cercana(p_obj, notas_escala_disponibles_obj):
-    if not p_obj or not notas_escala_disponibles_obj:
-        return p_obj
-    objetivo = p_obj.midi
-    candidato = min(notas_escala_disponibles_obj, key=lambda cand: abs(cand.midi - objetivo))
-    return pitch.Pitch(candidato.nameWithOctave)
-
-
-def _forzar_a_nota_de_acorde(p_obj, notas_acorde_en_rango):
-    if not p_obj or not notas_acorde_en_rango:
-        return p_obj
-    objetivo = p_obj.midi
-    candidato = min(notas_acorde_en_rango, key=lambda cand: abs(cand.midi - objetivo))
-    return pitch.Pitch(candidato.nameWithOctave)
-
-
-def _es_tiempo_fuerte(offset_units, params: ParametrosMelodicos):
-    if params.melodia_grid_unit_ql <= 0:
-        return False
-    posicion_en_compas = (offset_units * params.melodia_grid_unit_ql) % params.pulsos_por_compas
-    beats_fuertes = {0.0}
-    if params.pulsos_por_compas == 4:
-        beats_fuertes.add(2.0)
-    elif params.pulsos_por_compas == 3:
-        beats_fuertes.update({1.0, 2.0})
-    tolerancia = params.melodia_grid_unit_ql * 0.5
-    return any(abs(posicion_en_compas - beat) <= tolerancia for beat in beats_fuertes)
-
-
-def _crear_patron_melodico(params: ParametrosMelodicos):
-    contornos = [
-        [2, -1, -2, 3],  # paso ascendente, vecindad y remate
-        [4, -2, -2, 2],  # arpegio hacia arriba y resolución suave
-        [-3, -2, 3, 2],  # caída suave con respuesta ascendente
-        [5, -2, -3, 2],  # salto con resolución descendente
-        [7, -4, -3, 2],  # salto grande seguido de relajación
-        [2, 2, -3, -1],  # frase ascendente y cierre descendente
-    ]
-    pesos = [5, 4, 4, 3, 2, 4]
-    motivo_base = random.choices(contornos, weights=pesos, k=1)[0][:]
-    if random.random() < 0.4:
-        motivo_base = [-intervalo for intervalo in motivo_base]
-    if random.random() < 0.3:
-        idx = random.randrange(len(motivo_base))
-        motivo_base[idx] = 0
-    largo_motivo = random.randint(3, min(5, len(motivo_base)))
-    motivo_intervalos = motivo_base[:largo_motivo]
-    min_mult = max(1, params.melodia_min_note_multiples)
-    max_mult = max(min_mult, params.melodia_max_note_multiples)
-    opciones_duracion = list(range(min_mult, max_mult + 1))
-    pesos_duracion = []
-    for unidades in opciones_duracion:
-        if unidades == min_mult:
-            pesos_duracion.append(1)
-        elif unidades <= min_mult + 1:
-            pesos_duracion.append(4)
-        elif unidades >= max_mult:
-            pesos_duracion.append(3)
-        else:
-            pesos_duracion.append(2)
-    motivo_duraciones = random.choices(opciones_duracion, weights=pesos_duracion, k=largo_motivo)
-    if all(duracion == min_mult for duracion in motivo_duraciones) and max_mult > min_mult:
-        idx = random.randrange(len(motivo_duraciones))
-        motivo_duraciones[idx] = min(max_mult, max(min_mult + 1, min_mult * 2))
-    return motivo_intervalos, motivo_duraciones
-
-def _seleccionar_longitud_frase(total_beats, params: ParametrosMelodicos):
-    compas = max(params.pulsos_por_compas, 1)
-    opciones = [compas, compas * 2, compas * 4, compas * 8]
-    for longitud in reversed(opciones):
-        if total_beats >= longitud:
-            return longitud
-    return max(compas, total_beats)
-
-
-def _dividir_en_frases(segmento_ritmos, params: ParametrosMelodicos):
-    if not segmento_ritmos:
-        return []
-    duraciones = [float(valor) for valor in segmento_ritmos]
-    total_beats = sum(duraciones)
-    objetivo_base = _seleccionar_longitud_frase(total_beats, params)
-    frases = []
-    inicio = 0
-    acumulado = 0.0
-    consumido = 0.0
-
-    for idx, duracion in enumerate(duraciones):
-        acumulado += duracion
-        consumido += duracion
-        restante = total_beats - consumido
-        objetivo_actual = objetivo_base
-        if restante < objetivo_base and restante > params.pulsos_por_compas:
-            objetivo_actual = max(params.pulsos_por_compas * 2, restante)
-        elif 0 < restante <= params.pulsos_por_compas:
-            objetivo_actual = restante
-        if acumulado >= objetivo_actual - 1e-3 and idx >= inicio:
-            frases.append((inicio, idx))
-            inicio = idx + 1
-            acumulado = 0.0
-            if inicio >= len(duraciones):
-                break
-
-    if inicio < len(duraciones):
-        frases.append((inicio, len(duraciones) - 1))
-
-    if not frases:
-        frases.append((0, len(duraciones) - 1))
-    return frases
-
-
-def _variar_motivo(motivo_intervalos, motivo_duraciones, params: ParametrosMelodicos):
-    if not motivo_intervalos:
-        return motivo_intervalos, motivo_duraciones
-    variante_intervalos = list(motivo_intervalos)
-    if random.random() < 0.5:
-        desplazamiento = random.choice([-2, -1, 1, 2])
-        variante_intervalos = [
-            max(-params.max_semitonos_salto, min(params.max_semitonos_salto, intervalo + desplazamiento))
-            for intervalo in variante_intervalos
-        ]
-    if random.random() < 0.3:
-        variante_intervalos = [-intervalo for intervalo in variante_intervalos]
-    if random.random() < 0.25:
-        variante_intervalos = variante_intervalos[::-1]
-
-    variante_duraciones = list(motivo_duraciones)
-    if variante_duraciones:
-        idx = random.randrange(len(variante_duraciones))
-        ajuste = random.choice([-1, 1])
-        variante_duraciones[idx] = max(
-            params.melodia_min_note_multiples,
-            min(params.melodia_max_note_multiples, variante_duraciones[idx] + ajuste),
-        )
-    return variante_intervalos, variante_duraciones
-
-def _elegir_duracion_unidades(
-    remaining_units,
-    params: ParametrosMelodicos,
-    ultima_duracion_units,
-    consecutivas_misma_duracion,
-    consecutivas_cortas,
-    preferencia=None,
-):
-    min_mult = max(1, params.melodia_min_note_multiples)
-    max_mult = max(min_mult, params.melodia_max_note_multiples)
-    candidatas = []
-    for unidades in range(min_mult, max_mult + 1):
-        if unidades > remaining_units:
-            continue
-        if unidades == min_mult and consecutivas_cortas >= params.max_notas_cortas_consecutivas:
-            continue
-        if (
-            ultima_duracion_units is not None
-            and unidades == ultima_duracion_units
-            and consecutivas_misma_duracion >= params.max_consecutive_same_duration_notes
-        ):
-            continue
-        candidatas.append(unidades)
-    if not candidatas:
-        candidatas = [remaining_units]
-    if preferencia in candidatas:
-        pesos = []
-        for unidades in candidatas:
-            if unidades == preferencia:
-                pesos.append(4)
-            elif abs(unidades - preferencia) == 1:
-                pesos.append(2)
-            else:
-                pesos.append(1)
-        return random.choices(candidatas, weights=pesos, k=1)[0]
-    return random.choice(candidatas)
-
-
-def _buscar_vecino_suave(ultima_nota, notas_escala, notas_acorde, params: ParametrosMelodicos, preferir_acorde=False):
-    if not notas_escala:
-        return None
-    if ultima_nota is None:
-        if preferir_acorde and notas_acorde:
-            objetivo = max(notas_acorde, key=lambda nota: nota.midi)
-            return pitch.Pitch(objetivo.nameWithOctave)
-        return pitch.Pitch(random.choice(notas_escala).nameWithOctave)
-    vecinos = []
-    for cand in notas_escala:
-        distancia = abs(cand.midi - ultima_nota.midi)
-        if 0 < distancia <= 2:
-            vecinos.append(cand)
-    if preferir_acorde and notas_acorde:
-        vecinos_acorde = [cand for cand in vecinos if any(abs(cand.midi - nota_acorde.midi) < 0.5 for nota_acorde in notas_acorde)]
-        if vecinos_acorde:
-            vecinos = vecinos_acorde
-    if vecinos:
-        return pitch.Pitch(random.choice(vecinos).nameWithOctave)
-    return None
-
-
-def _seleccionar_pitch_para_evento(
-    ultima_nota,
-    notas_acorde,
-    notas_escala,
-    params: ParametrosMelodicos,
-    intervalo_hint,
-    es_tiempo_fuerte,
-):
-    candidato = None
-    if ultima_nota and random.random() < params.prob_preferir_paso_conjunto:
-        candidato = _buscar_vecino_suave(ultima_nota, notas_escala, notas_acorde, params, preferir_acorde=es_tiempo_fuerte)
-    if candidato is None and ultima_nota:
-        objetivo_midi = ultima_nota.midi + intervalo_hint
-        max_salto = params.max_semitonos_salto
-        if abs(intervalo_hint) > max_salto:
-            objetivo_midi = ultima_nota.midi + max_salto * (1 if intervalo_hint > 0 else -1)
-        candidato = _pitch_from_midi(objetivo_midi)
-    if candidato is None:
-        if notas_acorde:
-            candidato = pitch.Pitch(random.choice(notas_acorde).nameWithOctave)
-        elif notas_escala:
-            candidato = pitch.Pitch(random.choice(notas_escala).nameWithOctave)
-    candidato = _clamp_pitch_to_range(candidato, params)
-    candidato = _ajustar_a_escala_mas_cercana(candidato, notas_escala)
-    if es_tiempo_fuerte:
-        candidato = _forzar_a_nota_de_acorde(candidato, notas_acorde)
-    return candidato
-
-
 def _agregar_evento(lista_eventos, pitch_str, duracion):
     duracion = round(duracion, 3)
     if duracion <= 0:
@@ -441,721 +223,249 @@ def _agregar_evento(lista_eventos, pitch_str, duracion):
         lista_eventos.append((pitch_str, str(duracion)))
     return lista_eventos
 
+# --- NUEVO MOTOR DE COMPOSICIÓN (A-B-A') ---
 
-def generar_arpegio_simple(acorde_data, duracion_total_acorde, octava_min, octava_max, melodia_grid_unit_ql):
-    arpegio_eventos = []
-    ultimo_pitch_arpegio = None
-    notas_del_acorde_obj_sin_octava = notas_del_acorde_music21(acorde_data)
-    max_notas_para_arpegio_simple = 3
-    notas_arpegio_en_rango = []
-    if notas_del_acorde_obj_sin_octava:
-        pitches_base_ordenados = sorted({p.name for p in notas_del_acorde_obj_sin_octava})
-        for nota_nombre_base in pitches_base_ordenados:
-            for octava_candidata in range(octava_min, octava_max + 1):
-                try:
-                    pitch_temporal = pitch.Pitch(f"{nota_nombre_base}{octava_candidata}")
-                    if pitch_temporal not in notas_arpegio_en_rango:
-                        notas_arpegio_en_rango.append(pitch_temporal)
-                    break
-                except Exception:  # noqa: BLE001
-                    continue
-        notas_arpegio_en_rango = sorted(set(notas_arpegio_en_rango), key=lambda p: p.ps)
-        if len(notas_arpegio_en_rango) > max_notas_para_arpegio_simple:
-            notas_arpegio_en_rango = notas_arpegio_en_rango[:max_notas_para_arpegio_simple]
-    if not notas_arpegio_en_rango:
-        if duracion_total_acorde > 0:
-            arpegio_eventos.append(("0", str(round(duracion_total_acorde, 3))))
-        return arpegio_eventos, None
-    num_notas_arpegio = len(notas_arpegio_en_rango)
-    total_grid_units_en_acorde = int(duracion_total_acorde / melodia_grid_unit_ql) if melodia_grid_unit_ql > 0 else 0
-    if total_grid_units_en_acorde < num_notas_arpegio:
-        if duracion_total_acorde > 0:
-            arpegio_eventos.append(("0", str(round(duracion_total_acorde, 3))))
-        return arpegio_eventos, None
-    grid_units_por_nota = total_grid_units_en_acorde // num_notas_arpegio if num_notas_arpegio > 0 else 0
-    grid_units_restantes = total_grid_units_en_acorde % num_notas_arpegio if num_notas_arpegio > 0 else 0
-    if grid_units_por_nota == 0:
-        if duracion_total_acorde > 0:
-            arpegio_eventos.append(("0", str(round(duracion_total_acorde, 3))))
-        return arpegio_eventos, None
-    dur_asignada_total = 0.0
-    for p_obj in notas_arpegio_en_rango:
-        dur_actual_nota_units = grid_units_por_nota
-        if grid_units_restantes > 0:
-            dur_actual_nota_units += 1
-            grid_units_restantes -= 1
-        dur_actual_nota_ql = round(dur_actual_nota_units * melodia_grid_unit_ql, 3)
-        if dur_actual_nota_ql <= 0:
-            continue
-        arpegio_eventos.append((p_obj.nameWithOctave, str(dur_actual_nota_ql)))
-        ultimo_pitch_arpegio = p_obj
-        dur_asignada_total += dur_actual_nota_ql
-    tiempo_restante_final = round(duracion_total_acorde - dur_asignada_total, 3)
-    if tiempo_restante_final > 0.01:
-        if arpegio_eventos and arpegio_eventos[-1][0] == "0":
-            prev_silence_dur = float(arpegio_eventos[-1][1])
-            arpegio_eventos[-1] = ("0", str(round(prev_silence_dur + tiempo_restante_final, 3)))
+def _crear_motivo_musical(notas_acorde_inicial, perfil, escala_obj):
+    """Crea un motivo rítmico y melódico inicial, priorizando notas estables."""
+    num_notas = perfil["complejidad_motivo"]
+    motivo_ritmico = random.choices(perfil["complejidad_ritmica"], k=num_notas)
+
+    # --- ¡CORRECCIÓN! Comprobar si la lista de notas está vacía ---
+    if not notas_acorde_inicial:
+        print("ADVERTENCIA (_crear_motivo_musical): La lista de notas del acorde inicial está vacía. Usando motivo por defecto.")
+        # Fallback: Usar una nota por defecto (ej. C4) y un ritmo simple
+        notas_base = [pitch.Pitch("C4")] * num_notas # Crear lista con nota por defecto
+        motivo_ritmico = [2] * num_notas # Ritmo simple de corcheas
+        return notas_base, motivo_ritmico
+    # --- FIN CORRECCIÓN ---
+
+    # Priorizar tónica, tercera y quinta del acorde para el inicio del motivo
+    tonica = notas_acorde_inicial[0] # Ahora es seguro acceder a [0]
+    try:
+      # Intentar obtener tercera y quinta de la escala relativa a la tónica del acorde
+      # Esto asume que la tonalidad general es relevante, incluso si el acorde es alterado
+      p_tonica_temp = pitch.Pitch(tonica.name) # Usar solo el nombre, sin octava, para grados
+      escala_temp = escala_obj.__class__(tonic=p_tonica_temp) # Crear escala temporal en la tónica del acorde
+      tercera_pitch = escala_temp.pitchFromDegree(3)
+      quinta_pitch = escala_temp.pitchFromDegree(5)
+      # Buscar notas en el voicing que coincidan con los nombres de tónica, tercera, quinta
+      notas_estables_acorde = [n for n in notas_acorde_inicial if n.name == tonica.name or n.name == tercera_pitch.name or n.name == quinta_pitch.name]
+    except Exception as e: # Fallback si falla obtener grados
+      print(f"Advertencia calculando estables: {e}. Usando T-3-5 simple.")
+      notas_estables_acorde = notas_acorde_inicial[:min(3, len(notas_acorde_inicial))] # Tomar las 3 primeras como fallback
+
+
+    if not notas_estables_acorde: notas_estables_acorde = notas_acorde_inicial
+
+    # Elegir notas base, favoreciendo las estables
+    notas_base = []
+    if notas_estables_acorde:
+        notas_base.append(random.choice(notas_estables_acorde)) # Empezar con una estable
+    else: # Si AÚN no hay estables (caso raro), empezar con cualquiera
+         notas_base.append(random.choice(notas_acorde_inicial))
+
+    while len(notas_base) < num_notas:
+        # Añadir más notas, mezclando estables y otras del acorde
+        if random.random() < 0.6 and notas_estables_acorde:
+            notas_base.append(random.choice(notas_estables_acorde))
         else:
-            arpegio_eventos.append(("0", str(tiempo_restante_final)))
-    return arpegio_eventos, ultimo_pitch_arpegio
+            notas_base.append(random.choice(notas_acorde_inicial))
 
+    return notas_base, motivo_ritmico
 
-def generar_contorno_arco(
-    nota_inicio_obj,
-    duracion_total_contorno,
-    num_pasos_contorno,
-    escala_obj,
-    octava_min,
-    octava_max,
-    max_salto_semitonos_contorno=4,
-    melodia_grid_unit_ql=0.25,
-):
-    eventos_contorno = []
-    if not nota_inicio_obj or num_pasos_contorno < 2:
-        if duracion_total_contorno > 0:
-            eventos_contorno.append(("0", str(duracion_total_contorno)))
-        return eventos_contorno, nota_inicio_obj
-    total_grid_units_en_contorno = int(duracion_total_contorno / melodia_grid_unit_ql) if melodia_grid_unit_ql > 0 else 0
-    if total_grid_units_en_contorno < num_pasos_contorno:
-        if duracion_total_contorno > 0:
-            eventos_contorno.append(("0", str(duracion_total_contorno)))
-        return eventos_contorno, nota_inicio_obj
-    grid_units_por_paso = total_grid_units_en_contorno // num_pasos_contorno if num_pasos_contorno > 0 else 0
-    grid_units_restantes_contorno = total_grid_units_en_contorno % num_pasos_contorno if num_pasos_contorno > 0 else 0
-    if grid_units_por_paso == 0:
-        if duracion_total_contorno > 0:
-            eventos_contorno.append(("0", str(duracion_total_contorno)))
-        return eventos_contorno, nota_inicio_obj
-    punto_medio_pasos = num_pasos_contorno // 2
-    nota_actual_obj = nota_inicio_obj
-    if nota_actual_obj.octave < octava_min:
-        nota_actual_obj.octave = octava_min
-    if nota_actual_obj.octave > octava_max:
-        nota_actual_obj.octave = octava_max
-    tiempo_asignado_contorno = 0.0
-    notas_generadas_contorno = [nota_actual_obj]
-    ultimo_pitch_contorno = nota_inicio_obj
-    for _ in range(1, punto_medio_pasos + (num_pasos_contorno % 2)):
-        notas_candidatas_mov = []
-        nota_temporal_para_busqueda = nota_actual_obj
-        for step_sz in range(1, max_salto_semitonos_contorno + 2):
-            try:
-                nota_siguiente_obj = escala_obj.nextPitch(
-                    nota_temporal_para_busqueda,
-                    stepSize=1,
-                    direction=scale.Direction.ASCENDING,
-                )
-                if octava_min <= nota_siguiente_obj.octave <= octava_max:
-                    if abs(interval.Interval(nota_actual_obj, nota_siguiente_obj).semitones) <= max_salto_semitonos_contorno:
-                        notas_candidatas_mov.append(nota_siguiente_obj)
-                nota_temporal_para_busqueda = nota_siguiente_obj
-                if notas_candidatas_mov:
-                    break
-            except Exception:  # noqa: BLE001
-                break
-        if notas_candidatas_mov:
-            nota_actual_obj = random.choice(notas_candidatas_mov)
-        notas_generadas_contorno.append(nota_actual_obj)
-    for _ in range(punto_medio_pasos + (num_pasos_contorno % 2), num_pasos_contorno):
-        notas_candidatas_mov = []
-        nota_temporal_para_busqueda = nota_actual_obj
-        for step_sz in range(1, max_salto_semitonos_contorno + 2):
-            try:
-                nota_siguiente_obj = escala_obj.previousPitch(
-                    nota_temporal_para_busqueda,
-                    stepSize=1,
-                    direction=scale.Direction.DESCENDING,
-                )
-                if octava_min <= nota_siguiente_obj.octave <= octava_max:
-                    if abs(interval.Interval(nota_actual_obj, nota_siguiente_obj).semitones) <= max_salto_semitonos_contorno:
-                        notas_candidatas_mov.append(nota_siguiente_obj)
-                nota_temporal_para_busqueda = nota_siguiente_obj
-                if notas_candidatas_mov:
-                    break
-            except Exception:  # noqa: BLE001
-                break
-        if notas_candidatas_mov:
-            nota_actual_obj = random.choice(notas_candidatas_mov)
-        notas_generadas_contorno.append(nota_actual_obj)
-    if len(notas_generadas_contorno) != num_pasos_contorno:
-        notas_generadas_contorno = notas_generadas_contorno[:num_pasos_contorno]
-        while len(notas_generadas_contorno) < num_pasos_contorno:
-            notas_generadas_contorno.append(notas_generadas_contorno[-1] if notas_generadas_contorno else nota_inicio_obj)
-    for p_obj_cont in notas_generadas_contorno:
-        dur_actual_nota_units = grid_units_por_paso
-        if grid_units_restantes_contorno > 0:
-            dur_actual_nota_units += 1
-            grid_units_restantes_contorno -= 1
-        dur_actual_nota_ql = round(dur_actual_nota_units * melodia_grid_unit_ql, 3)
-        if dur_actual_nota_ql <= 0:
-            continue
-        eventos_contorno.append((p_obj_cont.nameWithOctave, str(dur_actual_nota_ql)))
-        tiempo_asignado_contorno += dur_actual_nota_ql
-        ultimo_pitch_contorno = p_obj_cont
-    tiempo_restante_final_contorno = round(duracion_total_contorno - tiempo_asignado_contorno, 3)
-    if tiempo_restante_final_contorno > 0.01:
-        if eventos_contorno and eventos_contorno[-1][0] == "0":
-            prev_dur = float(eventos_contorno[-1][1])
-            eventos_contorno[-1] = ("0", str(round(prev_dur + tiempo_restante_final_contorno, 3)))
+def _generar_arpegio_melodico(unidades_totales, notas_acorde, ultima_nota, perfil, params):
+    """Genera un arpegio rítmico y melódico."""
+    eventos_arpegio = []
+    unidades_usadas = 0
+    direccion = random.choice([1, -1])
+    notas_arpegio = sorted(notas_acorde, key=lambda p: p.midi * direccion)
+    posicion_nota = 0
+    while unidades_usadas < unidades_totales:
+        dur_units = perfil["complejidad_ritmica"][posicion_nota % len(perfil["complejidad_ritmica"])]
+        if unidades_usadas + dur_units > unidades_totales: dur_units = unidades_totales - unidades_usadas
+        dur_ql = round(dur_units * params.melodia_grid_unit_ql, 3)
+        if dur_ql <= 0: break
+        if random.random() < perfil["densidad_notas"]:
+            nota_actual = notas_arpegio[posicion_nota % len(notas_arpegio)]
+            candidato_pitch = _clamp_pitch_to_range(nota_actual, params)
+            eventos_arpegio = _agregar_evento(eventos_arpegio, candidato_pitch.nameWithOctave, dur_ql)
+            ultima_nota = candidato_pitch
         else:
-            eventos_contorno.append(("0", str(tiempo_restante_final_contorno)))
-    return eventos_contorno, ultimo_pitch_contorno
+            eventos_arpegio = _agregar_evento(eventos_arpegio, "0", dur_ql)
+        unidades_usadas += dur_units
+        posicion_nota += 1
+    return eventos_arpegio, ultima_nota
 
-def _generar_melodia_con_estilo(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params: ParametrosMelodicos,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-    perfil_genero,
-):
-    print(f"DEBUG (Melodia): Usando perfil de género. BPM interno: {params.bpm}")
-    if not segmento_acordes or not segmento_ritmos:
-        return [], ultima_nota_global_pitch_obj
-
-    grid = params.melodia_grid_unit_ql
-    melodia_generada = []
-    ultima_nota = ultima_nota_global_pitch_obj
-    unidades_consumidas_global = 0
-    
-    unidades_por_frase = params.pulsos_por_compas * 2 / grid
-    motivo_intervalos = []
-    motivo_ritmo = []
+def _generar_frase(unidades_totales, notas_acorde, notas_escala, ultima_nota, motivo, perfil, params, escala_obj, es_respuesta=False):
+    """Genera una frase musical usando SÓLO notas del acorde actual."""
+    eventos_frase = []
+    unidades_usadas = 0
     posicion_motivo = 0
+    # Ignoramos el motivo melódico base ahora, nos centraremos en el acorde
+    _, ritmo_motivo = motivo
 
-    for indice_acorde, acorde_data in enumerate(segmento_acordes):
-        duracion_acorde = float(segmento_ritmos[indice_acorde % len(segmento_ritmos)])
-        if duracion_acorde <= 0: continue
+    repeticiones_nota_actual = 0
+    # Empezar desde la última nota si existe Y está en el acorde actual, si no, elegir una del acorde
+    if ultima_nota and any(abs(ultima_nota.midi - n.midi) < 0.5 for n in notas_acorde):
+         nota_actual = ultima_nota
+    else:
+         nota_actual = random.choice(notas_acorde)
 
-        notas_acorde = _expandir_notas_acorde_en_rango(acorde_data, params)
-        if not notas_acorde:
-            melodia_generada = _agregar_evento(melodia_generada, "0", duracion_acorde)
-            unidades_consumidas_global += int(duracion_acorde / grid)
-            ultima_nota = None
-            continue
+    ultimo_intervalo = 0
 
-        total_unidades_acorde = max(1, int(round(duracion_acorde / grid)))
-        unidades_usadas_acorde = 0
+    while unidades_usadas < unidades_totales:
+        # 1. Determinar Ritmo (del motivo)
+        dur_units = ritmo_motivo[posicion_motivo % len(ritmo_motivo)]
+        es_silencio_ritmico = (dur_units == 0)
+        if es_silencio_ritmico: dur_units = 1
 
-        while unidades_usadas_acorde < total_unidades_acorde:
-            if unidades_consumidas_global % unidades_por_frase == 0 and unidades_consumidas_global > 0:
-                num_notas_motivo = perfil_genero["complejidad_motivo"]
-                motivo_intervalos = [random.randint(-perfil_genero["max_salto"], perfil_genero["max_salto"]) for _ in range(num_notas_motivo)]
-                motivo_ritmo = perfil_genero["rango_ritmico_units"]
-                posicion_motivo = 0
+        if unidades_usadas + dur_units >= unidades_totales:
+            dur_units = unidades_totales - unidades_usadas
 
-            if not motivo_ritmo: motivo_ritmo = perfil_genero["rango_ritmico_units"]
-            
-            dur_units = motivo_ritmo[posicion_motivo % len(motivo_ritmo)]
-            remaining_units = total_unidades_acorde - unidades_usadas_acorde
-            if dur_units > remaining_units: dur_units = remaining_units
-            
-            dur_ql = round(dur_units * grid, 3)
+        dur_ql = round(dur_units * params.melodia_grid_unit_ql, 3)
+        if dur_ql <= 0: break
 
-            es_fuerte = _es_tiempo_fuerte(unidades_consumidas_global, params)
-            colocar_nota = (random.random() < perfil_genero["densidad_notas"]) or es_fuerte
+        # 2. Decidir si Poner Nota o Silencio
+        poner_nota = (not es_silencio_ritmico) and (random.random() < perfil["densidad_notas"])
 
-            if (unidades_consumidas_global + dur_units) % unidades_por_frase < dur_units and random.random() < perfil_genero["prob_silencio_frase"]:
-                if unidades_consumidas_global > 0: colocar_nota = False
+        if poner_nota:
+            # --- SELECCIÓN DE NOTA v7 (SÓLO ACORDE) ---
+            nota_candidata = None
 
-            if colocar_nota:
-                candidato_pitch = None
-                # --- NUEVA LÓGICA DE SELECCIÓN DE NOTA ---
-                if es_fuerte: # TIEMPO FUERTE: Obligatorio usar nota del acorde (Resolución).
-                    if ultima_nota:
-                        candidato_pitch = min(notas_acorde, key=lambda p: abs(p.midi - ultima_nota.midi))
-                    else:
-                        candidato_pitch = random.choice(notas_acorde)
-                else: # TIEMPO DÉBIL: Prioriza notas del acorde, con rara excepción.
-                    # INTELIGENCIA: Hay una PEQUEÑA probabilidad de usar una nota de paso (fuera del acorde) como adorno.
-                    if ultima_nota and random.random() < perfil_genero.get("prob_nota_de_paso", 0.15):
-                        vecinos = [p for p in notas_escala_disponibles_obj if 0 < abs(p.midi - ultima_nota.midi) <= 2]
-                        if vecinos:
-                            vecinos_fuera_acorde = [v for v in vecinos if v.name not in [na.name for na in notas_acorde]]
-                            if vecinos_fuera_acorde: candidato_pitch = random.choice(vecinos_fuera_acorde)
-                            else: candidato_pitch = random.choice(vecinos)
-                    
-                    # COMPORTAMIENTO PRINCIPAL: Si no se usó la excepción, SIEMPRE usar una nota del acorde.
-                    if candidato_pitch is None:
-                        if ultima_nota:
-                            candidato_pitch = min(notas_acorde, key=lambda p: abs(p.midi - ultima_nota.midi))
-                        else:
-                            candidato_pitch = random.choice(notas_acorde)
-
-                candidato_pitch = _clamp_pitch_to_range(candidato_pitch, params)
-                melodia_generada = _agregar_evento(melodia_generada, candidato_pitch.nameWithOctave, dur_ql)
-                ultima_nota = candidato_pitch
-            else:
-                melodia_generada = _agregar_evento(melodia_generada, "0", dur_ql)
-
-            unidades_usadas_acorde += dur_units
-            unidades_consumidas_global += dur_units
-            posicion_motivo += 1
-            
-    return melodia_generada, ultima_nota
-
-def _generar_melodia_default_segmento(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params: ParametrosMelodicos,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(f"DEBUG (Melodia): Usando técnica 'MINIMALISTA URBANA'. BPM interno: {params.bpm}")
-    if not segmento_acordes or not segmento_ritmos:
-        return [], ultima_nota_global_pitch_obj
-
-    grid = params.melodia_grid_unit_ql or 0.25
-    melodia_generada = []
-    ultima_nota = ultima_nota_global_pitch_obj
-
-    # --- PATRONES RÍTMICOS MINIMALISTAS Y REPETITIVOS ---
-    # (Nota, Nota, Silencio) -> El ADN del género urbano
-    patrones_ritmicos = [
-        ([2, 2, 4], 0.6),      # Dos corcheas, silencio de negra (muy común)
-        ([1, 1, 2], 0.5),      # Dos semicorcheas, silencio de corchea (más rápido)
-        ([4, 4], 0.4),         # Dos negras (simple y espaciado)
-        ([2, 2, 2, 2], 0.3),   # Cuatro corcheas (más lleno)
-    ]
-    
-    # Seleccionamos un único patrón rítmico para todo el segmento para máxima coherencia
-    patron_seleccionado, densidad_patron = random.choices(patrones_ritmicos, weights=[p[1] for p in patrones_ritmicos], k=1)[0]
-    posicion_patron = 0
-
-    for indice_acorde, acorde_data in enumerate(segmento_acordes):
-        duracion_acorde = float(segmento_ritmos[indice_acorde % len(segmento_ritmos)])
-        if duracion_acorde <= 0: continue
-
-        notas_acorde = _expandir_notas_acorde_en_rango(acorde_data, params)
-        if not notas_acorde:
-            melodia_generada = _agregar_evento(melodia_generada, "0", duracion_acorde)
-            ultima_nota = None
-            continue
-
-        # --- LÓGICA DE MOTIVO REPETITIVO ---
-        # Elegimos 1 o 2 notas del acorde y las repetimos con el ritmo.
-        num_notas_motivo = 1 if random.random() < 0.7 else 2
-        motivo_notas = random.sample(notas_acorde, min(num_notas_motivo, len(notas_acorde)))
-        posicion_motivo_nota = 0
-
-        total_unidades = max(1, int(round(duracion_acorde / grid)))
-        unidades_usadas_acorde = 0
-
-        while unidades_usadas_acorde < total_unidades:
-            remaining_units = total_unidades - unidades_usadas_acorde
-            
-            # Cogemos la siguiente duración del patrón rítmico
-            dur_units = patron_seleccionado[posicion_patron % len(patron_seleccionado)]
-            if dur_units > remaining_units:
-                dur_units = remaining_units
-
-            dur_ql = round(dur_units * grid, 3)
-
-            # --- SELECCIÓN DE NOTA ULTRA-SIMPLE ---
-            # Decidimos si este paso del ritmo es una nota o un silencio
-            if random.random() < densidad_patron:
-                # Si es una nota, usamos la siguiente del nuestro motivo simple
-                candidato_pitch = motivo_notas[posicion_motivo_nota % len(motivo_notas)]
-                
-                # Pequeña variación de octava para no ser 100% robótico
-                if random.random() < 0.1:
-                    candidato_pitch.octave += random.choice([-1, 1])
-                    candidato_pitch = _clamp_pitch_to_range(candidato_pitch, params)
-
-                melodia_generada = _agregar_evento(melodia_generada, candidato_pitch.nameWithOctave, dur_ql)
-                ultima_nota = candidato_pitch
-                posicion_motivo_nota += 1
-            else:
-                # Si no, es un silencio.
-                melodia_generada = _agregar_evento(melodia_generada, "0", dur_ql)
-
-            unidades_usadas_acorde += dur_units
-            posicion_patron += 1
-            
-    return melodia_generada, ultima_nota
-
-def _generar_melodia_esqueleto_pasos(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params: ParametrosMelodicos,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(f"DEBUG (Melodia): Usando técnica 'esqueleto_pasos_vecinos'. BPM interno: {params.bpm}")
-    melodia_final_tec1 = []
-    ultima_nota_tecnica = ultima_nota_global_pitch_obj
-    tiempo_total_acumulado_global = 0.0
-
-    for i, acorde_actual_data in enumerate(segmento_acordes):
-        duracion_acorde_actual_ql = float(segmento_ritmos[i % len(segmento_ritmos)])
-        notas_del_acorde_actual_obj_base = notas_del_acorde_music21(acorde_actual_data)
-
-        notas_acorde_en_rango_actual = []
-        if notas_del_acorde_actual_obj_base:
-            for p_base in notas_del_acorde_actual_obj_base:
-                for oct_cand in range(params.octava_melodia_min, params.octava_melodia_max + 1):
-                    try:
-                        p_temp = pitch.Pitch(p_base.name)
-                        p_temp.octave = oct_cand
-                        if p_temp not in notas_acorde_en_rango_actual:
-                            notas_acorde_en_rango_actual.append(p_temp)
-                    except Exception:  # noqa: BLE001
-                        continue
-            notas_acorde_en_rango_actual = sorted(set(notas_acorde_en_rango_actual), key=lambda p: p.ps)
-
-        if not notas_acorde_en_rango_actual:
-            if notas_escala_disponibles_obj:
-                notas_acorde_en_rango_actual = [
-                    p for p in notas_escala_disponibles_obj if escala_actual.getScaleDegreeFromPitch(p) == 1
+            # A. ¿Resolver salto anterior? Buscar nota del ACORDE en dirección opuesta.
+            if abs(ultimo_intervalo) > 5:
+                direccion_opuesta = -1 if ultimo_intervalo > 0 else 1
+                # Buscar notas del acorde en la dirección opuesta y cercanas
+                candidatas_resolucion = [
+                    n for n in notas_acorde
+                    if 0 < (n.midi - nota_actual.midi) * direccion_opuesta <= 7 # Permitir hasta 5ta para resolver
                 ]
-                if not notas_acorde_en_rango_actual:
-                    notas_acorde_en_rango_actual = [random.choice(notas_escala_disponibles_obj)]
+                if candidatas_resolucion:
+                    nota_candidata = min(candidatas_resolucion, key=lambda n: abs(n.midi - nota_actual.midi)) # La más cercana
+
+            # B. Si no se resuelve salto, elegir otra nota del ACORDE
+            if nota_candidata is None:
+                 # Intentar moverse a una nota DIFERENTE del acorde, la más cercana
+                 alternativas_acorde = [n for n in notas_acorde if n.midi != nota_actual.midi]
+                 if alternativas_acorde:
+                     nota_candidata = min(alternativas_acorde, key=lambda n: abs(n.midi - nota_actual.midi))
+                 else: # Si el acorde solo tiene una nota en el rango...
+                     nota_candidata = nota_actual # Repetir la misma nota
+
+            # C. Fallback por si algo falla (aunque no debería con esta lógica)
+            if nota_candidata is None:
+                 nota_candidata = random.choice(notas_acorde)
+
+            # D. Resolución al final de la frase (asegurar Tónica o Tercera del acorde final)
+            if unidades_usadas + dur_units >= unidades_totales:
+                 tonica_acorde_final = notas_acorde[0]
+                 try:
+                     # Intentar obtener la tercera real del acorde si es posible
+                     tercera_acorde_final = min([n for n in notas_acorde if n.name != tonica_acorde_final.name], key=lambda x:x.midi)
+                 except:
+                     tercera_acorde_final = notas_acorde[1] if len(notas_acorde) > 1 else notas_acorde[0] # Fallback simple
+
+                 notas_resolucion = [tonica_acorde_final, tercera_acorde_final]
+                 nota_candidata = min(notas_resolucion, key=lambda n: abs(n.midi - nota_actual.midi))
+
+
+            # E. Evitar repetición excesiva (solo si hay alternativas en el acorde)
+            alternativas_disponibles = [n for n in notas_acorde if n.midi != nota_actual.midi]
+            if nota_candidata.midi == nota_actual.midi and alternativas_disponibles:
+                repeticiones_nota_actual += 1
+                if repeticiones_nota_actual >= perfil["max_repeticion_nota"]:
+                    nota_candidata = random.choice(alternativas_disponibles) # Forzar cambio a otra nota del acorde
+            elif nota_candidata.midi != nota_actual.midi:
+                repeticiones_nota_actual = 0
+                ultimo_intervalo = nota_candidata.midi - nota_actual.midi
+            else: # Repitiendo pero sin alternativas
+                 repeticiones_nota_actual +=1 # Contar repetición pero no se puede cambiar
+                 ultimo_intervalo = 0
+
+
+            # Clamp final y añadir evento
+            nota_final = _clamp_pitch_to_range(nota_candidata, params)
+            eventos_frase = _agregar_evento(eventos_frase, nota_final.nameWithOctave, dur_ql)
+            nota_actual = nota_final
+            ultima_nota = nota_actual
+        else: # Generar silencio
+            eventos_frase = _agregar_evento(eventos_frase, "0", dur_ql)
+            ultimo_intervalo = 0
+
+        unidades_usadas += dur_units
+        posicion_motivo += 1
+
+    return eventos_frase, ultima_nota
+
+def _generar_seccion_melodica(segmento_acordes_seccion, segmento_ritmos_seccion, tecnica, motivo, perfil, escala_obj, notas_escala_obj, params, ultima_nota_obj):
+    """Genera la melodía para una sección específica (A o B) usando la técnica elegida."""
+    if tecnica == "arpegio":
+        unidades_totales = sum(int(round(float(r) / params.melodia_grid_unit_ql)) for r in segmento_ritmos_seccion)
+        notas_acorde = _expandir_notas_acorde_en_rango(segmento_acordes_seccion[0], params)
+        return _generar_arpegio_melodico(unidades_totales, notas_acorde, ultima_nota_obj, perfil, params)
+    melodia_seccion = []
+    unidades_por_frase = int((params.pulsos_por_compas * 2) / params.melodia_grid_unit_ql)
+    unidades_procesadas = 0
+    total_unidades_seccion = sum(int(round(float(r) / params.melodia_grid_unit_ql)) for r in segmento_ritmos_seccion)
+    acorde_idx_en_seccion = 0
+    while unidades_procesadas < total_unidades_seccion:
+        unidades_frase_actual = min(unidades_por_frase, total_unidades_seccion - unidades_procesadas)
+        acorde_actual = segmento_acordes_seccion[acorde_idx_en_seccion % len(segmento_acordes_seccion)]
+        notas_acorde_frase = _expandir_notas_acorde_en_rango(acorde_actual, params)
+        if not notas_acorde_frase: notas_acorde_frase = _expandir_notas_acorde_en_rango(segmento_acordes_seccion[0], params)
+        es_respuesta = (unidades_procesadas // unidades_por_frase) % 2 == 1 and perfil["estructura_frase"] == "pregunta_respuesta"
+        
+        eventos_frase, ultima_nota_obj = _generar_frase(unidades_frase_actual, notas_acorde_frase, notas_escala_obj, ultima_nota_obj, motivo, perfil, params, escala_obj, es_respuesta)
+        melodia_seccion.extend(eventos_frase)
+        unidades_procesadas += unidades_frase_actual
+        acorde_idx_en_seccion += 1
+
+    return melodia_seccion, ultima_nota_obj
+
+def _variar_melodia(eventos_melodia, escala_obj, params):
+    """Aplica pequeñas variaciones a una melodía existente para crear la sección A'."""
+    eventos_variados = []
+    for nota, duracion in eventos_melodia:
+        if nota != "0" and random.random() < 0.3:
+            p_original = pitch.Pitch(nota)
+            vecinos = [p for p in escala_obj if 0 < abs(p.midi - p_original.midi) <= 2]
+            if vecinos:
+                p_variado = random.choice(vecinos)
+                eventos_variados.append((_clamp_pitch_to_range(p_variado, params).nameWithOctave, duracion))
             else:
-                notas_acorde_en_rango_actual = [pitch.Pitch(f"{raiz_tonalidad_segmento}{params.octava_melodia_min}")]
+                eventos_variados.append((nota, duracion))
+        else:
+            eventos_variados.append((nota, duracion))
+    return eventos_variados
 
-        tiempo_restante_en_acorde_ql = duracion_acorde_actual_ql
-        tiempo_transcurrido_en_acorde_ql = 0.0
+def _obtener_notas_escala_en_rango(escala_actual, params):
+    notas_escala_disponibles_obj = []
+    for p_escala_base in escala_actual.pitches:
+        if isinstance(p_escala_base, pitch.Pitch):
+            for oct_num in range(params.octava_melodia_min, params.octava_melodia_max + 1):
+                try:
+                    p_temp = pitch.Pitch(p_escala_base.name)
+                    p_temp.octave = oct_num
+                    if p_temp not in notas_escala_disponibles_obj: notas_escala_disponibles_obj.append(p_temp)
+                except Exception: continue
+    return sorted(set(notas_escala_disponibles_obj), key=lambda p: p.ps)
 
-        while tiempo_restante_en_acorde_ql >= params.melodia_grid_unit_ql - 0.001:
-            offset_absoluto_beat_actual = tiempo_total_acumulado_global + tiempo_transcurrido_en_acorde_ql
-            offset_relativo_compas_actual = offset_absoluto_beat_actual % params.pulsos_por_compas
-
-            es_beat_fuerte_actual = False
-            beats_fuertes_definidos = [0.0]
-            if params.pulsos_por_compas == 4:
-                beats_fuertes_definidos.append(2.0)
-            elif params.pulsos_por_compas == 3:
-                beats_fuertes_definidos.extend([1.0, 2.0])
-
-            for beat_fuerte in beats_fuertes_definidos:
-                if abs(offset_relativo_compas_actual - beat_fuerte) < params.melodia_grid_unit_ql / 2.0:
-                    es_beat_fuerte_actual = True
-                    break
-
-            nota_a_colocar_obj = None
-            dur_nota_actual_ql = params.melodia_grid_unit_ql
-
-            if es_beat_fuerte_actual and notas_acorde_en_rango_actual:
-                if isinstance(acorde_actual_data, str) and acorde_actual_data not in ["0", "N/A"]:
-                    try:
-                        cs = harmony.ChordSymbol(acorde_actual_data)
-                        grados_deseados = [
-                            cs.getChordStep(1),
-                            cs.getChordStep(3),
-                            cs.getChordStep(5),
-                            cs.getChordStep(7),
-                        ]
-                        grados_validos_en_rango = [
-                            nota
-                            for nota in grados_deseados
-                            if nota and params.octava_melodia_min <= nota.octave <= params.octava_melodia_max
-                        ]
-                        if grados_validos_en_rango:
-                            nota_a_colocar_obj = random.choice(grados_validos_en_rango)
-                    except Exception:  # noqa: BLE001
-                        pass
-                if not nota_a_colocar_obj:
-                    nota_a_colocar_obj = random.choice(notas_acorde_en_rango_actual)
-
-                if random.random() < 0.6 and tiempo_restante_en_acorde_ql >= params.melodia_grid_unit_ql * 2:
-                    dur_nota_actual_ql = params.melodia_grid_unit_ql * 2
-                elif tiempo_restante_en_acorde_ql >= params.melodia_grid_unit_ql * 4 and random.random() < 0.3:
-                    dur_nota_actual_ql = params.melodia_grid_unit_ql * 4
-            else:
-                if ultima_nota_tecnica and notas_escala_disponibles_obj:
-                    candidatas_paso_vecino = []
-                    for p_escala in notas_escala_disponibles_obj:
-                        try:
-                            semitonos_dist = abs(interval.Interval(ultima_nota_tecnica, p_escala).semitones)
-                            if 0 < semitonos_dist <= 2:
-                                candidatas_paso_vecino.append(p_escala)
-                        except Exception:  # noqa: BLE001
-                            continue
-
-                    if candidatas_paso_vecino:
-                        nota_a_colocar_obj = random.choice(candidatas_paso_vecino)
-                    elif notas_acorde_en_rango_actual:
-                        nota_a_colocar_obj = random.choice(notas_acorde_en_rango_actual)
-                    else:
-                        nota_a_colocar_obj = ultima_nota_tecnica
-                elif notas_acorde_en_rango_actual:
-                    nota_a_colocar_obj = random.choice(notas_acorde_en_rango_actual)
-                elif notas_escala_disponibles_obj:
-                    nota_a_colocar_obj = random.choice(notas_escala_disponibles_obj)
-
-            if nota_a_colocar_obj and random.random() < params.densidad_notas:
-                dur_nota_actual_ql = min(dur_nota_actual_ql, tiempo_restante_en_acorde_ql)
-                dur_nota_actual_ql = round(
-                    int(dur_nota_actual_ql / params.melodia_grid_unit_ql) * params.melodia_grid_unit_ql,
-                    3,
-                )
-                if dur_nota_actual_ql < params.melodia_grid_unit_ql - 0.001:
-                    break
-
-                melodia_final_tec1.append((nota_a_colocar_obj.nameWithOctave, str(dur_nota_actual_ql)))
-                ultima_nota_tecnica = nota_a_colocar_obj
-                tiempo_transcurrido_en_acorde_ql += dur_nota_actual_ql
-                tiempo_restante_en_acorde_ql -= dur_nota_actual_ql
-            else:
-                dur_silencio_ql = params.melodia_grid_unit_ql
-                dur_silencio_ql = min(dur_silencio_ql, tiempo_restante_en_acorde_ql)
-                dur_silencio_ql = round(
-                    int(dur_silencio_ql / params.melodia_grid_unit_ql) * params.melodia_grid_unit_ql,
-                    3,
-                )
-                if dur_silencio_ql < params.melodia_grid_unit_ql - 0.001:
-                    break
-
-                melodia_final_tec1.append(("0", str(dur_silencio_ql)))
-                tiempo_transcurrido_en_acorde_ql += dur_silencio_ql
-                tiempo_restante_en_acorde_ql -= dur_silencio_ql
-
-            tiempo_restante_en_acorde_ql = round(tiempo_restante_en_acorde_ql, 3)
-        tiempo_total_acumulado_global += duracion_acorde_actual_ql
-
-    if not melodia_final_tec1:
-        total_dur_prog = sum(float(r) for r in segmento_ritmos)
-        if total_dur_prog > 0:
-            melodia_final_tec1.append(("0", str(total_dur_prog)))
-    return melodia_final_tec1, ultima_nota_tecnica
-
-
-# --- Stubs para las demás técnicas ---
-def _generar_melodia_guia_tonos(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'guia_terceras_septimas' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_contornos_clasicos(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'contornos_clasicos_variados' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_pregunta_respuesta(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'pregunta_respuesta' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_secuencias_motivo(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'secuencias_motivo' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_arpegio_hibrido(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'arpegio_hibrido_mejorado' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_intervalos_3_1(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'intervalos_3_1_relleno' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_envoltura_ritmica_fija(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'envoltura_ritmica_fija' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_envoltura_melodica_fija(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'envoltura_melodica_fija_ritmo_libre' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_tension_relajacion(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'tension_relajacion_target' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
-
-def _generar_melodia_transformaciones_motivicas(
-    segmento_acordes,
-    segmento_ritmos,
-    escala_actual,
-    notas_escala_disponibles_obj,
-    params,
-    ultima_nota_global_pitch_obj,
-    raiz_tonalidad_segmento,
-):
-    print(
-        f"DEBUG (Melodia): Técnica 'transformaciones_motivicas' NO IMPLEMENTADA. Usando default. BPM interno: {params.bpm}"
-    )
-    return _generar_melodia_default_segmento(
-        segmento_acordes,
-        segmento_ritmos,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params,
-        ultima_nota_global_pitch_obj,
-        raiz_tonalidad_segmento,
-    )
-
+def _generar_melodia_simple(acordes, ritmo, raiz, modo, genero, bpm, oct_min, oct_max):
+    """Función de fallback para progresiones cortas que no pueden usar A-B-A'."""
+    print("ADVERTENCIA: Progresión muy corta para estructura A-B-A'. Usando lógica simple.")
+    perfil_actual = PERFILES_GENERO.get(str(genero).lower(), PERFILES_GENERO["default"])
+    params_mel = ParametrosMelodicos(bpm=bpm, octava_melodia_min=oct_min, octava_melodia_max=oct_max)
+    escala_actual = obtener_escala_actual(raiz, modo)
+    notas_escala_obj = _obtener_notas_escala_en_rango(escala_actual, params_mel)
+    if not acordes:
+        total_dur = sum(float(r) for r in ritmo)
+        return [("0", str(total_dur))] if total_dur > 0 else []
+    notas_primer_acorde = _expandir_notas_acorde_en_rango(acordes[0], params_mel)
+    if not notas_primer_acorde:
+        total_dur = sum(float(r) for r in ritmo)
+        return [("0", str(total_dur))] if total_dur > 0 else []
+    motivo = _crear_motivo_musical(notas_primer_acorde, perfil_actual)
+    return _generar_seccion_melodica(acordes, ritmo, "motivo", motivo, perfil_actual, escala_actual, notas_escala_obj, params_mel, None)[0]
 
 # --- Función Principal de Generación de Melodía ---
 def generar_melodia_sobre_acordes(
@@ -1163,112 +473,69 @@ def generar_melodia_sobre_acordes(
     ritmo_acordes,
     raiz_tonalidad,
     modo_tonalidad,
-    genero="default", # AÑADE ESTE PARÁMETRO
+    genero="default",
     bpm=120,
     octava_melodia_min=4,
     octava_melodia_max=5,
 ):
-    melodia_final = []
-    if not acordes_progresion or not ritmo_acordes:
-        return melodia_final
+    if not acordes_progresion or not ritmo_acordes or len(acordes_progresion) < 4:
+        return _generar_melodia_simple(acordes_progresion, ritmo_acordes, raiz_tonalidad, modo_tonalidad, genero, bpm, octava_melodia_min, octava_melodia_max)
 
-    # Seleccionamos el perfil del género, si no existe, usamos 'default'
     perfil_actual = PERFILES_GENERO.get(str(genero).lower(), PERFILES_GENERO["default"])
-
-    params_mel = ParametrosMelodicos(
-        bpm=bpm,
-        octava_melodia_min=octava_melodia_min,
-        octava_melodia_max=octava_melodia_max,
-    )
+    params_mel = ParametrosMelodicos(bpm=bpm, octava_melodia_min=octava_melodia_min, octava_melodia_max=octava_melodia_max)
     _ajustar_rango_melodia_a_progresion(params_mel, acordes_progresion)
-
     escala_actual = obtener_escala_actual(raiz_tonalidad, modo_tonalidad)
-    notas_escala_disponibles_obj = []
-    for p_escala_base in escala_actual.pitches:
-        if isinstance(p_escala_base, pitch.Pitch):
-            for oct_num in range(params_mel.octava_melodia_min, params_mel.octava_melodia_max + 1):
-                try:
-                    p_temp = pitch.Pitch(p_escala_base.name)
-                    p_temp.octave = oct_num
-                    if p_temp not in notas_escala_disponibles_obj:
-                        notas_escala_disponibles_obj.append(p_temp)
-                except Exception:
-                    continue
-    notas_escala_disponibles_obj = sorted(set(notas_escala_disponibles_obj), key=lambda p: p.ps)
-
-    if not notas_escala_disponibles_obj:
-        print("ADVERTENCIA (generador_melodia): No hay notas de escala disponibles.")
-        total_dur_silencio = sum(float(duracion) for duracion in ritmo_acordes) if ritmo_acordes else 0
-        if total_dur_silencio > 0:
-            melodia_final.append(("0", str(total_dur_silencio)))
-        return melodia_final
-
-    # --- LLAMADA A LA NUEVA LÓGICA ---
-    melodia_generada, _ = _generar_melodia_con_estilo(
-        acordes_progresion,
-        ritmo_acordes,
-        escala_actual,
-        notas_escala_disponibles_obj,
-        params_mel,
-        None, # ultima_nota_global_pitch_obj inicial
-        raiz_tonalidad,
-        perfil_genero=perfil_actual
-    )
-    melodia_final.extend(melodia_generada)
+    notas_escala_disponibles_obj = _obtener_notas_escala_en_rango(escala_actual, params_mel)
     
-    return melodia_final
+    tecnicas, pesos = zip(*perfil_actual["tecnicas_preferidas"])
+    tecnica_elegida = random.choices(tecnicas, weights=pesos, k=1)[0]
+    print(f"DEBUG (Melodia): ESTRUCTURA A-B-A'. Técnica elegida: {tecnica_elegida}")
+
+    num_acordes = len(acordes_progresion)
+    punto_corte_A = num_acordes // 2
+    punto_corte_B = punto_corte_A + max(2, num_acordes // 4)
+    if punto_corte_B >= num_acordes: punto_corte_B = num_acordes -1
+    if punto_corte_A >= punto_corte_B: punto_corte_A = 0
+    if punto_corte_A < 0: punto_corte_A = 0
+    
+    segmento_A_acordes, segmento_A_ritmos = acordes_progresion[:punto_corte_A], ritmo_acordes[:punto_corte_A]
+    segmento_B_acordes, segmento_B_ritmos = acordes_progresion[punto_corte_A:punto_corte_B], ritmo_acordes[punto_corte_A:punto_corte_B]
+    segmento_A2_acordes, segmento_A2_ritmos = acordes_progresion[punto_corte_B:], ritmo_acordes[punto_corte_B:]
+
+    if not segmento_A_acordes or not segmento_B_acordes or not segmento_A2_acordes:
+         return _generar_melodia_simple(acordes_progresion, ritmo_acordes, raiz_tonalidad, modo_tonalidad, genero, bpm, octava_melodia_min, octava_melodia_max)
+
+    notas_primer_acorde = _expandir_notas_acorde_en_rango(segmento_A_acordes[0], params_mel)
+    if not notas_primer_acorde:
+        total_dur = sum(float(r) for r in ritmo_acordes)
+        return [("0", str(total_dur))] if total_dur > 0 else []
+
+    motivo_principal = _crear_motivo_musical(notas_primer_acorde, perfil_actual, escala_actual)
+    melodia_A, ultima_nota_A = _generar_seccion_melodica(segmento_A_acordes, segmento_A_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)
+    
+    notas_acorde_B = _expandir_notas_acorde_en_rango(segmento_B_acordes[0], params_mel) if segmento_B_acordes else notas_primer_acorde
+    motivo_B = _crear_motivo_musical(notas_acorde_B, perfil_actual, escala_actual) # Pasar escala_actual
+    melodia_B, _ = _generar_seccion_melodica(segmento_B_acordes, segmento_B_ritmos, tecnica_elegida, motivo_B, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, ultima_nota_A)
+
+    if random.random() < perfil_actual["prob_variacion_A"]:
+        print("DEBUG (Melodia): Generando variación A'")
+        melodia_A_base_para_variacion, _ = _generar_seccion_melodica(segmento_A2_acordes, segmento_A2_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)
+        melodia_A2 = _variar_melodia(melodia_A_base_para_variacion, notas_escala_disponibles_obj, params_mel)
+    else:
+        print("DEBUG (Melodia): Repitiendo sección A")
+        melodia_A2, _ = _generar_seccion_melodica(segmento_A2_acordes, segmento_A2_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)
+
+    return melodia_A + melodia_B + melodia_A2
 
 
+# --- Bloque de Pruebas ---
 if __name__ == "__main__":
-    acordes_test = [["C4", "E4", "G4"], ["G3", "B3", "D4"], ["A3", "C4", "E4"], ["F3", "A3", "C4"]]
-    ritmo_test = [2.0, 2.0, 1.0, 3.0]
+    acordes_test = [["C4", "E4", "G4"], ["G3", "B3", "D4"], ["A3", "C4", "E4"], ["F3", "A3", "C4"], ["C4", "E4", "G4"], ["G3", "B3", "D4"], ["A3", "C4", "E4"], ["F3", "A3", "C4"]]
+    ritmo_test = [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0] # Progresión de 8 acordes
     raiz_test = "C"
     modo_test = "major"
 
-    print("\n--- Prueba de generación de melodía (Técnica Aleatoria) ---")
-    for i in range(5):
-        print(f"\nIntento de Melodía #{i + 1}")
-        melodia_resultado = generar_melodia_sobre_acordes(
-            acordes_test,
-            ritmo_test,
-            raiz_test,
-            modo_test,
-            bpm=random.randint(70, 150),
-            octava_melodia_min=3,
-            octava_melodia_max=5,
-            densidad_notas=0.7,
-        )
-        print(f"Melodía generada ({len(melodia_resultado)} eventos): {melodia_resultado}")
-
-    print("\n--- Prueba de generación de melodía (Técnica Específica: esqueleto_pasos_vecinos) ---")
-    melodia_esqueleto = generar_melodia_sobre_acordes(
-        acordes_test,
-        ritmo_test,
-        raiz_test,
-        modo_test,
-        bpm=90,
-        tecnica_seleccionada_externa="esqueleto_pasos_vecinos",
-    )
-    print(f"Melodía (Esqueleto): {melodia_esqueleto}")
-
-    print("\n--- Prueba de generación de melodía (Técnica Específica: default) ---")
-    melodia_default = generar_melodia_sobre_acordes(
-        acordes_test,
-        ritmo_test,
-        raiz_test,
-        modo_test,
-        bpm=130,
-        tecnica_seleccionada_externa="default",
-    )
-    print(f"Melodía (Default): {melodia_default}")
-
-if __name__ == "__main__":
-    acordes_test = [["C4", "E4", "G4"], ["G3", "B3", "D4"], ["A3", "C4", "E4"], ["F3", "A3", "C4"]]
-    ritmo_test = [2.0, 2.0, 2.0, 2.0] # Ritmo constante para probar frases
-    raiz_test = "C"
-    modo_test = "major"
-
-    print("\n--- Prueba de generación por GÉNERO ---")
+    print("\n--- Prueba de generación por GÉNERO (Estructura A-B-A') ---")
     
     for genero_actual in ["pop", "lofi", "reggaeton", "r&b", "techno"]:
         print(f"\n--- Generando melodía para: {genero_actual.upper()} ---")

@@ -24,7 +24,7 @@ MAPEO_GENERO_BPM = {
 
 # --- Variables Globales para Aprendizaje y Estado ---
 _ultima_progresion_generada = None
-_ultimo_ritmo_generado = None 
+_ultimo_ritmo_generado = None
 _ultimo_genero = None
 _ultima_tonalidad_str = None
 
@@ -89,6 +89,53 @@ def _get_canonical_tonic_name_for_generator(tonic_name_input):
                 continue
     # Fallback final si no se encontró un equivalente enarmónico en la lista
     return simple_normalized_name
+
+
+def _parse_key_from_string(tonalidad_str):
+    """Convierte una cadena 'raiz modo' en un objeto ``music21.key.Key``."""
+    if not tonalidad_str:
+        return None
+
+    partes = tonalidad_str.split()
+    if len(partes) < 2:
+        return None
+
+    raiz, modo = partes[0], partes[1]
+    try:
+        return key.Key(raiz, modo)
+    except Exception:
+        return None
+
+
+def _voicing_a_roman(voicing, tonalidad_key_obj):
+    """Intenta convertir un voicing (lista/tupla de notas) a un numeral romano."""
+    if tonalidad_key_obj is None:
+        return None
+
+    if isinstance(voicing, str):
+        if voicing in ("0", ""):
+            return "0"
+        if voicing.startswith("SN_"):
+            return voicing
+        return None
+
+    notas = []
+    if isinstance(voicing, (tuple, list)):
+        for nota in voicing:
+            try:
+                notas.append(pitch.Pitch(nota).nameWithOctave)
+            except Exception:
+                continue
+
+    if not notas:
+        return None
+
+    try:
+        chord_obj = m21_chord.Chord(notas)
+        rn_obj = roman.romanNumeralFromChord(chord_obj, tonalidad_key_obj)
+        return rn_obj.figure
+    except Exception:
+        return None
 
 
 # Variables globales para el modo de generación y el índice de progresión aprendida
@@ -216,7 +263,7 @@ def ajustar_pesos_para_diversidad(eventos, pesos, historial_reciente, evento_act
                 nuevo_peso *= 0.45
         if _normalizar_evento_markov(ev) in historial_set:
             nuevo_peso *= 0.6
-            
+
         if historial_reciente.count(ev) >= 2:
             nuevo_peso *= 0.3  # Penalización por repetición excesiva
 
@@ -287,6 +334,182 @@ def _clasificar_funcion_armonica(evento_func, modo="major"):
             return "dominant"
     return "other"
 
+
+def _obtener_modelo_funcional(modelo_tonalidad, modo):
+    """Asegura y devuelve la representación funcional del modelo de Markov."""
+
+    transitions = modelo_tonalidad.get("functional_markov") or {}
+    start_funcs = modelo_tonalidad.get("functional_start") or {}
+    end_funcs = modelo_tonalidad.get("functional_end") or {}
+    mapping = modelo_tonalidad.get("function_to_roman") or {}
+
+    if transitions and start_funcs and mapping:
+        return {
+            "transitions": transitions,
+            "start": start_funcs,
+            "end": end_funcs,
+            "mapping": mapping,
+        }
+
+    transitions_dd = defaultdict(lambda: defaultdict(float))
+    start_dd = defaultdict(float)
+    end_dd = defaultdict(float)
+    mapping_dd = defaultdict(lambda: defaultdict(float))
+
+    for rn, count in modelo_tonalidad.get("start_chords", {}).items():
+        func = _clasificar_funcion_armonica(rn, modo)
+        start_dd[func] += float(count)
+        mapping_dd[func][rn] += float(count)
+
+    for rn, count in modelo_tonalidad.get("end_chords", {}).items():
+        func = _clasificar_funcion_armonica(rn, modo)
+        end_dd[func] += float(count)
+        mapping_dd[func][rn] += float(count)
+
+    for rn_actual, destinos in modelo_tonalidad.get("markov_transitions", {}).items():
+        func_actual = _clasificar_funcion_armonica(rn_actual, modo)
+        for rn_sig, peso in destinos.items():
+            func_sig = _clasificar_funcion_armonica(rn_sig, modo)
+            transitions_dd[func_actual][func_sig] += float(peso)
+            mapping_dd[func_sig][rn_sig] += float(peso)
+        mapping_dd[func_actual][rn_actual] += sum(float(v) for v in destinos.values()) or 0.0
+
+    existing_mapping = modelo_tonalidad.get("function_to_roman", {})
+    for func, opciones in existing_mapping.items():
+        for rn, count in opciones.items():
+            mapping_dd[func][rn] += float(count)
+
+    transitions_dict = {k: dict(v) for k, v in transitions_dd.items() if v}
+    start_dict = dict(start_dd)
+    end_dict = dict(end_dd)
+    mapping_dict = {k: dict(v) for k, v in mapping_dd.items() if v}
+
+    if not modelo_tonalidad.get("functional_markov"):
+        modelo_tonalidad["functional_markov"] = transitions_dict
+    if not modelo_tonalidad.get("functional_start"):
+        modelo_tonalidad["functional_start"] = start_dict
+    if not modelo_tonalidad.get("functional_end"):
+        modelo_tonalidad["functional_end"] = end_dict
+    if not modelo_tonalidad.get("function_to_roman"):
+        modelo_tonalidad["function_to_roman"] = mapping_dict
+
+    return {
+        "transitions": modelo_tonalidad.get("functional_markov", {}),
+        "start": modelo_tonalidad.get("functional_start", {}),
+        "end": modelo_tonalidad.get("functional_end", {}),
+        "mapping": modelo_tonalidad.get("function_to_roman", {}),
+    }
+
+
+def _ajustar_pesos_funcionales(candidatas, pesos, funcion_objetivo, historial):
+    if not candidatas or not pesos:
+        return pesos
+
+    pesos_ajustados = []
+    ultimo = historial[-1] if historial else None
+    repeticion = historial[-2:] if len(historial) >= 2 else []
+
+    for func, peso in zip(candidatas, pesos):
+        factor = 1.0
+        if funcion_objetivo:
+            if func == funcion_objetivo:
+                factor *= 1.8
+            elif funcion_objetivo == "tonic" and func == "dominant":
+                factor *= 0.75
+            elif funcion_objetivo == "dominant" and func == "tonic":
+                factor *= 0.8
+            elif func != funcion_objetivo:
+                factor *= 0.7
+
+        if ultimo == func:
+            factor *= 0.65
+        if len(repeticion) == 2 and all(prev == func for prev in repeticion):
+            factor *= 0.4
+        if func == "other":
+            factor *= 0.6
+
+        pesos_ajustados.append(max(float(peso) * factor, 0.0))
+
+    if sum(pesos_ajustados) == 0:
+        return pesos
+    return pesos_ajustados
+
+
+def _generar_secuencia_funcional(modelo_funcional, plan_funcional, longitud):
+    if longitud <= 0:
+        return []
+
+    start = modelo_funcional.get("start", {})
+    transitions = modelo_funcional.get("transitions", {})
+    funciones_default = ["tonic", "predominant", "dominant", "other"]
+
+    secuencia = []
+    for idx in range(longitud):
+        if idx == 0:
+            candidatos = list(start.keys()) or list(transitions.keys()) or funciones_default
+            pesos = [float(start.get(c, 0)) for c in candidatos]
+            if not any(pesos):
+                pesos = [1.0] * len(candidatos)
+        else:
+            previo = secuencia[-1]
+            trans_dict = transitions.get(previo, {})
+            candidatos = list(trans_dict.keys())
+            pesos = [float(trans_dict.get(c, 0)) for c in candidatos]
+            if not candidatos or not any(pesos):
+                aggregated = defaultdict(float)
+                for origen, destinos in transitions.items():
+                    for destino, valor in destinos.items():
+                        aggregated[destino] += float(valor)
+                candidatos = list(aggregated.keys()) or funciones_default
+                pesos = [float(aggregated.get(c, 1.0)) for c in candidatos] if aggregated else [1.0] * len(candidatos)
+
+        funcion_objetivo = plan_funcional[idx] if plan_funcional and idx < len(plan_funcional) else None
+        pesos = _ajustar_pesos_funcionales(candidatos, pesos, funcion_objetivo, secuencia)
+        if not candidatos:
+            candidatos = funciones_default
+            pesos = [1.0, 1.0, 1.0, 0.5]
+        if sum(pesos) == 0:
+            pesos = [1.0] * len(candidatos)
+
+        funcion_elegida = random.choices(candidatos, weights=pesos, k=1)[0]
+        secuencia.append(funcion_elegida)
+
+    return secuencia
+
+
+def _seleccionar_roman_para_funcion(funcion_objetivo, modo, mapping, voicings_map,
+                                    historial_romanos, contadores, opciones_generales, indice_general):
+    opciones_por_funcion = mapping.get(funcion_objetivo, {})
+    candidatos = []
+    pesos = []
+
+    for rn, peso in opciones_por_funcion.items():
+        if not rn:
+            continue
+        if rn == "0" or (isinstance(rn, str) and rn.startswith("SN_")):
+            continue
+        peso_val = float(peso)
+        if voicings_map and rn in voicings_map:
+            peso_val *= 1.2
+        if historial_romanos and rn == historial_romanos[-1]:
+            peso_val *= 0.55
+        candidatos.append(rn)
+        pesos.append(peso_val)
+
+    if candidatos and sum(pesos) > 0:
+        return random.choices(candidatos, weights=pesos, k=1)[0]
+
+    if opciones_por_funcion:
+        candidatos_especiales = [
+            rn for rn in opciones_por_funcion if rn == "0" or (isinstance(rn, str) and rn.startswith("SN_"))
+        ]
+        if candidatos_especiales:
+            pesos_especiales = [float(opciones_por_funcion[rn]) for rn in candidatos_especiales]
+            if sum(pesos_especiales) > 0:
+                return random.choices(candidatos_especiales, weights=pesos_especiales, k=1)[0]
+
+    return _seleccionar_diatonico_por_funcion(funcion_objetivo, modo, contadores, opciones_generales, indice_general)
+
 def _planificar_frases_markov(longitud):
     """Devuelve longitudes y límites (inicio, fin) de cada frase."""
     if longitud <= 0:
@@ -347,7 +570,7 @@ def _construir_plan_funcional(longitud, modo="major"):
         plan[-2] = "dominant"
     if longitud > 3 and "predominant" not in plan:
         plan[1] = "predominant"
-        
+
     # Refuerzo explícito de cadencia final
     if longitud >= 4:
         plan[-2] = "dominant"
@@ -679,7 +902,7 @@ def ajustar_pesos_por_patron_ritmico(eventos, pesos, duracion_objetivo, evento_p
         if duracion_objetivo >= 1.5:
             if es_silencio:
                 nuevo_peso *= 0.15
-                
+
             # Penalizar silencios largos adicionales
             if duracion_objetivo >= 1.5 and ev_norm == "0":
                 nuevo_peso *= 0.2
@@ -749,13 +972,12 @@ def reforzar_progresion_con_feedback(genero, tonalidad_str, progresion_tuplas_fe
     print(f"Progresión (tuplas): {progresion_tuplas_feedback}")
 
     ruta_directorio_estilos = resource_path("estilos")
-    os.makedirs(ruta_directorio_estilos, exist_ok=True) # Asegurar que exista # Asumiendo que está en la misma carpeta que este script
+    os.makedirs(ruta_directorio_estilos, exist_ok=True)
     ruta_archivo_estilo = os.path.join(ruta_directorio_estilos, f"base_{genero}.py")
 
     info_genero_para_guardar = {}
     if os.path.exists(ruta_archivo_estilo):
         try:
-            # Usar un nombre de módulo único para evitar conflictos si se recarga
             module_name_fb = f"base_{genero}_feedback_module_{random.randint(1,100000)}"
             spec_fb = importlib.util.spec_from_file_location(module_name_fb, ruta_archivo_estilo)
             modulo_fb = importlib.util.module_from_spec(spec_fb)
@@ -770,50 +992,115 @@ def reforzar_progresion_con_feedback(genero, tonalidad_str, progresion_tuplas_fe
             return False
     else:
         print(f"Info: Archivo de estilo {ruta_archivo_estilo} no encontrado. Creando nueva estructura para feedback para el género '{genero}'.")
-        info_genero_para_guardar = {} # Crear diccionario vacío si el archivo no existe
+        info_genero_para_guardar = {}
 
-    # Asegurar estructura de diccionarios
     if genero not in info_genero_para_guardar:
         info_genero_para_guardar[genero] = {}
 
-    if tonalidad_str not in info_genero_para_guardar[genero]:
-        info_genero_para_guardar[genero][tonalidad_str] = {
-            "markov_transitions": {}, "start_chords": {}, "end_chords": {}, "learned_progressions": []
-        }
-    # Asegurar que todas las sub-claves necesarias existan
-    modelo_tonalidad_actual = info_genero_para_guardar[genero][tonalidad_str]
-    for key_model in ["markov_transitions", "start_chords", "end_chords", "learned_progressions"]:
-        if key_model not in modelo_tonalidad_actual:
-            modelo_tonalidad_actual[key_model] = {} if key_model != "learned_progressions" else []
+    modelo_tonalidad_actual = info_genero_para_guardar[genero].setdefault(
+        tonalidad_str,
+        {
+            "markov_transitions": {},
+            "start_chords": {},
+            "end_chords": {},
+            "learned_progressions": [],
+            "functional_markov": {},
+            "functional_start": {},
+            "functional_end": {},
+            "function_to_roman": {},
+            "voicings_for_rn": {},
+        },
+    )
 
-    if "patrones_ritmicos" not in info_genero_para_guardar[genero]: # Patrones rítmicos a nivel de género
+    for clave in [
+        "markov_transitions",
+        "start_chords",
+        "end_chords",
+        "learned_progressions",
+        "functional_markov",
+        "functional_start",
+        "functional_end",
+        "function_to_roman",
+        "voicings_for_rn",
+    ]:
+        if clave == "learned_progressions":
+            modelo_tonalidad_actual.setdefault(clave, [])
+        else:
+            modelo_tonalidad_actual.setdefault(clave, {})
+
+    if "patrones_ritmicos" not in info_genero_para_guardar[genero]:
         info_genero_para_guardar[genero]["patrones_ritmicos"] = []
 
+    tonalidad_key_obj = _parse_key_from_string(tonalidad_str)
+    modo_feedback = tonalidad_key_obj.mode.lower() if tonalidad_key_obj else None
+
+    romanos_feedback = []
+    funciones_feedback = []
+    if progresion_tuplas_feedback:
+        if tonalidad_key_obj:
+            for acorde_fb in progresion_tuplas_feedback:
+                rn_fb = _voicing_a_roman(acorde_fb, tonalidad_key_obj)
+                if rn_fb is None:
+                    rn_fb = "0"
+                romanos_feedback.append(rn_fb)
+                funcion_fb = _clasificar_funcion_armonica(rn_fb, modo_feedback) if modo_feedback else "other"
+                funciones_feedback.append(funcion_fb)
+        else:
+            romanos_feedback = ["0"] * len(progresion_tuplas_feedback)
+            funciones_feedback = ["other"] * len(progresion_tuplas_feedback)
 
     if es_buena:
-        if not progresion_tuplas_feedback: # No reforzar si la progresión está vacía
+        if not progresion_tuplas_feedback:
             print("Advertencia: Se intentó reforzar una progresión vacía con feedback positivo.")
             return False
-        incremento = 3 # Mayor refuerzo para feedback positivo
-        # Reforzar modelo de Markov
-        ac_inicial_fb = progresion_tuplas_feedback[0]
-        modelo_tonalidad_actual["start_chords"][ac_inicial_fb] = modelo_tonalidad_actual["start_chords"].get(ac_inicial_fb, 0) + incremento
-        if len(progresion_tuplas_feedback) > 1:
-            for i in range(len(progresion_tuplas_feedback) - 1):
-                ac_actual_fb = progresion_tuplas_feedback[i]
-                siguiente_ac_fb = progresion_tuplas_feedback[i+1]
-                if ac_actual_fb not in modelo_tonalidad_actual["markov_transitions"]:
-                    modelo_tonalidad_actual["markov_transitions"][ac_actual_fb] = {}
-                modelo_tonalidad_actual["markov_transitions"][ac_actual_fb][siguiente_ac_fb] = \
-                    modelo_tonalidad_actual["markov_transitions"][ac_actual_fb].get(siguiente_ac_fb, 0) + incremento
-        ac_final_fb = progresion_tuplas_feedback[-1]
-        modelo_tonalidad_actual["end_chords"][ac_final_fb] = modelo_tonalidad_actual["end_chords"].get(ac_final_fb, 0) + incremento
-        # Reforzar/Añadir patrón rítmico
+
+        incremento = 3
+
+        if romanos_feedback:
+            inicio_rn = romanos_feedback[0]
+            start_dict = modelo_tonalidad_actual["start_chords"]
+            start_dict[inicio_rn] = start_dict.get(inicio_rn, 0) + incremento
+
+            if len(romanos_feedback) > 1:
+                for actual_rn, siguiente_rn in zip(romanos_feedback, romanos_feedback[1:]):
+                    trans_dict = modelo_tonalidad_actual["markov_transitions"].setdefault(actual_rn, {})
+                    trans_dict[siguiente_rn] = trans_dict.get(siguiente_rn, 0) + incremento
+
+            fin_rn = romanos_feedback[-1]
+            end_dict = modelo_tonalidad_actual["end_chords"]
+            end_dict[fin_rn] = end_dict.get(fin_rn, 0) + incremento
+
+        if funciones_feedback:
+            inicio_func = funciones_feedback[0]
+            start_func_dict = modelo_tonalidad_actual["functional_start"]
+            start_func_dict[inicio_func] = start_func_dict.get(inicio_func, 0) + incremento
+
+            if len(funciones_feedback) > 1:
+                for func_act, func_sig in zip(funciones_feedback, funciones_feedback[1:]):
+                    trans_func_dict = modelo_tonalidad_actual["functional_markov"].setdefault(func_act, {})
+                    trans_func_dict[func_sig] = trans_func_dict.get(func_sig, 0) + incremento
+
+            fin_func = funciones_feedback[-1]
+            end_func_dict = modelo_tonalidad_actual["functional_end"]
+            end_func_dict[fin_func] = end_func_dict.get(fin_func, 0) + incremento
+
+        voicings_map_fb = modelo_tonalidad_actual.setdefault("voicings_for_rn", {})
+        for rn_fb, func_fb, acorde_fb in zip(romanos_feedback, funciones_feedback, progresion_tuplas_feedback or []):
+            mapa_funcional = modelo_tonalidad_actual["function_to_roman"].setdefault(func_fb, {})
+            mapa_funcional[rn_fb] = mapa_funcional.get(rn_fb, 0) + incremento
+
+            if rn_fb and rn_fb not in ("0", "") and not (isinstance(rn_fb, str) and rn_fb.startswith("SN_")):
+                if isinstance(acorde_fb, (list, tuple)):
+                    voicing_tuple = tuple(acorde_fb)
+                    voicings_list = voicings_map_fb.setdefault(rn_fb, [])
+                    if voicing_tuple not in voicings_list:
+                        voicings_list.append(voicing_tuple)
+
         if isinstance(ritmo, list) and ritmo:
-            ritmo_tupla = tuple(ritmo) # Convertir a tupla para hashear
+            ritmo_tupla = tuple(ritmo)
             patrones_existentes_tuplas = {tuple(p) for p in info_genero_para_guardar[genero]["patrones_ritmicos"]}
             if ritmo_tupla not in patrones_existentes_tuplas:
-                 info_genero_para_guardar[genero]["patrones_ritmicos"].append(list(ritmo_tupla)) # Guardar como lista
+                info_genero_para_guardar[genero]["patrones_ritmicos"].append(list(ritmo_tupla))
 
         print(f"👍 Modelo reforzado para {genero} - {tonalidad_str}.")
         try:
@@ -827,30 +1114,51 @@ def reforzar_progresion_con_feedback(genero, tonalidad_str, progresion_tuplas_fe
         except Exception as e_write_fb:
             print(f"CRÍTICO: No se pudo guardar el feedback en {ruta_archivo_estilo}: {e_write_fb}")
             return False
-    elif not es_buena: # Feedback negativo
+
+    elif not es_buena:
         print(f"👎 Feedback negativo recibido para {genero} - {tonalidad_str}. Aplicando penalización…")
-        decremento = 1 # Penalización más suave
-        if progresion_tuplas_feedback: # Solo penalizar si hay progresión
-            ac_inicial_pen = progresion_tuplas_feedback[0]
-            sc = modelo_tonalidad_actual["start_chords"]
-            sc[ac_inicial_pen] = max(0, sc.get(ac_inicial_pen, 0) - decremento)
-            if len(progresion_tuplas_feedback) > 1:
-                for i in range(len(progresion_tuplas_feedback) - 1):
-                    actual_pen = progresion_tuplas_feedback[i]
-                    siguiente_pen = progresion_tuplas_feedback[i+1]
-                    mt = modelo_tonalidad_actual["markov_transitions"].setdefault(actual_pen, {})
-                    mt[siguiente_pen] = max(0, mt.get(siguiente_pen, 0) - decremento)
-            ac_final_pen = progresion_tuplas_feedback[-1]
-            ec = modelo_tonalidad_actual["end_chords"]
-            ec[ac_final_pen] = max(0, ec.get(ac_final_pen, 0) - decremento)
-        # Considerar si se debe penalizar el patrón rítmico.
-        # Por ahora, solo se elimina si es exactamente el mismo.
+        decremento = 1
+
+        if romanos_feedback:
+            start_dict = modelo_tonalidad_actual["start_chords"]
+            inicio_rn = romanos_feedback[0]
+            start_dict[inicio_rn] = max(0, start_dict.get(inicio_rn, 0) - decremento)
+
+            if len(romanos_feedback) > 1:
+                for actual_rn, siguiente_rn in zip(romanos_feedback, romanos_feedback[1:]):
+                    trans_dict = modelo_tonalidad_actual["markov_transitions"].setdefault(actual_rn, {})
+                    trans_dict[siguiente_rn] = max(0, trans_dict.get(siguiente_rn, 0) - decremento)
+
+            fin_rn = romanos_feedback[-1]
+            end_dict = modelo_tonalidad_actual["end_chords"]
+            end_dict[fin_rn] = max(0, end_dict.get(fin_rn, 0) - decremento)
+
+        if funciones_feedback:
+            start_func_dict = modelo_tonalidad_actual["functional_start"]
+            inicio_func = funciones_feedback[0]
+            start_func_dict[inicio_func] = max(0, start_func_dict.get(inicio_func, 0) - decremento)
+
+            if len(funciones_feedback) > 1:
+                for func_act, func_sig in zip(funciones_feedback, funciones_feedback[1:]):
+                    trans_func_dict = modelo_tonalidad_actual["functional_markov"].setdefault(func_act, {})
+                    trans_func_dict[func_sig] = max(0, trans_func_dict.get(func_sig, 0) - decremento)
+
+            fin_func = funciones_feedback[-1]
+            end_func_dict = modelo_tonalidad_actual["functional_end"]
+            end_func_dict[fin_func] = max(0, end_func_dict.get(fin_func, 0) - decremento)
+
+        for rn_fb, func_fb in zip(romanos_feedback, funciones_feedback):
+            mapa_funcional = modelo_tonalidad_actual["function_to_roman"].setdefault(func_fb, {})
+            mapa_funcional[rn_fb] = max(0, mapa_funcional.get(rn_fb, 0) - decremento)
+
         pr = info_genero_para_guardar[genero]["patrones_ritmicos"]
-        if isinstance(ritmo, list) and ritmo and ritmo in pr: # ritmo debe ser lista aquí
+        if isinstance(ritmo, list) and ritmo and ritmo in pr:
             try:
                 pr.remove(ritmo)
                 print(f"🥁 Patrón rítmico asociado a la progresión negativa eliminado de '{genero}'.")
-            except ValueError: pass # No estaba, no hay problema
+            except ValueError:
+                pass
+
         try:
             with open(ruta_archivo_estilo, "w", encoding="utf-8") as f:
                 f.write(f"# Archivo de estilo para {genero}\n")
@@ -862,7 +1170,8 @@ def reforzar_progresion_con_feedback(genero, tonalidad_str, progresion_tuplas_fe
         except Exception as e_pen:
             print(f"CRÍTICO: No se pudo guardar penalización en {ruta_archivo_estilo}: {e_pen}")
             return False
-    return False # Si no es ni buena ni mala (caso no esperado)
+
+    return False
 
 def listificar_acorde(acorde_data_tupla):
     """Convierte un acorde de tupla a lista, manteniendo "0" y strings como están."""
@@ -914,7 +1223,7 @@ def extraer_tonalidad(prompt_texto, estilo_detectado_param="normal"):
             if re.search(r'\b' + re.escape(nota_nat_str) + r'\b', prompt_lower):
                 raiz_encontrada = nota_equivalente[nota_nat_str]
                 break
-    
+
     # Si aún no se encontró, intentar con las palabras individuales (menos preciso)
     if not raiz_encontrada:
         for palabra_o_nota in palabras:
@@ -1060,65 +1369,72 @@ def generar_progresion_markov(raiz, modo, estilo="normal", num_acordes_deseado=4
     print(f"\n--- DEBUG: generar_progresion_markov ---")
     print(f"Request: Estilo='{estilo}', Raiz='{raiz}', Modo='{modo}', NumAcordes UI='{num_acordes_deseado}'")
 
-    MIN_ACORDES_REALES_OBJETIVO = 4 # Mínimo de acordes no-silencio que intentaremos generar
-    MAX_PROG_LENGTH_GENERAL = 16 # Límite superior general para la longitud de la progresión
+    MIN_ACORDES_REALES_OBJETIVO = 4  # Mínimo de acordes no-silencio que intentaremos generar
+    MAX_PROG_LENGTH_GENERAL = 16  # Límite superior general para la longitud de la progresión
 
     # Normalizar raíz y modo
     canonical_raiz_generator = _get_canonical_tonic_name_for_generator(raiz)
-    canonical_modo_generator = modo.lower() if modo else "major" # Default a major si modo es None
-    if not canonical_raiz_generator: canonical_raiz_generator = "c" # Default a C si raíz es None
+    canonical_modo_generator = modo.lower() if modo else "major"
+    if not canonical_raiz_generator:
+        canonical_raiz_generator = "c"
 
     clave_tonalidad_markov = f"{canonical_raiz_generator} {canonical_modo_generator}"
 
     modelo_tonalidad = INFO_GENERO.get(estilo, {}).get(clave_tonalidad_markov)
 
     # Fallback si no hay modelo o está incompleto
-    if not modelo_tonalidad or \
-       not modelo_tonalidad.get("markov_transitions") or \
-       not modelo_tonalidad.get("start_chords") or \
-       not modelo_tonalidad.get("voicings_for_rn"):
-        print(f"ADVERTENCIA (Markov): Modelo no encontrado/incompleto para '{estilo} - {clave_tonalidad_markov}'. Usando fallback diatónico.")
+    if (
+        not modelo_tonalidad
+        or not modelo_tonalidad.get("markov_transitions")
+        or not modelo_tonalidad.get("start_chords")
+        or not modelo_tonalidad.get("voicings_for_rn")
+    ):
+        print(
+            f"ADVERTENCIA (Markov): Modelo no encontrado/incompleto para '{estilo} - {clave_tonalidad_markov}'. "
+            "Usando fallback diatónico."
+        )
         long_fallback = num_acordes_deseado if num_acordes_deseado is not None else MIN_ACORDES_REALES_OBJETIVO
-        # Asegurar que el fallback tenga al menos MIN_ACORDES_REALES_OBJETIVO si num_acordes_deseado es None o muy pequeño
         if num_acordes_deseado is None or num_acordes_deseado >= MIN_ACORDES_REALES_OBJETIVO:
             long_fallback = max(long_fallback, MIN_ACORDES_REALES_OBJETIVO)
 
         k_fallback = key.Key(canonical_raiz_generator, canonical_modo_generator)
-        prog_numerals_fb = ['I', 'V', 'vi', 'IV'] if canonical_modo_generator == "major" else ['i', 'VI', 'III', 'VII'] # Simplificado
+        prog_numerals_fb = ["I", "V", "vi", "IV"] if canonical_modo_generator == "major" else ["i", "VI", "III", "VII"]
         fallback_prog = []
         for i in range(long_fallback):
             rn_str_fb = prog_numerals_fb[i % len(prog_numerals_fb)]
             try:
                 chord_obj_fb = roman.RomanNumeral(rn_str_fb, k_fallback).pitches
-                chord_m21_fb = m21_chord.Chord(chord_obj_fb) # Crear objeto Chord
-                chord_m21_fb.closedPosition(forceOctave=3, inPlace=True) # Normalizar voicing
-                fallback_prog.append([p.nameWithOctave for p in chord_m21_fb.pitches[:3]]) # Tomar hasta 3 notas
+                chord_m21_fb = m21_chord.Chord(chord_obj_fb)
+                chord_m21_fb.closedPosition(forceOctave=3, inPlace=True)
+                fallback_prog.append([p.nameWithOctave for p in chord_m21_fb.pitches[:3]])
             except Exception as e_fb_inner:
-                 print(f"Error en fallback diatónico interno: {e_fb_inner}")
-                 fallback_prog.append(["C4", "E4", "G4"]) # Último recurso
-        return fallback_prog, [1.0] * len(fallback_prog) # Ritmo simple para fallback
+                print(f"Error en fallback diatónico interno: {e_fb_inner}")
+                fallback_prog.append(["C4", "E4", "G4"])
+        return fallback_prog, [1.0] * len(fallback_prog)
 
     # Determinar la longitud objetivo de la progresión
-    longitud_objetivo_realizada = 0
-    if num_acordes_deseado is None: # Si el usuario no especificó, intentar usar longitud de patrones rítmicos
+    if num_acordes_deseado is None:
         patrones_ritmo_genero = INFO_GENERO.get(estilo, {}).get("patrones_ritmicos", [])
-        patrones_ritmo_listas = [list(p) for p in patrones_ritmo_genero if isinstance(p, tuple)] # Convertir tuplas a listas
-        longitudes_patrones = [len(p) for p in patrones_ritmo_listas if isinstance(p, list) and p and len(p) >= MIN_ACORDES_REALES_OBJETIVO]
-
+        patrones_ritmo_listas = [list(p) for p in patrones_ritmo_genero if isinstance(p, tuple)]
+        longitudes_patrones = [
+            len(p)
+            for p in patrones_ritmo_listas
+            if isinstance(p, list) and p and len(p) >= MIN_ACORDES_REALES_OBJETIVO
+        ]
         if longitudes_patrones:
             longitud_objetivo_realizada = random.choice(longitudes_patrones)
-        else: # Si no hay patrones rítmicos adecuados, elegir una longitud aleatoria común
-            longitud_objetivo_realizada = random.choice([l for l in [4, 5, 6, 7, 8] if l >= MIN_ACORDES_REALES_OBJETIVO])
-    else: # Si el usuario especificó, usar esa longitud
+        else:
+            longitud_objetivo_realizada = random.choice(
+                [l for l in [4, 5, 6, 7, 8] if l >= MIN_ACORDES_REALES_OBJETIVO]
+            )
+    else:
         longitud_objetivo_realizada = num_acordes_deseado
 
-    # Asegurar que la longitud objetivo esté dentro de los límites razonables
     if num_acordes_deseado is None or num_acordes_deseado >= MIN_ACORDES_REALES_OBJETIVO:
         longitud_objetivo_realizada = max(longitud_objetivo_realizada, MIN_ACORDES_REALES_OBJETIVO)
 
-    longitud_objetivo_realizada = min(longitud_objetivo_realizada, MAX_PROG_LENGTH_GENERAL) # Limitar la longitud máxima
+    longitud_objetivo_realizada = min(longitud_objetivo_realizada, MAX_PROG_LENGTH_GENERAL)
 
-    # Obtener un patrón rítmico a seguir y sincronizar la longitud con él
     ritmo_planificado = cargar_patron_ritmico_acordes(estilo, longitud_objetivo_realizada, True)
     if ritmo_planificado and isinstance(ritmo_planificado, list):
         if len(ritmo_planificado) >= MIN_ACORDES_REALES_OBJETIVO:
@@ -1131,296 +1447,162 @@ def generar_progresion_markov(raiz, modo, estilo="normal", num_acordes_deseado=4
 
     ritmo_planificado = ritmo_planificado[:longitud_objetivo_realizada]
 
-    print(f"DEBUG (Markov): Longitud Objetivo Realizada: {longitud_objetivo_realizada}, Mín Acordes Reales Requeridos: {MIN_ACORDES_REALES_OBJETIVO}")
+    print(
+        "DEBUG (Markov): Longitud Objetivo Realizada: "
+        f"{longitud_objetivo_realizada}, Mín Acordes Reales Requeridos: {MIN_ACORDES_REALES_OBJETIVO}"
+    )
 
     plan_funcional, limites_frases = _construir_plan_funcional(longitud_objetivo_realizada, canonical_modo_generator)
-    contadores_funcion_fallback = defaultdict(int)
-
-    progresion_realizada_final = []
-    secuencia_eventos_func_debug = [] # Para depuración
-    acordes_reales_count = 0 # Contador de acordes que no son silencios
-    funciones_usadas = set()
-
-    # Elegir acorde inicial
-    start_events_dict = modelo_tonalidad["start_chords"]
-    evento_func_actual = None
-    if start_events_dict:
-        eventos_inicio_posibles = list(start_events_dict.keys())
-        pesos_inicio = [float(start_events_dict.get(ev, 0)) for ev in eventos_inicio_posibles]
-
-        # Priorizar eventos que no sean "0" si tienen peso
-        if any(p > 0 for p in pesos_inicio):
-            eventos_no_cero = [ev for i, ev in enumerate(eventos_inicio_posibles) if ev != "0" and pesos_inicio[i] > 0]
-            pesos_no_cero = [pesos_inicio[i] for i, ev in enumerate(eventos_inicio_posibles) if ev != "0" and pesos_inicio[i] > 0]
-
-            if eventos_no_cero and sum(pesos_no_cero) > 0:
-                evento_func_actual = random.choices(eventos_no_cero, weights=pesos_no_cero, k=1)[0]
-            else: # Si todos los pesos no cero son 0 (raro), o solo hay "0" con peso
-                evento_func_actual = random.choices(eventos_inicio_posibles, weights=pesos_inicio, k=1)[0] if sum(pesos_inicio) > 0 else None
-
-
-    if evento_func_actual is None: # Si no se pudo elegir un acorde inicial del modelo
-        evento_func_actual = "I" if canonical_modo_generator == "major" else "i" # Default simple
-        print(f"WARN (Markov): No se pudo elegir acorde inicial del modelo. Usando '{evento_func_actual}'.")
-    
-    if plan_funcional:
-        funcion_inicio = _clasificar_funcion_armonica(evento_func_actual, canonical_modo_generator)
-        if funcion_inicio != plan_funcional[0]:
-            candidatos_tonica = [ev for ev in start_events_dict.keys() if _clasificar_funcion_armonica(ev, canonical_modo_generator) == plan_funcional[0]] if start_events_dict else []
-            if candidatos_tonica:
-                pesos_candidatos = [float(start_events_dict.get(ev, 0)) for ev in candidatos_tonica]
-                if sum(pesos_candidatos) > 0:
-                    evento_func_actual = random.choices(candidatos_tonica, weights=pesos_candidatos, k=1)[0]
-
-    if ritmo_planificado and evento_func_actual == "0":
-        dur_inicio = ritmo_planificado[0] if ritmo_planificado else None
-        if dur_inicio is None or dur_inicio >= 0.75:
-            eventos_no_cero_inicio = [ev for ev in start_events_dict.keys() if ev != "0"] if start_events_dict else []
-            if eventos_no_cero_inicio:
-                pesos_no_cero_inicio = [float(start_events_dict.get(ev, 0)) for ev in eventos_no_cero_inicio]
-                if sum(pesos_no_cero_inicio) > 0:
-                    evento_func_actual = random.choices(eventos_no_cero_inicio, weights=pesos_no_cero_inicio, k=1)[0]
-
-
-    k_generacion = key.Key(canonical_raiz_generator, canonical_modo_generator) # Tonalidad para realizar RNs
+    k_generacion = key.Key(canonical_raiz_generator, canonical_modo_generator)
     voicings_disponibles_rn_map = modelo_tonalidad.get("voicings_for_rn", {})
 
-    # Para rellenar si la cadena de Markov se atasca
-    diatonic_options_fill_markov = ['I', 'V', 'vi', 'IV'] if canonical_modo_generator == "major" else ['i', 'VI', 'III', 'VII']
-    diatonic_options_fill_markov = diatonic_options_fill_markov[:]  # Copia para poder barajar
-    random.shuffle(diatonic_options_fill_markov)
-    fill_idx_markov = 0
+    modelo_funcional = _obtener_modelo_funcional(modelo_tonalidad, canonical_modo_generator)
+    if not modelo_funcional.get("transitions") and not modelo_funcional.get("start"):
+        print("WARN (Markov): Modelo funcional vacío. Usando progresión diatónica basada en el plan.")
+        progresion_fallback, eventos_fallback = _construir_progresion_diatonica_desde_plan(
+            plan_funcional,
+            canonical_modo_generator,
+            k_generacion,
+            voicings_disponibles_rn_map,
+        )
+        ritmo_final = ritmo_planificado[:len(progresion_fallback)] if ritmo_planificado else [1.0] * len(progresion_fallback)
+        return progresion_fallback, ritmo_final
 
-    fue_nota_individual_anterior = False # Para evitar dos SN_ seguidas si es posible
-    historial_eventos_recientes = deque(maxlen=5)
-    ultimo_voicing_para_suavizado = None
+    funciones_generadas = _generar_secuencia_funcional(
+        modelo_funcional,
+        plan_funcional,
+        longitud_objetivo_realizada,
+    )
+    if not funciones_generadas:
+        progresion_fallback, eventos_fallback = _construir_progresion_diatonica_desde_plan(
+            plan_funcional,
+            canonical_modo_generator,
+            k_generacion,
+            voicings_disponibles_rn_map,
+        )
+        ritmo_final = ritmo_planificado[:len(progresion_fallback)] if ritmo_planificado else [1.0] * len(progresion_fallback)
+        return progresion_fallback, ritmo_final
 
-    # Generar la progresión
-    while len(progresion_realizada_final) < longitud_objetivo_realizada:
-        secuencia_eventos_func_debug.append(evento_func_actual) # Guardar para depuración
-        funcion_actual = _clasificar_funcion_armonica(evento_func_actual, canonical_modo_generator)
-        if funcion_actual != "other":
-            funciones_usadas.add(funcion_actual)
-        voicing_realizado_actual = "0" # Default a silencio
+    contadores_funcion_fallback = defaultdict(int)
+    opciones_generales = ['I', 'V', 'vi', 'IV'] if canonical_modo_generator == "major" else ['i', 'VI', 'III', 'VII']
 
-        es_nota_individual_actual = isinstance(evento_func_actual, str) and evento_func_actual.startswith("SN_")
+    secuencia_eventos_func_debug = []
+    for idx, funcion in enumerate(funciones_generadas):
+        rn_elegido = _seleccionar_roman_para_funcion(
+            funcion,
+            canonical_modo_generator,
+            modelo_funcional.get("mapping", {}),
+            voicings_disponibles_rn_map,
+            secuencia_eventos_func_debug,
+            contadores_funcion_fallback,
+            opciones_generales,
+            idx,
+        )
+        secuencia_eventos_func_debug.append(rn_elegido)
 
-        if evento_func_actual == "0":
-            voicing_realizado_actual = "0"
-            
-        elif es_nota_individual_actual: # Si es una nota individual (SN_Nota)
-            voicing_realizado_actual = [evento_func_actual[3:]] # Guardar solo el nombre de la nota
-            fue_nota_individual_anterior = True
-        else: # Es un símbolo de RN o un voicing concreto (tupla)
-            voicings_candidatos = []
-            if isinstance(evento_func_actual, str): # Es un RN
-                voicings_candidatos = voicings_disponibles_rn_map.get(evento_func_actual, [])
-            elif isinstance(evento_func_actual, tuple): # Ya es un voicing
-                voicings_candidatos = [evento_func_actual]
+    progresion_realizada_final = _reconstruir_voicings_desde_eventos(
+        secuencia_eventos_func_debug,
+        k_generacion,
+        voicings_disponibles_rn_map,
+    )
 
-            if voicings_candidatos:
-                voicing_elegido_tupla = random.choice(voicings_candidatos)
-                voicing_realizado_actual = list(voicing_elegido_tupla) # Convertir a lista
-            else: # Fallback: realizar RN diatónicamente si no hay voicing aprendido
-                try:
-                    if isinstance(evento_func_actual, str): # Solo si es un RN string
-                        rn_obj_fb = roman.RomanNumeral(evento_func_actual, k_generacion)
-                        pitches_rn_fb = rn_obj_fb.pitches
-                        if pitches_rn_fb:
-                            chord_m21_fb = m21_chord.Chord(pitches_rn_fb)
-                            chord_m21_fb.closedPosition(forceOctave=3, inPlace=True)
-                            voicing_realizado_actual = [p.nameWithOctave for p in chord_m21_fb.pitches[:3]]
-                except Exception as e_realize_fb:
-                    print(f"WARN (Markov Realize): Fallo al realizar RN '{evento_func_actual}' como fallback: {e_realize_fb}. Usando silencio.")
-                    voicing_realizado_actual = "0"
-            fue_nota_individual_anterior = False
+    _reforzar_cadencias_por_frase(
+        progresion_realizada_final,
+        secuencia_eventos_func_debug,
+        limites_frases,
+        canonical_modo_generator,
+        k_generacion,
+        voicings_disponibles_rn_map,
+    )
 
-        if voicing_realizado_actual != "0" and ultimo_voicing_para_suavizado:
-            voicing_ajustado = suavizar_transicion_voicing(voicing_realizado_actual, ultimo_voicing_para_suavizado)
-            if voicing_ajustado:
-                voicing_realizado_actual = voicing_ajustado
+    if not _validar_progresion_markov(
+        secuencia_eventos_func_debug,
+        canonical_modo_generator,
+        k_generacion,
+        limites_frases,
+    ):
+        _reparar_progresion_markov(
+            secuencia_eventos_func_debug,
+            plan_funcional,
+            canonical_modo_generator,
+            k_generacion,
+        )
+        progresion_realizada_final = _reconstruir_voicings_desde_eventos(
+            secuencia_eventos_func_debug,
+            k_generacion,
+            voicings_disponibles_rn_map,
+        )
+        _reforzar_cadencias_por_frase(
+            progresion_realizada_final,
+            secuencia_eventos_func_debug,
+            limites_frases,
+            canonical_modo_generator,
+            k_generacion,
+            voicings_disponibles_rn_map,
+        )
 
-        progresion_realizada_final.append(voicing_realizado_actual)
-        if voicing_realizado_actual != "0":
-            acordes_reales_count += 1
-            if not es_nota_individual_actual:
-                ultimo_voicing_para_suavizado = voicing_realizado_actual
+    if not _validar_progresion_markov(
+        secuencia_eventos_func_debug,
+        canonical_modo_generator,
+        k_generacion,
+        limites_frases,
+    ):
+        progresion_realizada_final, secuencia_eventos_func_debug = _construir_progresion_diatonica_desde_plan(
+            plan_funcional,
+            canonical_modo_generator,
+            k_generacion,
+            voicings_disponibles_rn_map,
+        )
+        _reforzar_cadencias_por_frase(
+            progresion_realizada_final,
+            secuencia_eventos_func_debug,
+            limites_frases,
+            canonical_modo_generator,
+            k_generacion,
+            voicings_disponibles_rn_map,
+        )
 
+    _asegurar_cadencia_final(
+        progresion_realizada_final,
+        secuencia_eventos_func_debug,
+        canonical_modo_generator,
+        k_generacion,
+        voicings_disponibles_rn_map,
+    )
 
-        # Transición al siguiente estado
-        evento_func_previo_loop = evento_func_actual # Guardar el evento actual antes de cambiarlo
-        historial_eventos_recientes.append(evento_func_previo_loop)
-        transiciones_posibles_dict = modelo_tonalidad["markov_transitions"].get(evento_func_previo_loop, {})
-        evento_previo_norm = _normalizar_evento_markov(evento_func_previo_loop)
-        indice_siguiente = len(progresion_realizada_final)
-        duracion_siguiente = ritmo_planificado[indice_siguiente] if ritmo_planificado and indice_siguiente < len(ritmo_planificado) else None
-        funcion_objetivo_siguiente = plan_funcional[indice_siguiente] if indice_siguiente < len(plan_funcional) else None
-
-        siguientes_eventos_filtrados = []
-        pesos_filtrados = []
-
-        # Lógica para evitar dos SN_ seguidas si es posible
-        if fue_nota_individual_anterior and transiciones_posibles_dict:
-            # print(f"INFO (Markov): Evento anterior fue SN ('{evento_func_previo_loop}'). Filtrando siguientes para que sean acordes.")
-            for ev_sig, peso_sig in transiciones_posibles_dict.items():
-                if not (isinstance(ev_sig, str) and (ev_sig == "0" or ev_sig.startswith("SN_"))): # No silencio, no SN_
-                    siguientes_eventos_filtrados.append(ev_sig)
-                    pesos_filtrados.append(float(peso_sig))
-
-            if not siguientes_eventos_filtrados: # Si no hay acordes, permitir silencios
-                # print(f"WARN (Markov): No hay transiciones a acordes desde SN '{evento_func_previo_loop}'. Considerando silencios.")
-                for ev_sig, peso_sig in transiciones_posibles_dict.items():
-                     if ev_sig == "0": # Solo permitir silencio como siguiente si no hay acordes
-                        siguientes_eventos_filtrados.append(ev_sig)
-                        pesos_filtrados.append(float(peso_sig))
-
-        if siguientes_eventos_filtrados and sum(pesos_filtrados) > 0 :
-            pesos_filtrados = ajustar_pesos_para_diversidad(siguientes_eventos_filtrados, pesos_filtrados, historial_eventos_recientes, evento_func_previo_loop)
-            pesos_filtrados = _ajustar_pesos_por_plan_funcional(siguientes_eventos_filtrados, pesos_filtrados, funcion_objetivo_siguiente, canonical_modo_generator)
-            pesos_filtrados = _ajustar_pesos_por_transicion_musical(siguientes_eventos_filtrados, pesos_filtrados, evento_func_previo_loop, canonical_modo_generator, k_generacion, historial_eventos_recientes)
-            pesos_filtrados = ajustar_pesos_por_patron_ritmico(siguientes_eventos_filtrados, pesos_filtrados, duracion_siguiente, evento_previo_norm, fue_nota_individual_anterior)
-            if sum(pesos_filtrados) <= 0:
-                pesos_filtrados = [1.0] * len(siguientes_eventos_filtrados)
-            evento_func_actual = random.choices(siguientes_eventos_filtrados, weights=pesos_filtrados, k=1)[0]
-            # print(f"INFO (Markov): Desde SN, elegido (filtrado): {evento_func_actual}")
-
-        elif transiciones_posibles_dict: # Si no fue SN anterior o el filtro no dio resultados, usar todas las transiciones
-            siguientes_eventos_orig = list(transiciones_posibles_dict.keys())
-            pesos_transicion_orig = [float(transiciones_posibles_dict.get(ev, 0)) for ev in siguientes_eventos_orig]
-            if sum(pesos_transicion_orig) > 0:
-                pesos_transicion_orig = ajustar_pesos_para_diversidad(siguientes_eventos_orig, pesos_transicion_orig, historial_eventos_recientes, evento_func_previo_loop)
-                pesos_transicion_orig = _ajustar_pesos_por_plan_funcional(siguientes_eventos_orig, pesos_transicion_orig, funcion_objetivo_siguiente, canonical_modo_generator)
-                pesos_transicion_orig = _ajustar_pesos_por_transicion_musical(siguientes_eventos_orig, pesos_transicion_orig, evento_func_previo_loop, canonical_modo_generator, k_generacion, historial_eventos_recientes)
-                funcion_actual = _clasificar_funcion_armonica(evento_func_previo_loop, canonical_modo_generator)
-                pesos_validados = []
-                for ev, peso in zip(siguientes_eventos_orig, pesos_transicion_orig):
-                    funcion_siguiente = _clasificar_funcion_armonica(ev, canonical_modo_generator)
-                    if funcion_siguiente in ["tonic", "predominant", "dominant"]:
-                        if funcion_actual == "tonic" and funcion_siguiente not in ["predominant", "tonic"]:
-                            peso *= 0.3
-                        elif funcion_actual == "predominant" and funcion_siguiente not in ["dominant", "tonic"]:
-                            peso *= 0.3
-                        elif funcion_actual == "dominant" and funcion_siguiente not in ["tonic", "predominant"]:
-                            peso *= 0.3
-                    pesos_validados.append(peso)
-                pesos_transicion_orig = pesos_validados
-
-                pesos_transicion_orig = ajustar_pesos_por_patron_ritmico(siguientes_eventos_orig, pesos_transicion_orig, duracion_siguiente, evento_previo_norm, fue_nota_individual_anterior)
-                if sum(pesos_transicion_orig) <= 0:
-                    pesos_transicion_orig = [1.0] * len(siguientes_eventos_orig)
-                evento_func_actual = random.choices(siguientes_eventos_orig, weights=pesos_transicion_orig, k=1)[0]
-            else: # No hay transiciones válidas con peso
-                evento_func_actual = None
-        else: # No hay transiciones definidas para el estado actual
-            evento_func_actual = None
-
-        # Si no se puede transicionar, decidir si terminar o rellenar
-        if evento_func_actual is None:
-            # Si aún no hemos alcanzado la longitud deseada Y (no hemos alcanzado el mínimo de acordes reales O el usuario no especificó longitud)
-            if len(progresion_realizada_final) < longitud_objetivo_realizada and \
-               (acordes_reales_count < MIN_ACORDES_REALES_OBJETIVO or num_acordes_deseado is None):
-
-                if fue_nota_individual_anterior: # Si el último fue SN, intentar un acorde diatónico
-                     evento_func_actual = _seleccionar_diatonico_por_funcion(funcion_objetivo_siguiente, canonical_modo_generator, contadores_funcion_fallback, diatonic_options_fill_markov, fill_idx_markov)
-                else: # Si no, rellenar con diatónico
-                    evento_func_actual = _seleccionar_diatonico_por_funcion(funcion_objetivo_siguiente, canonical_modo_generator, contadores_funcion_fallback, diatonic_options_fill_markov, fill_idx_markov)
-                fill_idx_markov += 1
-            else: # Ya hemos generado suficientes o alcanzado la longitud deseada
-                break # Salir del bucle while
-
-    # Rellenar con silencios si es necesario para alcanzar la longitud objetivo
-    if len(progresion_realizada_final) < longitud_objetivo_realizada:
-        deficit = longitud_objetivo_realizada - len(progresion_realizada_final)
-        progresion_realizada_final.extend(["0"] * deficit)
-        if ritmo_planificado and len(ritmo_planificado) < longitud_objetivo_realizada:
-            ultimo_valor_ritmo = ritmo_planificado[-1] if ritmo_planificado else 1.0
-            ritmo_planificado.extend([ultimo_valor_ritmo] * (longitud_objetivo_realizada - len(ritmo_planificado)))
-    # Asegurar un mínimo de acordes reales si el usuario no especificó longitud
-    if num_acordes_deseado is None:
-        while acordes_reales_count < MIN_ACORDES_REALES_OBJETIVO and len(progresion_realizada_final) < MAX_PROG_LENGTH_GENERAL:
-            indice_actual_fill = len(progresion_realizada_final)
-            funcion_objetivo_fill = plan_funcional[indice_actual_fill] if indice_actual_fill < len(plan_funcional) else None
-            evento_func_relleno_post = _seleccionar_diatonico_por_funcion(funcion_objetivo_fill, canonical_modo_generator, contadores_funcion_fallback, diatonic_options_fill_markov, fill_idx_markov)
-            fill_idx_markov += 1
-            voicing_post = "0"
-            try:
-                rn_obj_post = roman.RomanNumeral(evento_func_relleno_post, k_generacion)
-                voicings_aprendidos_post = voicings_disponibles_rn_map.get(evento_func_relleno_post, [])
-                if voicings_aprendidos_post:
-                    voicing_post = list(random.choice(voicings_aprendidos_post))
-                else: # Realizar diatónicamente
-                    chord_m21_post = m21_chord.Chord(rn_obj_post.pitches)
-                    chord_m21_post.closedPosition(forceOctave=3, inPlace=True)
-                    voicing_post = [p.nameWithOctave for p in chord_m21_post.pitches[:3]]
-            except: pass # Ignorar error y mantener voicing_post como "0"
-
-            if voicing_post != "0":
-                progresion_realizada_final.append(voicing_post)
-                acordes_reales_count += 1
-            else: # Si no se pudo realizar, añadir silencio para avanzar
-                progresion_realizada_final.append("0")
-            if ritmo_planificado:
-                valor_extendido = ritmo_planificado[-1] if ritmo_planificado else 1.0
-                ritmo_planificado.append(valor_extendido)
-            else:
-                ritmo_planificado = [1.0] * len(progresion_realizada_final)
-        # Si aún no se alcanza el mínimo, rellenar con silencios
-        if len(progresion_realizada_final) < MIN_ACORDES_REALES_OBJETIVO:
-            faltantes = MIN_ACORDES_REALES_OBJETIVO - len(progresion_realizada_final)
-            progresion_realizada_final.extend(["0"] * faltantes)
-            if ritmo_planificado:
-                valor_extendido = ritmo_planificado[-1] if ritmo_planificado else 1.0
-                ritmo_planificado.extend([valor_extendido] * faltantes)
-            else:
-                ritmo_planificado = [1.0] * len(progresion_realizada_final)
-
-    _reforzar_cadencias_por_frase(progresion_realizada_final, secuencia_eventos_func_debug, limites_frases, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
-
-    if not _validar_progresion_markov(secuencia_eventos_func_debug, canonical_modo_generator, k_generacion, limites_frases):
-        _reparar_progresion_markov(secuencia_eventos_func_debug, plan_funcional, canonical_modo_generator, k_generacion)
-        progresion_realizada_final = _reconstruir_voicings_desde_eventos(secuencia_eventos_func_debug, k_generacion, voicings_disponibles_rn_map)
-        _reforzar_cadencias_por_frase(progresion_realizada_final, secuencia_eventos_func_debug, limites_frases, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
-
-    if not _validar_progresion_markov(secuencia_eventos_func_debug, canonical_modo_generator, k_generacion, limites_frases):
-        progresion_realizada_final, secuencia_eventos_func_debug = _construir_progresion_diatonica_desde_plan(plan_funcional, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
-        _reforzar_cadencias_por_frase(progresion_realizada_final, secuencia_eventos_func_debug, limites_frases, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
-
-    _asegurar_cadencia_final(progresion_realizada_final, secuencia_eventos_func_debug, canonical_modo_generator, k_generacion, voicings_disponibles_rn_map)
-    acordes_reales_count = sum(1 for ac in progresion_realizada_final if ac != "0" and not (isinstance(ac, str) and ac.startswith("SN_")))
-    funciones_usadas = {func for func in (_clasificar_funcion_armonica(ev, canonical_modo_generator) for ev in secuencia_eventos_func_debug if ev) if func and func != "other"}
-             
-
-
-    # Ajustar a la longitud deseada si se especificó num_acordes_deseado
     if num_acordes_deseado is not None and len(progresion_realizada_final) > num_acordes_deseado:
         progresion_realizada_final = progresion_realizada_final[:num_acordes_deseado]
+        secuencia_eventos_func_debug = secuencia_eventos_func_debug[:num_acordes_deseado]
+        funciones_generadas = funciones_generadas[:num_acordes_deseado]
 
-    if ritmo_planificado:
-            ritmo_planificado = ritmo_planificado[:num_acordes_deseado]
-
-    # Ajustar el ritmo final a la longitud real generada
     if ritmo_planificado:
         if len(ritmo_planificado) < len(progresion_realizada_final):
             ultimo_valor_ritmo = ritmo_planificado[-1] if ritmo_planificado else 1.0
-            ritmo_planificado.extend([ultimo_valor_ritmo] * (len(progresion_realizada_final) - len(ritmo_planificado)))
+            ritmo_planificado.extend(
+                [ultimo_valor_ritmo] * (len(progresion_realizada_final) - len(ritmo_planificado))
+            )
         ritmo_final = ritmo_planificado[:len(progresion_realizada_final)]
     else:
         ritmo_final = [1.0] * len(progresion_realizada_final)
-        
-        # Asegurar cadencia final dominante–tónica
-        _asegurar_cadencia_final(
-            progresion_realizada_final,
-            secuencia_eventos_func_debug,
-            canonical_modo_generator,
-            k_generacion,
-            voicings_disponibles_rn_map
-        )
 
-    print(f"DEBUG (Markov): Progresión final: {progresion_realizada_final} (Reales: {sum(1 for ac in progresion_realizada_final if ac != '0')})")
+    acordes_reales_count = sum(
+        1
+        for ac in progresion_realizada_final
+        if ac != "0" and not (isinstance(ac, str) and ac.startswith("SN_"))
+    )
+    funciones_usadas = {
+        func
+        for func in funciones_generadas
+        if func and func != "other"
+    }
+
+    print(
+        f"DEBUG (Markov): Progresión final: {progresion_realizada_final} "
+        f"(Reales: {acordes_reales_count})"
+    )
     print(f"DEBUG (Markov): Funciones cubiertas: {sorted(funciones_usadas)}")
-    
-    return progresion_realizada_final, ritmo_final
 
+    return progresion_realizada_final, ritmo_final
 
 def generar_progresion_acordes_smart(raiz, modo, estilo, num_acordes_deseado_ui, usar_markov_directamente=False):
     """
@@ -1529,9 +1711,9 @@ def generar_progresion_acordes_smart(raiz, modo, estilo, num_acordes_deseado_ui,
     print(f"INFO (Smart): Progresión final de '{source_info}'. Longitud: {len(acordes_generados)}. Ritmo: {ritmo_asociado}")
     _ultima_progresion_generada = acordes_generados
     _ultimo_ritmo_generado = ritmo_asociado
-    _ultimo_genero = estilo 
-    _ultima_tonalidad_str = clave_tonalidad 
-    
+    _ultimo_genero = estilo
+    _ultima_tonalidad_str = clave_tonalidad
+
     return acordes_generados, ritmo_asociado
 
 
@@ -1603,15 +1785,15 @@ def puntuar_acordes_positivamente():
         ]
 
         if not progresion_tuplas:
-            print("Advertencia: Progresión vacía, no se envía feedback negativo.")
+            print("Advertencia: Progresión vacía, no se envía feedback positivo.")
             return
-        
+
         reforzar_progresion_con_feedback(
             _ultimo_genero,
             _ultima_tonalidad_str,
             progresion_tuplas,
             _ultimo_ritmo_generado or [],
-            False
+            True # es_buena = True
         )
     else:
         print("No hay suficiente información (progresión/género/tonalidad) para puntuar.")
@@ -1627,15 +1809,15 @@ def puntuar_acordes_negativamente():
         ]
 
         if not progresion_tuplas:
-            print("Advertencia: Progresión vacía, no se envía feedback positivo.")
+            print("Advertencia: Progresión vacía, no se envía feedback negativo.")
             return
-        
+
         reforzar_progresion_con_feedback(
             _ultimo_genero,
             _ultima_tonalidad_str,
             progresion_tuplas,
             _ultimo_ritmo_generado or [],
-            True
+            False # es_buena = False
         )
     else:
         print("No hay suficiente información (progresión/género/tonalidad) para puntuar.")
@@ -1676,4 +1858,3 @@ if __name__ == "__main__":
             print(f"No se encontraron tonalidades entrenadas con datos para '{estilo_prueba}'. Ejecuta autoentrenador.py.")
     else:
         print("INFO_GENERO está vacío. Ejecuta autoentrenador.py primero.")
-
