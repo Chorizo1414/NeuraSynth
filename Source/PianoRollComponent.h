@@ -84,6 +84,10 @@ private:
     double dragOffsetBeats = 0.0;
     float dragOffsetNoteY = 0.0f;
 
+    bool isResizingNotes = false;
+    juce::Array<int> resizingNoteIndices;
+    double resizeAnchorBeats = 0.0;
+
     void clampHorizontalScroll();
     void clampVerticalScroll();
     void scrollHorizontally(double deltaBeats);
@@ -94,6 +98,8 @@ private:
     void beginNoteDrag(int noteIndex, const juce::MouseEvent& event);
     void updateDraggedNotes(const juce::MouseEvent& event);
     void endNoteDrag();
+    void updateResizedNotes(const juce::MouseEvent& event);
+    void endNoteResize();
     void refreshNoteInfo(int infoIndex);
     void recalculateContentLength();
 
