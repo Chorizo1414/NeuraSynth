@@ -15,6 +15,14 @@ namespace
     const juce::Colour mainTextColour = juce::Colour::fromRGB(218, 222, 227);
     const juce::Colour subtleTextColour = juce::Colour::fromRGB(148, 156, 165);
 
+    constexpr int bottomControlsHeight = 90;
+    constexpr int promptEditorHeight = 125;
+    constexpr int topControlRowHeight = 30;
+    constexpr int topControlSpacing = 5;
+    constexpr int promptToControlsSpacing = 10;
+    constexpr int topControlsHeight = promptEditorHeight + promptToControlsSpacing
+        + topControlRowHeight + topControlSpacing + topControlRowHeight;
+
     juce::Rectangle<int> expanded(const juce::Rectangle<int>& rect, int amountX, int amountY)
     {
         auto result = rect;
@@ -286,7 +294,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
                 }
 
                 lastPromptText = promptEditor.getText();
-                DBG("Generando melodía únicamente desde el prompt: " + finalPrompt);
+                DBG(juce::String::fromUTF8(u8"Generando melodía únicamente desde el prompt: ") + finalPrompt);
 
                 const int chordLimit = getSelectedChordLimit();
                 auto melodyResult = audioProcessor.pythonManager->generateMelodyFromPrompt(finalPrompt, chordLimit, bpm);
@@ -397,8 +405,8 @@ void ChordMelodyTabComponent::paint(juce::Graphics& g)
 
     auto bounds = getLocalBounds().reduced(10);
 
-    auto bottomArea = bounds.removeFromBottom(90);
-    auto topArea = bounds.removeFromTop(180);
+    auto bottomArea = bounds.removeFromBottom(bottomControlsHeight);
+    auto topArea = bounds.removeFromTop(topControlsHeight);
     bounds.removeFromTop(10);
     auto pianoArea = bounds;
 
@@ -406,15 +414,22 @@ void ChordMelodyTabComponent::paint(juce::Graphics& g)
     auto rightColumn = topWorking.removeFromRight(200).reduced(5, 0);
     auto leftColumn = topWorking;
     leftColumn.removeFromRight(10);
-    auto promptArea = leftColumn.removeFromTop(125);
-    leftColumn.removeFromTop(10);
-    auto generationArea = leftColumn;
+    auto promptArea = leftColumn.removeFromTop(promptEditorHeight);
+    leftColumn.removeFromTop(promptToControlsSpacing);
+    auto generationArea = leftColumn.removeFromTop(topControlRowHeight);
+    leftColumn.removeFromTop(topControlSpacing);
+    auto clearArea = leftColumn.removeFromTop(topControlRowHeight);
+    auto leftColumnArea = promptArea;
+    if (!generationArea.isEmpty())
+        leftColumnArea = leftColumnArea.getUnion(generationArea);
+    if (!clearArea.isEmpty())
+        leftColumnArea = leftColumnArea.getUnion(clearArea);
 
     auto bottomWorking = bottomArea;
     auto playbackRow = bottomWorking.removeFromTop(40);
     auto exportRow = bottomWorking.removeFromBottom(40);
 
-    drawPanel(expanded(promptArea.getUnion(generationArea), 12, 8));
+    drawPanel(expanded(leftColumnArea, 12, 8));
     drawPanel(expanded(rightColumn, 12, 8));
     drawPanel(expanded(playbackRow, 10, 6));
     drawPanel(expanded(exportRow, 10, 6));
@@ -452,7 +467,7 @@ void ChordMelodyTabComponent::resized()
 
     // --- 1. ÁREA INFERIOR: Botones de Playback y Exportación ---
     // Se define esta área primero, tomándola de la parte de abajo del plugin.
-    auto bottomButtonsArea = bounds.removeFromBottom(90); // 40px para cada fila + 10px de espacio
+    auto bottomButtonsArea = bounds.removeFromBottom(bottomControlsHeight); // 40px para cada fila + 10px de espacio
 
     // Fila superior de este bloque (Playback)
     auto playbackRow = bottomButtonsArea.removeFromTop(40);
@@ -474,7 +489,7 @@ void ChordMelodyTabComponent::resized()
 
 
     // --- 2. ÁREA SUPERIOR: Prompt y todos los controles ---
-    auto topArea = bounds.removeFromTop(180); // Altura para el prompt y los botones de abajo
+    auto topArea = bounds.removeFromTop(topControlsHeight); // Altura para el prompt y los botones de abajo
 
     // Dividimos en columna izquierda y derecha
     auto rightColumn = topArea.removeFromRight(200); // Ancho fijo de 200px para la columna derecha
@@ -506,24 +521,28 @@ void ChordMelodyTabComponent::resized()
     undoButton.setBounds(historyArea.removeFromLeft(historyArea.getWidth() / 2).reduced(2));
     redoButton.setBounds(historyArea.reduced(2));
 
-    rightColumn.removeFromTop(5);
-    auto clearAreaRight = rightColumn.removeFromTop(25);
-    clearCanvasButton.setBounds(clearAreaRight.reduced(2));
-
     // --- Lado Izquierdo: Prompt y Botones de Generación ---
     leftColumn.removeFromRight(10); // Espacio entre columnas
 
     // El prompt ocupa la parte de arriba
-    promptEditor.setBounds(leftColumn.removeFromTop(125));
+    promptEditor.setBounds(leftColumn.removeFromTop(promptEditorHeight));
 
-    leftColumn.removeFromTop(10); // Espacio
+    leftColumn.removeFromTop(promptToControlsSpacing); // Espacio
 
     // Los botones de generar van debajo del prompt
-    auto generationArea = leftColumn;
+    auto generationArea = leftColumn.removeFromTop(topControlRowHeight);
     const int generationButtonWidth = juce::jmax(1, generationArea.getWidth() / 2);
     auto chordsArea = generationArea.removeFromLeft(generationButtonWidth);
     generateChordsButton.setBounds(chordsArea.reduced(5, 2));
     generateMelodyButton.setBounds(generationArea.reduced(5, 2));
+
+    leftColumn.removeFromTop(topControlSpacing);
+
+    auto clearArea = leftColumn.removeFromTop(topControlRowHeight);
+    if (!clearArea.isEmpty())
+        clearCanvasButton.setBounds(clearArea.reduced(5, 2));
+    else
+        clearCanvasButton.setBounds({});
 
 
     // --- 3. PIANO ROLL: Ocupa el espacio central restante ---
