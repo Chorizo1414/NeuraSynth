@@ -89,7 +89,7 @@ private:
     juce::TextButton exportChordsButton;
     juce::TextButton exportMelodyButton;
 
-    class MidiDragHandle : public juce::Component
+    class MidiDragHandle : public juce::Component, public juce::TooltipClient
     {
     public:
         MidiDragHandle(juce::DragAndDropContainer& containerRef,
@@ -100,6 +100,8 @@ private:
         juce::String getText() const;
 
         void setTooltipText(const juce::String& newTooltipText);
+        juce::String getTooltipText() const;
+
         void setDragEnabled(bool shouldBeEnabled);
 
         void paint(juce::Graphics& g) override;
@@ -109,7 +111,8 @@ private:
         void mouseUp(const juce::MouseEvent&) override;
         void mouseDrag(const juce::MouseEvent&) override;
         void enablementChanged() override;
-        juce::String getTooltip() const override;
+
+        juce::String getTooltip() override;
 
     private:
         void beginExternalDrag();

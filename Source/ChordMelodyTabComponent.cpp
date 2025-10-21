@@ -81,6 +81,16 @@ void ChordMelodyTabComponent::MidiDragHandle::setTooltipText(const juce::String&
     tooltipText = newTooltipText;
 }
 
+juce::String ChordMelodyTabComponent::MidiDragHandle::getTooltipText() const
+{
+    return tooltipText;
+}
+
+juce::String ChordMelodyTabComponent::MidiDragHandle::getTooltip()
+{
+    return tooltipText;
+}
+
 void ChordMelodyTabComponent::MidiDragHandle::setDragEnabled(bool shouldBeEnabled)
 {
     if (isEnabled() == shouldBeEnabled)
@@ -210,11 +220,6 @@ void ChordMelodyTabComponent::MidiDragHandle::enablementChanged()
     }
 
     repaint();
-}
-
-juce::String ChordMelodyTabComponent::MidiDragHandle::getTooltip() const
-{
-    return tooltipText;
 }
 
 void ChordMelodyTabComponent::MidiDragHandle::beginExternalDrag()
