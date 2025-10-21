@@ -39,6 +39,8 @@ public:
         float startTime; // en beats
         float duration;  // en beats
         bool isChordNote;
+        int infoIndex;
+        int chordNoteSlot;
     };
 
     void setMusicData(const py::dict& data);
@@ -75,11 +77,25 @@ private:
     bool isPanning = false;
     juce::Point<int> lastPanPosition;
 
+    bool isDraggingNotes = false;
+    int primaryDragNoteIndex = -1;
+    juce::Array<int> draggedNoteIndices;
+    std::vector<int> draggedMidiOffsets;
+    double dragOffsetBeats = 0.0;
+    float dragOffsetNoteY = 0.0f;
+
     void clampHorizontalScroll();
     void clampVerticalScroll();
     void scrollHorizontally(double deltaBeats);
     int scrollVertically(int deltaNotes);
     int getKeyWidth() const noexcept { return 45; }
+
+    int hitTestNote(juce::Point<float> position) const;
+    void beginNoteDrag(int noteIndex, const juce::MouseEvent& event);
+    void updateDraggedNotes(const juce::MouseEvent& event);
+    void endNoteDrag();
+    void refreshNoteInfo(int infoIndex);
+    void recalculateContentLength();
 
     void timerCallback() override;
 

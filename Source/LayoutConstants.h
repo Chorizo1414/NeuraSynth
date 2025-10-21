@@ -124,7 +124,7 @@ namespace LayoutConstants
             // Ajustes verticales medidos para compensar los desfases de cada bloque de oscilador en el arte
             constexpr float OSC1_Y = 0.0f;
             constexpr float OSC2_Y = 1.0f;
-            constexpr float OSC3_Y = 2.0f;
+            constexpr float OSC3_Y = 6.0f;
         }
 
         inline Layout getLayoutForVariant(int variant)
