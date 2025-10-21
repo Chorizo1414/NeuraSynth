@@ -305,8 +305,28 @@ void PianoRollComponent::mouseWheelMove(const juce::MouseEvent& event, const juc
 
 void PianoRollComponent::mouseDown(const juce::MouseEvent& event)
 {
-    if (event.mods.isMiddleButtonDown() || event.mods.isRightButtonDown() || event.mods.isAltDown())
+    if (event.mods.isAltDown() || event.mods.isMiddleButtonDown())
     {
+        isPanning = true;
+        lastPanPosition = event.getPosition();
+        setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+        return;
+    }
+
+    if (event.mods.isRightButtonDown())
+    {
+        const int noteIndex = hitTestNote(event.position);
+        if (noteIndex >= 0)
+        {
+            if (isDraggingNotes)
+                endNoteDrag();
+            if (isResizingNotes)
+                endNoteResize();
+
+            deleteNoteAt(noteIndex);
+            return;
+        }
+
         isPanning = true;
         lastPanPosition = event.getPosition();
         setMouseCursor(juce::MouseCursor::DraggingHandCursor);
@@ -869,6 +889,57 @@ void PianoRollComponent::endNoteResize()
     primaryDragNoteIndex = -1;
     resizingNoteIndices.clearQuick();
     setMouseCursor(juce::MouseCursor::NormalCursor);
+
+    recalculateContentLength();
+    clampHorizontalScroll();
+    repaint();
+}
+
+void PianoRollComponent::deleteNoteAt(int noteIndex)
+{
+    if (!juce::isPositiveAndBelow(noteIndex, notes.size()))
+        return;
+
+    isDraggingNotes = false;
+    isResizingNotes = false;
+    primaryDragNoteIndex = -1;
+    draggedNoteIndices.clearQuick();
+    draggedMidiOffsets.clear();
+    resizingNoteIndices.clearQuick();
+
+    const int infoIndex = notes.getReference(noteIndex).infoIndex;
+
+    if (juce::isPositiveAndBelow(infoIndex, (int)musicData.size()))
+    {
+        juce::Array<int> indicesToRemove;
+        for (int i = notes.size(); --i >= 0;)
+        {
+            if (notes.getReference(i).infoIndex == infoIndex)
+                indicesToRemove.add(i);
+        }
+
+        if (indicesToRemove.isEmpty())
+        {
+            notes.remove(noteIndex);
+        }
+        else
+        {
+            for (int idx : indicesToRemove)
+                notes.remove(idx);
+        }
+
+        musicData.erase(musicData.begin() + infoIndex);
+
+        for (auto& note : notes)
+        {
+            if (note.infoIndex > infoIndex)
+                --note.infoIndex;
+        }
+    }
+    else
+    {
+        notes.remove(noteIndex);
+    }
 
     recalculateContentLength();
     clampHorizontalScroll();

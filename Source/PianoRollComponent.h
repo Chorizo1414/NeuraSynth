@@ -100,6 +100,7 @@ private:
     void endNoteDrag();
     void updateResizedNotes(const juce::MouseEvent& event);
     void endNoteResize();
+    void deleteNoteAt(int noteIndex);
     void refreshNoteInfo(int infoIndex);
     void recalculateContentLength();
 
