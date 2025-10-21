@@ -2,3 +2,5 @@
 Builds/
 JuceLibraryCode/
 .vs
+__pycache__/
+*.pyc

@@ -24,9 +24,10 @@ from generador_acordes import (
     transponer_progresion,
     limpiar_nombre_acorde,
     reforzar_progresion_con_feedback,
-    nota_equivalente
+    nota_equivalente,
+    MAPEO_GENERO_BPM
 )
-from generador_melodia import generar_melodia_sobre_acordes
+from generador_melodia import extraer_progresion_de_prompt, generar_melodia_sobre_acordes
 from piano_roll_visualizer import PianoRoll
 from procesador_sentimientos import detectar_sentimiento_en_prompt, inferir_parametros_desde_sentimiento
 
@@ -255,6 +256,67 @@ def actualizar_display_transposicion():
         texto_transposicion = f"{transposicion_actual_st:+} st" if transposicion_actual_st != 0 else "0 st"
         label_transposicion_var.set(texto_transposicion)
 
+
+def aplicar_bpm_por_genero(estilo_normalizado):
+    """Actualiza el BPM global y la interfaz según el género detectado."""
+
+    global bpm_actual, bpm_control_var, label_bpm_var
+
+    if not estilo_normalizado:
+        return bpm_actual
+
+    bpm_min, bpm_max, bpm_sugerido = MAPEO_GENERO_BPM.get(estilo_normalizado, MAPEO_GENERO_BPM["normal"])
+    bpm_actual = bpm_sugerido
+    if bpm_control_var:
+        bpm_control_var.set(bpm_actual)
+    if label_bpm_var:
+        label_bpm_var.set(f"BPM: {bpm_actual}")
+    print(f"INFO (BPM por Género): BPM establecido a {bpm_actual} para el género '{estilo_normalizado}'.")
+    return bpm_actual
+
+
+def analizar_prompt_para_parametros(prompt_usuario):
+    estilo_explicito = detectar_estilo(prompt_usuario)
+    raiz_explicita, modo_explicito = extraer_tonalidad(prompt_usuario, estilo_detectado_param=estilo_explicito)
+    sentimiento_detectado = detectar_sentimiento_en_prompt(prompt_usuario)
+
+    generos_entrenados_reales = {
+        g
+        for g in INFO_GENERO.keys()
+        if g != "patrones_ritmicos"
+        and isinstance(INFO_GENERO.get(g), dict)
+        and any(INFO_GENERO[g].get(k) for k in INFO_GENERO[g] if k != "patrones_ritmicos")
+    }
+    if not generos_entrenados_reales and INFO_GENERO:
+        generos_entrenados_reales = {g for g in INFO_GENERO.keys() if g != "patrones_ritmicos"}
+
+    estilo_final, raiz_final, modo_final = inferir_parametros_desde_sentimiento(
+        sentimiento_detectado,
+        estilo_explicito,
+        raiz_explicita,
+        modo_explicito,
+        generos_entrenados_reales,
+    )
+
+    parametros = {
+        "estilo": estilo_final,
+        "raiz": raiz_final if raiz_final else "C",
+        "modo": modo_final if modo_final else "major",
+        "sentimiento": sentimiento_detectado,
+        "estilo_explicito": estilo_explicito,
+        "raiz_explicita": raiz_explicita,
+        "modo_explicito": modo_explicito,
+    }
+
+    genero_valido = bool(
+        estilo_final
+        and estilo_final != "normal"
+        and estilo_final in INFO_GENERO
+        and INFO_GENERO.get(estilo_final)
+    )
+
+    return parametros, genero_valido
+
 def seleccionar_instrumento_para_acordes(ClaseInstrumentoMusic21, boton_presionado):
     global instrumento_seleccionado_acordes, boton_instr_acordes_seleccionado
     try:
@@ -388,35 +450,26 @@ def accion_generar_desde_prompt(usar_markov_override=False):
     transposicion_actual_st = 0
     actualizar_display_transposicion()
 
-    # 1. Detección inicial de estilo y tonalidad explícitos
-    estilo_explicito = detectar_estilo(prompt_usuario)
-    raiz_explicita, modo_explicito = extraer_tonalidad(prompt_usuario, estilo_detectado_param=estilo_explicito)
+    parametros_prompt, genero_valido = analizar_prompt_para_parametros(prompt_usuario)
+    estilo_explicito = parametros_prompt["estilo_explicito"]
+    raiz_explicita = parametros_prompt["raiz_explicita"]
+    modo_explicito = parametros_prompt["modo_explicito"]
+    sentimiento_detectado = parametros_prompt["sentimiento"]
+    estilo_final = parametros_prompt["estilo"]
+    raiz_final = parametros_prompt["raiz"]
+    modo_final = parametros_prompt["modo"]
 
-    # 2. Detección de sentimiento
-    sentimiento_detectado = detectar_sentimiento_en_prompt(prompt_usuario)
-    print(f"INFO (Prompt): Estilo explícito: '{estilo_explicito}', Raíz explícita: '{raiz_explicita}', Modo explícito: '{modo_explicito}', Sentimiento: '{sentimiento_detectado}'")
-
-    # 3. Inferencia de parámetros basada en sentimiento y explícitos
-    generos_entrenados_reales = {
-        g for g in INFO_GENERO.keys()
-        if g != "patrones_ritmicos" and isinstance(INFO_GENERO.get(g), dict) and
-        any(INFO_GENERO[g].get(k) for k in INFO_GENERO[g] if k != "patrones_ritmicos")
-    }
-    if not generos_entrenados_reales and INFO_GENERO: # Fallback si la estructura es más simple
-        generos_entrenados_reales = {g for g in INFO_GENERO.keys() if g != "patrones_ritmicos"}
-
-
-    estilo_final, raiz_final, modo_final = inferir_parametros_desde_sentimiento(
-        sentimiento_detectado,
-        estilo_explicito,
-        raiz_explicita,
-        modo_explicito,
-        generos_entrenados_reales
+    print(
+        f"INFO (Prompt): Estilo explícito: '{estilo_explicito}', Raíz explícita: '{raiz_explicita}', "
+        f"Modo explícito: '{modo_explicito}', Sentimiento: '{sentimiento_detectado}'"
     )
-    print(f"INFO (Inferencia): Estilo final: '{estilo_final}', Raíz final: '{raiz_final}', Modo final: '{modo_final}'")
+    print(
+        f"INFO (Inferencia): Estilo final: '{estilo_final}', Raíz final: '{raiz_final}', "
+        f"Modo final: '{modo_final}'"
+    )
 
     # 4. Verificación de género final y aplicación de BPM por género
-    if not estilo_final or estilo_final == "normal" or estilo_final not in INFO_GENERO or not INFO_GENERO.get(estilo_final):
+    if not genero_valido:
         nombre_genero_solicitado = estilo_explicito if estilo_explicito and estilo_explicito != "normal" else (prompt_usuario.split()[0] if prompt_usuario else 'desconocido')
         mensaje_dialogo = f"No encontré el género musical '{nombre_genero_solicitado}' o no tengo datos suficientes para él.\nIntenta con otro género o sé más específico."
         if sentimiento_detectado and (not estilo_explicito or estilo_explicito == "normal"):
@@ -432,16 +485,8 @@ def accion_generar_desde_prompt(usar_markov_override=False):
         if ventana_principal: ventana_principal.focus_set()
         return
     else: # Género final es válido, aplicar BPM por género
-        bpm_min, bpm_max, bpm_sugerido = MAPEO_GENERO_BPM.get(estilo_final, MAPEO_GENERO_BPM["normal"])
-        # Por ahora, usaremos el bpm_sugerido. Podríamos elegir aleatorio en el rango.
-        bpm_actual = bpm_sugerido
-        if bpm_control_var: bpm_control_var.set(bpm_actual)
-        if label_bpm_var: label_bpm_var.set(f"BPM: {bpm_actual}")
-        print(f"INFO (BPM por Género): BPM establecido a {bpm_actual} para el género '{estilo_final}'.")
+        aplicar_bpm_por_genero(estilo_final)
 
-
-    if not raiz_final: raiz_final = "C"
-    if not modo_final: modo_final = "major"
 
     ultima_raiz = raiz_final
     ultimo_modo = modo_final
@@ -491,7 +536,7 @@ def accion_generar_desde_prompt(usar_markov_override=False):
 def accion_generar_melodia():
     global bpm_actual, bpm_control_var, label_bpm_var
     global ultima_melodia_generada_path, label_ruta_guardado_var
-    global historial_progresiones, futuro_progresiones, current_piano_roll_instance
+    global historial_progresiones, futuro_progresiones, current_piano_roll_instance, _feedback_after_id, ritmo_actual_progresion
 
     # El BPM ya debería estar actualizado por accion_generar_desde_prompt
     # o por el usuario. Si se quiere re-evaluar BPM por género aquí, se podría.
@@ -503,52 +548,140 @@ def accion_generar_melodia():
              label_bpm_var.set(f"BPM: {bpm_actual}")
 
 
-    if not historial_progresiones:
-        if feedback_status_label_var and feedback_status_label:
-            feedback_status_label_var.set("Genera acordes primero.")
-            feedback_status_label.config(fg="#FFA500")
-            global _feedback_after_id
-            if _feedback_after_id: feedback_status_label.after_cancel(_feedback_after_id)
-            _feedback_after_id = feedback_status_label.after(2500, lambda: feedback_status_label_var.set(""))
+    if historial_progresiones:
+        raiz_prog_mel, modo_prog_mel, estilo_prog_mel, acordes_hist_mel, ritmo_hist_mel, _ = historial_progresiones[-1]
+
+        raiz_para_gen_mel = raiz_prog_mel if raiz_prog_mel else ultima_raiz
+        modo_para_gen_mel = modo_prog_mel if modo_prog_mel else ultimo_modo
+        if not raiz_para_gen_mel or not modo_para_gen_mel:
+            raiz_para_gen_mel, modo_para_gen_mel = "C", "major"
+
+        melodia_generada_notas_durs, acordes_actualizados, ritmo_actualizado = generar_melodia_sobre_acordes(
+            acordes_hist_mel,
+            ritmo_hist_mel,
+            raiz_para_gen_mel,
+            modo_para_gen_mel,
+            genero=estilo_prog_mel if estilo_prog_mel else "default",
+            bpm=bpm_actual,
+            devolver_contexto=True,
+        )
+
+        if not melodia_generada_notas_durs:
+            if label_ruta_guardado_var:
+                label_ruta_guardado_var.set("📁 Falló generación de melodía")
+            return
+
+        historial_progresiones[-1] = (
+            raiz_prog_mel,
+            modo_prog_mel,
+            estilo_prog_mel,
+            acordes_actualizados,
+            ritmo_actualizado,
+            melodia_generada_notas_durs,
+        )
+        ritmo_actual_progresion = ritmo_actualizado.copy() if ritmo_actualizado else []
+        futuro_progresiones.clear()
+
+        if current_piano_roll_instance:
+            current_piano_roll_instance.actualizar_datos(acordes_actualizados, ritmo_actualizado, melodia_generada_notas_durs)
+
+        path_melodia_exportada = exportar_melodia_a_midi_individual(melodia_generada_notas_durs, for_playback=False)
+        if path_melodia_exportada:
+            ultima_melodia_generada_path = path_melodia_exportada
+            if label_ruta_guardado_var:
+                label_ruta_guardado_var.set(f"🎶 Melodía Guardada: {os.path.basename(path_melodia_exportada)}")
+        else:
+            if label_ruta_guardado_var:
+                label_ruta_guardado_var.set("📁 Falló exportación de melodía")
         return
 
-    raiz_prog_mel, modo_prog_mel, estilo_prog_mel, acordes_hist_mel, ritmo_hist_mel, _ = historial_progresiones[-1]
+    prompt_usuario = entrada_prompt_texto.get() if entrada_prompt_texto else ""
+    if not prompt_usuario:
+        if feedback_status_label_var and feedback_status_label:
+            feedback_status_label_var.set("Escribe un prompt para generar la melodía.")
+            feedback_status_label.config(fg="#FFA500")
+            if _feedback_after_id:
+                feedback_status_label.after_cancel(_feedback_after_id)
+            _feedback_after_id = feedback_status_label.after(2500, lambda: feedback_status_label_var.set(""))
+        else:
+            messagebox.showinfo("Melodía", "Escribe un prompt con género o tonalidad para generar una melodía.")
+        return
 
-    raiz_para_gen_mel = raiz_prog_mel if raiz_prog_mel else ultima_raiz
-    modo_para_gen_mel = modo_prog_mel if modo_prog_mel else ultimo_modo
-    if not raiz_para_gen_mel or not modo_para_gen_mel: raiz_para_gen_mel, modo_para_gen_mel = "C", "major"
+    parametros_prompt, genero_valido = analizar_prompt_para_parametros(prompt_usuario)
+    if not genero_valido:
+        mensaje_error = (
+            f"No encontré un género válido en el prompt '{prompt_usuario}'. "
+            "Especifica un género entrenado (ej. pop, lofi, reggaeton)."
+        )
+        if feedback_status_label_var and feedback_status_label:
+            feedback_status_label_var.set(mensaje_error)
+            feedback_status_label.config(fg=COLOR_DIALOGO_ERROR_FG)
+            if _feedback_after_id:
+                feedback_status_label.after_cancel(_feedback_after_id)
+            _feedback_after_id = feedback_status_label.after(3500, lambda: feedback_status_label_var.set(""))
+        else:
+            messagebox.showerror("Melodía", mensaje_error)
+        return
 
+    aplicar_bpm_por_genero(parametros_prompt["estilo"])
 
-    melodia_generada_notas_durs = generar_melodia_sobre_acordes(
-        acordes_hist_mel,
-        ritmo_hist_mel,
-        raiz_para_gen_mel,
-        modo_para_gen_mel,
-        bpm=bpm_actual
+    ultima_raiz = parametros_prompt["raiz"]
+    ultimo_modo = parametros_prompt["modo"]
+    ultimo_estilo_generado = parametros_prompt["estilo"]
+
+    acordes_desde_prompt = extraer_progresion_de_prompt(
+        prompt_usuario,
+        parametros_prompt["raiz"],
+        parametros_prompt["modo"],
+    )
+    ritmo_para_melodia = [2.0] * len(acordes_desde_prompt) if acordes_desde_prompt else []
+
+    longitud_objetivo = cantidad_acordes_seleccionada if cantidad_acordes_seleccionada is not None else None
+    melodia_generada_notas_durs, acordes_generados, ritmo_generado = generar_melodia_sobre_acordes(
+        acordes_desde_prompt,
+        ritmo_para_melodia,
+        parametros_prompt["raiz"],
+        parametros_prompt["modo"],
+        genero=parametros_prompt["estilo"],
+        bpm=bpm_actual,
+        longitud_objetivo=longitud_objetivo,
+        devolver_contexto=True,
     )
 
     if not melodia_generada_notas_durs:
-        if label_ruta_guardado_var: label_ruta_guardado_var.set("📁 Falló generación de melodía"); return
+        if label_ruta_guardado_var:
+            label_ruta_guardado_var.set("📁 Falló generación de melodía")
+        return
 
-    historial_progresiones[-1] = (
-        raiz_prog_mel,
-        modo_prog_mel,
-        estilo_prog_mel,
-        acordes_hist_mel,
-        ritmo_hist_mel,
-        melodia_generada_notas_durs
+    historial_progresiones.append(
+        (
+            parametros_prompt["raiz"],
+            parametros_prompt["modo"],
+            parametros_prompt["estilo"],
+            acordes_generados,
+            ritmo_generado,
+            melodia_generada_notas_durs,
+        )
     )
+    ritmo_actual_progresion = ritmo_generado.copy() if ritmo_generado else []
     futuro_progresiones.clear()
 
+    descripcion_melodia = (
+        f"🎶 Melodía en {parametros_prompt['raiz']} {parametros_prompt['modo']} (género {parametros_prompt['estilo']})"
+    )
+    mostrar_progresion_en_salida(acordes_generados, descripcion_melodia, ritmo_generado, melodia_generada_notas_durs)
+
     if current_piano_roll_instance:
-        current_piano_roll_instance.actualizar_datos(acordes_hist_mel, ritmo_hist_mel, melodia_generada_notas_durs)
+        current_piano_roll_instance.actualizar_datos(acordes_generados, ritmo_generado, melodia_generada_notas_durs)
 
     path_melodia_exportada = exportar_melodia_a_midi_individual(melodia_generada_notas_durs, for_playback=False)
     if path_melodia_exportada:
         ultima_melodia_generada_path = path_melodia_exportada
-        if label_ruta_guardado_var: label_ruta_guardado_var.set(f"🎶 Melodía Guardada: {os.path.basename(path_melodia_exportada)}")
+        if label_ruta_guardado_var:
+            label_ruta_guardado_var.set(f"🎶 Melodía Guardada: {os.path.basename(path_melodia_exportada)}")
     else:
-        if label_ruta_guardado_var: label_ruta_guardado_var.set("📁 Falló exportación de melodía")
+        if label_ruta_guardado_var:
+            label_ruta_guardado_var.set("📁 Falló exportación de melodía")
 
 
 def accion_nuevo_patron_ritmico():

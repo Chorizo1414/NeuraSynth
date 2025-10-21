@@ -1,6 +1,9 @@
 # generador_melodia.py
 import random
-from music21 import note, pitch, scale, harmony, stream, interval, key, chord as m21_chord
+import re
+from music21 import note, pitch, scale, harmony, stream, interval, key, roman, chord as m21_chord
+
+from generador_acordes import nota_equivalente
 
 class ParametrosMelodicos:
     # Esta clase ahora es más simple, ya que la lógica principal la dictan los perfiles de género.
@@ -90,6 +93,207 @@ PERFILES_GENERO = {
         "intervalos_preferidos": [(1, 0.3), (2, 0.3), (3, 0.2), (5, 0.1), (7, 0.1)],
     }
 }
+
+_ROMAN_TOKEN_RE = re.compile(r"\b[#b♭♯-]*[ivx]+[0-9°ø+]*\b", re.IGNORECASE)
+_CHORD_TOKEN_PATTERN = re.compile(
+    r"\b(?:acorde\s+de\s+)?((?:do|re|mi|fa|sol|la|si|[a-g])[#b]?"
+    r"(?:\s*(?:mayor|menor|maj7|maj9|min7|min|dim|aug|sus2|sus4|m|\+|°)?"
+    r"(?:\s*(?:7|9|6|11|13))?)?)(?=\b|[\s,.;:-])",
+    re.IGNORECASE,
+)
+
+
+def _normalizar_texto_para_notas(texto):
+    """Normaliza texto para facilitar la detección de nombres de notas en español o inglés."""
+
+    if not texto:
+        return ""
+
+    texto_norm = texto.lower()
+    texto_norm = texto_norm.replace("♯", "#").replace("♭", "b")
+    texto_norm = re.sub(r"sostenid[ao]s?", "#", texto_norm)
+    texto_norm = re.sub(r"sharp", "#", texto_norm)
+    texto_norm = re.sub(r"bemoles?", "b", texto_norm)
+    texto_norm = re.sub(r"flat", "b", texto_norm)
+    texto_norm = re.sub(r"(do|re|mi|fa|sol|la|si)\s*(#|b)", r"\1\2", texto_norm)
+    texto_norm = re.sub(r"([a-g])\s*(#|b)", r"\1\2", texto_norm)
+    return texto_norm
+
+
+def _resolver_nota_canonica(base, accidental=""):
+    clave_directa = f"{base}{accidental}".lower()
+    if clave_directa in nota_equivalente:
+        return nota_equivalente[clave_directa]
+    if base.lower() in nota_equivalente:
+        nota_base = nota_equivalente[base.lower()]
+        if accidental:
+            try:
+                pitch_obj = pitch.Pitch(nota_base)
+                if accidental == "#":
+                    pitch_obj = pitch_obj.transpose(1)
+                elif accidental == "b":
+                    pitch_obj = pitch_obj.transpose(-1)
+                return pitch_obj.name
+            except Exception:  # noqa: BLE001
+                return nota_base
+        return nota_base
+    return None
+
+
+def _token_a_notas_de_acorde(token):
+    token = token.strip()
+    if not token:
+        return None
+
+    coincidencia = re.match(
+        r"^(?:acorde\s+de\s+)?(do|re|mi|fa|sol|la|si|[a-g])([#b]?)(.*)$",
+        token,
+        re.IGNORECASE,
+    )
+    if not coincidencia:
+        return None
+
+    base = coincidencia.group(1).lower()
+    accidental = coincidencia.group(2).lower()
+    resto = coincidencia.group(3).strip().lower()
+    nota_canonica = _resolver_nota_canonica(base, accidental)
+    if not nota_canonica:
+        return None
+
+    resto = resto.replace("-", " ")
+    calidad = ""
+    if re.search(r"(menor|minor|\bmin\b|\bm\b)", resto) and not re.search(r"maj", resto):
+        calidad = "m"
+    elif re.search(r"(dim|disminu|°)", resto):
+        calidad = "dim"
+    elif re.search(r"(aug|aum|\+)", resto):
+        calidad = "aug"
+
+    simbolo = nota_canonica + calidad
+
+    extension = None
+    if re.search(r"maj7", resto):
+        extension = "maj7"
+    elif re.search(r"maj9", resto):
+        extension = "maj9"
+    elif re.search(r"\b9\b", resto):
+        extension = "9"
+    elif re.search(r"\b7\b", resto):
+        extension = "7"
+    elif re.search(r"\b6\b", resto):
+        extension = "6"
+
+    if extension:
+        simbolo += extension
+
+    try:
+        cs = harmony.ChordSymbol(simbolo)
+        return [p.name for p in cs.pitches]
+    except Exception:  # noqa: BLE001
+        try:
+            pitch_base = pitch.Pitch(nota_canonica)
+            if calidad == "m":
+                tercera = pitch_base.transpose(3)
+                quinta = pitch_base.transpose(7)
+            elif calidad == "dim":
+                tercera = pitch_base.transpose(3)
+                quinta = pitch_base.transpose(6)
+            elif calidad == "aug":
+                tercera = pitch_base.transpose(4)
+                quinta = pitch_base.transpose(8)
+            else:
+                tercera = pitch_base.transpose(4)
+                quinta = pitch_base.transpose(7)
+            return [pitch_base.name, tercera.name, quinta.name]
+        except Exception:  # noqa: BLE001
+            return [nota_canonica]
+
+
+def _extraer_tokens_de_notas(texto_normalizado):
+    tokens = []
+    for coincidencia in _CHORD_TOKEN_PATTERN.finditer(texto_normalizado):
+        token = coincidencia.group(1)
+        if not token:
+            continue
+        token = token.strip()
+        if not token:
+            continue
+        tokens.append(token)
+    return tokens
+
+
+def _extraer_romanos_desde_prompt(prompt_texto):
+    tokens = []
+    for coincidencia in _ROMAN_TOKEN_RE.finditer(prompt_texto):
+        candidato = coincidencia.group(0)
+        if not candidato:
+            continue
+        letras = "".join(ch for ch in candidato.lower() if ch.isalpha())
+        if letras and set(letras) <= {"i", "v", "x"}:
+            tokens.append(candidato.replace("♭", "b").replace("♯", "#"))
+    return tokens
+
+
+def extraer_progresion_de_prompt(prompt_texto, raiz=None, modo=None):
+    """Extrae una progresión de acordes del prompt del usuario si detecta múltiples acordes."""
+
+    if not prompt_texto:
+        return []
+
+    acordes_detectados = []
+    romanos_en_prompt = _extraer_romanos_desde_prompt(prompt_texto)
+    if raiz and modo and len(romanos_en_prompt) >= 2:
+        try:
+            tonalidad_usuario = key.Key(raiz, modo)
+        except Exception:  # noqa: BLE001
+            tonalidad_usuario = None
+        if tonalidad_usuario:
+            for roman_fig in romanos_en_prompt:
+                try:
+                    rn_obj = roman.RomanNumeral(roman_fig, tonalidad_usuario)
+                    acordes_detectados.append([p.name for p in rn_obj.pitches])
+                except Exception:  # noqa: BLE001
+                    continue
+            if len(acordes_detectados) >= 2:
+                return acordes_detectados
+
+    texto_normalizado = _normalizar_texto_para_notas(prompt_texto)
+    tokens_notas = _extraer_tokens_de_notas(texto_normalizado)
+    if len(tokens_notas) >= 2:
+        for token in tokens_notas:
+            notas_acorde = _token_a_notas_de_acorde(token)
+            if notas_acorde:
+                acordes_detectados.append(notas_acorde)
+        if len(acordes_detectados) >= 2:
+            return acordes_detectados
+
+    return []
+
+
+def _generar_progresion_base_para_melodia(raiz, modo, longitud_objetivo=None):
+    longitud = longitud_objetivo if longitud_objetivo and longitud_objetivo > 0 else 8
+    longitud = max(4, int(longitud))
+    try:
+        tonalidad_obj = key.Key(raiz, modo)
+    except Exception:  # noqa: BLE001
+        tonalidad_obj = key.Key("C", "major")
+
+    if tonalidad_obj.mode == "minor":
+        patron = ["i", "v", "VI", "iv"]
+    else:
+        patron = ["I", "V", "vi", "IV"]
+
+    acordes = []
+    for i in range(longitud):
+        rn_str = patron[i % len(patron)]
+        try:
+            rn_obj = roman.RomanNumeral(rn_str, tonalidad_obj)
+            acordes.append([p.name for p in rn_obj.pitches])
+        except Exception:  # noqa: BLE001
+            acordes.append([tonalidad_obj.tonic.name])
+
+    ritmo = [2.0] * len(acordes)
+    return acordes, ritmo
 
 def notas_del_acorde_music21(acorde_data_o_lista_str):
     pitches_obj_list = []
@@ -515,33 +719,84 @@ def _generar_melodia_simple(acordes, ritmo, raiz, modo, genero, bpm, oct_min, oc
     params_mel = ParametrosMelodicos(bpm=bpm, octava_melodia_min=oct_min, octava_melodia_max=oct_max)
     escala_actual = obtener_escala_actual(raiz, modo)
     notas_escala_obj = _obtener_notas_escala_en_rango(escala_actual, params_mel)
-    if not acordes:
-        total_dur = sum(float(r) for r in ritmo)
-        return [("0", str(total_dur))] if total_dur > 0 else []
-    notas_primer_acorde = _expandir_notas_acorde_en_rango(acordes[0], params_mel)
+    acordes_para_simple = list(acordes) if acordes else []
+    ritmo_para_simple = list(ritmo) if ritmo else []
+    if not acordes_para_simple:
+        acordes_para_simple, ritmo_generado = _generar_progresion_base_para_melodia(raiz, modo, len(ritmo_para_simple) or 4)
+        ritmo_para_simple = ritmo_generado
+    if not ritmo_para_simple:
+        ritmo_para_simple = [1.0] * len(acordes_para_simple)
+    notas_primer_acorde = _expandir_notas_acorde_en_rango(acordes_para_simple[0], params_mel)
+
     if not notas_primer_acorde:
-        total_dur = sum(float(r) for r in ritmo)
+        total_dur = sum(float(r) for r in ritmo_para_simple)
         return [("0", str(total_dur))] if total_dur > 0 else []
     motivo = _crear_motivo_musical(notas_primer_acorde, perfil_actual)
-    return _generar_seccion_melodica(acordes, ritmo, "motivo", motivo, perfil_actual, escala_actual, notas_escala_obj, params_mel, None)[0]
+    return _generar_seccion_melodica(
+        acordes_para_simple,
+        ritmo_para_simple,
+        "motivo",
+        motivo,
+        perfil_actual,
+        escala_actual,
+        notas_escala_obj,
+        params_mel,
+        None,
+    )[0]
 
 # --- Función Principal de Generación de Melodía ---
 def generar_melodia_sobre_acordes(
-    acordes_progresion,
-    ritmo_acordes,
-    raiz_tonalidad,
-    modo_tonalidad,
+    acordes_progresion=None,
+    ritmo_acordes=None,
+    raiz_tonalidad="C",
+    modo_tonalidad="major",
     genero="default",
     bpm=120,
     octava_melodia_min=4,
     octava_melodia_max=5,
+    longitud_objetivo=None,
+    devolver_contexto=False,
 ):
-    if not acordes_progresion or not ritmo_acordes or len(acordes_progresion) < 4:
-        return _generar_melodia_simple(acordes_progresion, ritmo_acordes, raiz_tonalidad, modo_tonalidad, genero, bpm, octava_melodia_min, octava_melodia_max)
+    acordes_para_melodia = list(acordes_progresion) if acordes_progresion else []
+    ritmo_para_melodia = list(ritmo_acordes) if ritmo_acordes else []
+
+    if not acordes_para_melodia:
+        acordes_para_melodia, ritmo_generado = _generar_progresion_base_para_melodia(
+            raiz_tonalidad,
+            modo_tonalidad,
+            longitud_objetivo,
+        )
+        ritmo_para_melodia = ritmo_generado
+
+    if not ritmo_para_melodia:
+        ritmo_para_melodia = [1.0] * len(acordes_para_melodia)
+    elif len(ritmo_para_melodia) != len(acordes_para_melodia):
+        ritmo_alineado = ritmo_para_melodia[: len(acordes_para_melodia)]
+        if len(ritmo_alineado) < len(acordes_para_melodia):
+            ultimo_valor = ritmo_para_melodia[-1] if ritmo_para_melodia else 1.0
+            ritmo_alineado.extend([ultimo_valor] * (len(acordes_para_melodia) - len(ritmo_alineado)))
+        ritmo_para_melodia = ritmo_alineado
+
+    if not acordes_para_melodia:
+        resultado_vacio = []
+        return (resultado_vacio, acordes_para_melodia, ritmo_para_melodia) if devolver_contexto else resultado_vacio
+
+    if len(acordes_para_melodia) < 4:
+        melodia_simple = _generar_melodia_simple(
+            acordes_para_melodia,
+            ritmo_para_melodia,
+            raiz_tonalidad,
+            modo_tonalidad,
+            genero,
+            bpm,
+            octava_melodia_min,
+            octava_melodia_max,
+        )
+        return (melodia_simple, acordes_para_melodia, ritmo_para_melodia) if devolver_contexto else melodia_simple
 
     perfil_actual = PERFILES_GENERO.get(str(genero).lower(), PERFILES_GENERO["default"])
     params_mel = ParametrosMelodicos(bpm=bpm, octava_melodia_min=octava_melodia_min, octava_melodia_max=octava_melodia_max)
-    _ajustar_rango_melodia_a_progresion(params_mel, acordes_progresion)
+    _ajustar_rango_melodia_a_progresion(params_mel, acordes_para_melodia)
     escala_actual = obtener_escala_actual(raiz_tonalidad, modo_tonalidad)
     notas_escala_disponibles_obj = _obtener_notas_escala_en_rango(escala_actual, params_mel)
     
@@ -549,24 +804,38 @@ def generar_melodia_sobre_acordes(
     tecnica_elegida = random.choices(tecnicas, weights=pesos, k=1)[0]
     print(f"DEBUG (Melodia): ESTRUCTURA A-B-A'. Técnica elegida: {tecnica_elegida}")
 
-    num_acordes = len(acordes_progresion)
+    num_acordes = len(acordes_para_melodia)
     punto_corte_A = num_acordes // 2
     punto_corte_B = punto_corte_A + max(2, num_acordes // 4)
     if punto_corte_B >= num_acordes: punto_corte_B = num_acordes -1
     if punto_corte_A >= punto_corte_B: punto_corte_A = 0
     if punto_corte_A < 0: punto_corte_A = 0
     
-    segmento_A_acordes, segmento_A_ritmos = acordes_progresion[:punto_corte_A], ritmo_acordes[:punto_corte_A]
-    segmento_B_acordes, segmento_B_ritmos = acordes_progresion[punto_corte_A:punto_corte_B], ritmo_acordes[punto_corte_A:punto_corte_B]
-    segmento_A2_acordes, segmento_A2_ritmos = acordes_progresion[punto_corte_B:], ritmo_acordes[punto_corte_B:]
+    segmento_A_acordes = acordes_para_melodia[:punto_corte_A]
+    segmento_A_ritmos = ritmo_para_melodia[:punto_corte_A]
+    segmento_B_acordes = acordes_para_melodia[punto_corte_A:punto_corte_B]
+    segmento_B_ritmos = ritmo_para_melodia[punto_corte_A:punto_corte_B]
+    segmento_A2_acordes = acordes_para_melodia[punto_corte_B:]
+    segmento_A2_ritmos = ritmo_para_melodia[punto_corte_B:]
 
     if not segmento_A_acordes or not segmento_B_acordes or not segmento_A2_acordes:
-         return _generar_melodia_simple(acordes_progresion, ritmo_acordes, raiz_tonalidad, modo_tonalidad, genero, bpm, octava_melodia_min, octava_melodia_max)
+         melodia_simple = _generar_melodia_simple(
+             acordes_para_melodia,
+             ritmo_para_melodia,
+             raiz_tonalidad,
+             modo_tonalidad,
+             genero,
+             bpm,
+             octava_melodia_min,
+             octava_melodia_max,
+         )
+         return (melodia_simple, acordes_para_melodia, ritmo_para_melodia) if devolver_contexto else melodia_simple
 
     notas_primer_acorde = _expandir_notas_acorde_en_rango(segmento_A_acordes[0], params_mel)
     if not notas_primer_acorde:
-        total_dur = sum(float(r) for r in ritmo_acordes)
-        return [("0", str(total_dur))] if total_dur > 0 else []
+        total_dur = sum(float(r) for r in ritmo_para_melodia)
+        melodia_silencio = [("0", str(total_dur))] if total_dur > 0 else []
+        return (melodia_silencio, acordes_para_melodia, ritmo_para_melodia) if devolver_contexto else melodia_silencio
 
     motivo_principal = _crear_motivo_musical(notas_primer_acorde, perfil_actual, escala_actual)
     melodia_A, ultima_nota_A = _generar_seccion_melodica(segmento_A_acordes, segmento_A_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)
@@ -583,7 +852,10 @@ def generar_melodia_sobre_acordes(
         print("DEBUG (Melodia): Repitiendo sección A")
         melodia_A2, _ = _generar_seccion_melodica(segmento_A2_acordes, segmento_A2_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)
 
-    return melodia_A + melodia_B + melodia_A2
+    melodia_final = melodia_A + melodia_B + melodia_A2
+    if devolver_contexto:
+        return melodia_final, acordes_para_melodia, ritmo_para_melodia
+    return melodia_final
 
 
 # --- Bloque de Pruebas ---
