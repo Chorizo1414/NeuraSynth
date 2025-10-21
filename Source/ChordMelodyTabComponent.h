@@ -88,7 +88,41 @@ private:
     juce::TextButton stopButton;
     juce::TextButton exportChordsButton;
     juce::TextButton exportMelodyButton;
-    class MidiDragHandle;
+
+    class MidiDragHandle : public juce::Component
+    {
+    public:
+        MidiDragHandle(juce::DragAndDropContainer& containerRef,
+            const juce::String& labelText,
+            std::function<juce::File()> prepareFn);
+
+        void setText(const juce::String& newText);
+        juce::String getText() const;
+
+        void setTooltipText(const juce::String& newTooltipText);
+        void setDragEnabled(bool shouldBeEnabled);
+
+        void paint(juce::Graphics& g) override;
+        void mouseEnter(const juce::MouseEvent&) override;
+        void mouseExit(const juce::MouseEvent&) override;
+        void mouseDown(const juce::MouseEvent&) override;
+        void mouseUp(const juce::MouseEvent&) override;
+        void mouseDrag(const juce::MouseEvent&) override;
+        void enablementChanged() override;
+        juce::String getTooltip() override;
+
+    private:
+        void beginExternalDrag();
+
+        juce::DragAndDropContainer& container;
+        juce::String text;
+        juce::String tooltipText;
+        std::function<juce::File()> prepareFileCallback;
+        bool isHover = false;
+        bool isMouseDown = false;
+        bool dragStarted = false;
+    };
+
     std::unique_ptr<MidiDragHandle> chordsDragHandle;
     std::unique_ptr<MidiDragHandle> melodyDragHandle;
 

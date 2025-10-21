@@ -23,6 +23,7 @@ namespace
     constexpr int promptToControlsSpacing = 10;
     constexpr int topControlsHeight = promptEditorHeight + promptToControlsSpacing
         + topControlRowHeight + topControlSpacing + topControlRowHeight;
+    constexpr int dragStartDistance = 10;
 
     juce::Rectangle<int> expanded(const juce::Rectangle<int>& rect, int amountX, int amountY)
     {
@@ -46,182 +47,190 @@ namespace
 } // End anonymous namespace
 
 
-// Definition moved outside anonymous namespace and made an inner class
-class ChordMelodyTabComponent::MidiDragHandle : public juce::Component
+// Drag handle implementation
+ChordMelodyTabComponent::MidiDragHandle::MidiDragHandle(juce::DragAndDropContainer& containerRef,
+    const juce::String& labelText,
+    std::function<juce::File()> prepareFn)
+    : container(containerRef)
+    , text(labelText)
+    , prepareFileCallback(std::move(prepareFn))
 {
-public:
-    MidiDragHandle(juce::DragAndDropContainer& containerRef,
-        const juce::String& labelText,
-        std::function<juce::File()> prepareFn)
-        : container(containerRef)
-        , text(labelText)
-        , prepareFileCallback(std::move(prepareFn))
+    setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    setRepaintsOnMouseActivity(true);
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::setText(const juce::String& newText)
+{
+    if (text == newText)
+        return;
+
+    text = newText;
+    repaint();
+}
+
+juce::String ChordMelodyTabComponent::MidiDragHandle::getText() const
+{
+    return text;
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::setTooltipText(const juce::String& newTooltipText)
+{
+    if (tooltipText == newTooltipText)
+        return;
+
+    tooltipText = newTooltipText;
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::setDragEnabled(bool shouldBeEnabled)
+{
+    if (isEnabled() == shouldBeEnabled)
+        return;
+
+    juce::Component::setEnabled(shouldBeEnabled);
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::paint(juce::Graphics& g)
+{
+    auto area = getLocalBounds().toFloat();
+    const float cornerRadius = 6.0f;
+
+    juce::Colour fill = buttonBaseColour;
+    if (!isEnabled())
+        fill = fill.withMultipliedAlpha(0.35f);
+    else if (isMouseDown || dragStarted)
+        fill = buttonDownColour;
+    else if (isHover)
+        fill = buttonBaseColour.brighter(0.25f);
+
+    g.setColour(fill);
+    g.fillRoundedRectangle(area, cornerRadius);
+
+    g.setColour(panelOutlineColour.withAlpha(isEnabled() ? 0.45f : 0.2f));
+    g.drawRoundedRectangle(area, cornerRadius, 1.0f);
+
+    auto textColour = isEnabled() ? mainTextColour : mainTextColour.withMultipliedAlpha(0.4f);
+    g.setColour(textColour);
+    g.setFont(juce::Font(14.0f, juce::Font::bold));
+    g.drawFittedText(text, getLocalBounds().reduced(10, 0), juce::Justification::centred, 2);
+
+    auto iconArea = getLocalBounds().reduced(12, 8).removeFromLeft(24).toFloat();
+    juce::Path arrows;
+    const float centreX = iconArea.getCentreX();
+    const float centreY = iconArea.getCentreY();
+    const float arrowLength = juce::jmin(iconArea.getWidth(), iconArea.getHeight()) * 0.45f;
+    const float arrowHead = arrowLength * 0.45f;
+
+    auto drawArrow = [&](float dx, float dy)
+        {
+            juce::Path p;
+            juce::Point<float> start(centreX - dx * arrowLength, centreY - dy * arrowLength);
+            juce::Point<float> end(centreX + dx * arrowLength, centreY + dy * arrowLength);
+            p.startNewSubPath(start);
+            p.lineTo(end);
+
+            juce::Point<float> head1 = end - juce::Point<float>(dx * arrowHead - dy * arrowHead, dy * arrowHead + dx * arrowHead);
+            juce::Point<float> head2 = end - juce::Point<float>(dx * arrowHead + dy * arrowHead, dy * arrowHead - dx * arrowHead);
+            p.startNewSubPath(end);
+            p.lineTo(head1);
+            p.startNewSubPath(end);
+            p.lineTo(head2);
+            arrows.addPath(p);
+        };
+
+    drawArrow(1.0f, 0.0f);
+    drawArrow(-1.0f, 0.0f);
+    drawArrow(0.0f, 1.0f);
+    drawArrow(0.0f, -1.0f);
+
+    g.setColour(textColour.withMultipliedAlpha(0.7f));
+    g.strokePath(arrows, juce::PathStrokeType(1.3f));
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::mouseEnter(const juce::MouseEvent&)
+{
+    if (!isEnabled())
+        return;
+
+    isHover = true;
+    repaint();
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::mouseExit(const juce::MouseEvent&)
+{
+    isHover = false;
+    isMouseDown = false;
+    repaint();
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::mouseDown(const juce::MouseEvent&)
+{
+    if (!isEnabled())
+        return;
+
+    isMouseDown = true;
+    dragStarted = false;
+    repaint();
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::mouseUp(const juce::MouseEvent&)
+{
+    isMouseDown = false;
+    dragStarted = false;
+    repaint();
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::mouseDrag(const juce::MouseEvent& event)
+{
+    if (!isEnabled() || dragStarted || !isMouseDown)
+        return;
+
+    if (event.getDistanceFromDragStart() < dragStartDistance)
+        return;
+
+    dragStarted = true;
+    isMouseDown = false;
+    repaint();
+    beginExternalDrag();
+}
+
+void ChordMelodyTabComponent::MidiDragHandle::enablementChanged()
+{
+    juce::Component::enablementChanged();
+
+    if (isEnabled())
     {
         setMouseCursor(juce::MouseCursor::DraggingHandCursor);
-        setRepaintsOnMouseActivity(true);
     }
-
-    void setText(const juce::String& newText)
+    else
     {
-        if (text == newText)
-            return;
-
-        text = newText;
-        repaint();
-    }
-
-    juce::String getText() const
-    {
-        return text;
-    }
-
-    void paint(juce::Graphics& g) override
-    {
-        auto area = getLocalBounds().toFloat();
-        const float cornerRadius = 6.0f;
-
-        juce::Colour fill = buttonBaseColour;
-        if (!isEnabled())
-            fill = fill.withMultipliedAlpha(0.35f);
-        else if (isMouseDown || dragStarted)
-            fill = buttonDownColour;
-        else if (isHover)
-            fill = buttonBaseColour.brighter(0.25f);
-
-        g.setColour(fill);
-        g.fillRoundedRectangle(area, cornerRadius);
-
-        g.setColour(panelOutlineColour.withAlpha(isEnabled() ? 0.45f : 0.2f));
-        g.drawRoundedRectangle(area, cornerRadius, 1.0f);
-
-        auto textColour = isEnabled() ? mainTextColour : mainTextColour.withMultipliedAlpha(0.4f);
-        g.setColour(textColour);
-        g.setFont(juce::Font(14.0f, juce::Font::bold));
-        g.drawFittedText(text, getLocalBounds().reduced(10, 0), juce::Justification::centred, 2);
-
-        auto iconArea = getLocalBounds().reduced(12, 8).removeFromLeft(24).toFloat();
-        juce::Path arrows;
-        const float centreX = iconArea.getCentreX();
-        const float centreY = iconArea.getCentreY();
-        const float arrowLength = juce::jmin(iconArea.getWidth(), iconArea.getHeight()) * 0.45f;
-        const float arrowHead = arrowLength * 0.45f;
-
-        auto drawArrow = [&](float dx, float dy)
-            {
-                juce::Path p;
-                juce::Point<float> start(centreX - dx * arrowLength, centreY - dy * arrowLength);
-                juce::Point<float> end(centreX + dx * arrowLength, centreY + dy * arrowLength);
-                p.startNewSubPath(start);
-                p.lineTo(end);
-
-                juce::Point<float> head1 = end - juce::Point<float>(dx * arrowHead - dy * arrowHead, dy * arrowHead + dx * arrowHead);
-                juce::Point<float> head2 = end - juce::Point<float>(dx * arrowHead + dy * arrowHead, dy * arrowHead - dx * arrowHead);
-                p.startNewSubPath(end);
-                p.lineTo(head1);
-                p.startNewSubPath(end);
-                p.lineTo(head2);
-                arrows.addPath(p);
-            };
-
-        drawArrow(1.0f, 0.0f);
-        drawArrow(-1.0f, 0.0f);
-        drawArrow(0.0f, 1.0f);
-        drawArrow(0.0f, -1.0f);
-
-        g.setColour(textColour.withMultipliedAlpha(0.7f));
-        g.strokePath(arrows, juce::PathStrokeType(1.3f));
-    }
-
-    void mouseEnter(const juce::MouseEvent&) override
-    {
-        if (!isEnabled())
-            return;
-
-        isHover = true;
-        repaint();
-    }
-
-    void mouseExit(const juce::MouseEvent&) override
-    {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
         isHover = false;
         isMouseDown = false;
-        repaint();
-    }
-
-    void mouseDown(const juce::MouseEvent&) override
-    {
-        if (!isEnabled())
-            return;
-
-        isMouseDown = true;
         dragStarted = false;
-        repaint();
     }
 
-    void mouseUp(const juce::MouseEvent&) override
-    {
-        isMouseDown = false;
-        dragStarted = false;
-        repaint();
-    }
+    repaint();
+}
 
-    void mouseDrag(const juce::MouseEvent& event) override
-    {
-        if (!isEnabled() || dragStarted || !isMouseDown)
-            return;
+juce::String ChordMelodyTabComponent::MidiDragHandle::getTooltip()
+{
+    return tooltipText;
+}
 
-        // Corrected function call
-        if (event.getDistanceFromDragStart() < juce::Component::getMouseDragDistanceForPopupMenu())
-            return;
+void ChordMelodyTabComponent::MidiDragHandle::beginExternalDrag()
+{
+    if (!prepareFileCallback)
+        return;
 
-        dragStarted = true;
-        isMouseDown = false;
-        repaint();
-        beginExternalDrag();
-    }
+    juce::File file = prepareFileCallback();
+    if (!file.existsAsFile())
+        return;
 
-    // Changed from setEnabled override to enablementChanged
-    void enablementChanged() override
-    {
-        juce::Component::enablementChanged();
+    juce::StringArray files;
+    files.add(file.getFullPathName());
+    container.performExternalDragDropOfFiles(files, false);
+}
 
-        if (isEnabled())
-        {
-            setMouseCursor(juce::MouseCursor::DraggingHandCursor);
-        }
-        else
-        {
-            setMouseCursor(juce::MouseCursor::NormalCursor);
-            isHover = false;
-            isMouseDown = false;
-            dragStarted = false;
-        }
-
-        repaint();
-    }
-
-private:
-    void beginExternalDrag()
-    {
-        if (!prepareFileCallback)
-            return;
-
-        juce::File file = prepareFileCallback();
-        if (!file.existsAsFile())
-            return;
-
-        juce::StringArray files;
-        files.add(file.getFullPathName());
-        container.performExternalDragDropOfFiles(files, false);
-    }
-
-    juce::DragAndDropContainer& container;
-    juce::String text;
-    std::function<juce::File()> prepareFileCallback;
-    bool isHover = false;
-    bool isMouseDown = false;
-    bool dragStarted = false;
-};
 
 
 ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& processor)
@@ -366,13 +375,13 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
     chordsDragHandle = std::make_unique<MidiDragHandle>(*this,
         juce::String::fromUTF8("Arrastrar Acordes"),
         [this]() { return prepareChordMidiFileForDrag(); });
-    chordsDragHandle->setTooltip(juce::String::fromUTF8("Exporta y arrastra el MIDI de acordes."));
+    chordsDragHandle->setTooltipText(juce::String::fromUTF8("Exporta y arrastra el MIDI de acordes."));
     addAndMakeVisible(*chordsDragHandle);
 
     melodyDragHandle = std::make_unique<MidiDragHandle>(*this,
         juce::String::fromUTF8("Arrastrar Melodia"),
         [this]() { return prepareMelodyMidiFileForDrag(); });
-    melodyDragHandle->setTooltip(juce::String::fromUTF8("Exporta y arrastra el MIDI de melodía."));
+    melodyDragHandle->setTooltipText(juce::String::fromUTF8("Exporta y arrastra el MIDI de melodía."));
     addAndMakeVisible(*melodyDragHandle);
 
     // === PIANO ROLL ===
@@ -806,7 +815,6 @@ void ChordMelodyTabComponent::resized()
 
 // Asegúrate de que todas las funciones desde transpose() hasta el final del archivo
 // se mantengan EXACTAMENTE como estaban en el archivo original que subiste.
-// El parche solo modificó la definición de MidiDragHandle y una llamada a función
 // dentro de mouseDrag().
 
 // Pegar aquí el resto de las funciones desde transpose() hasta el final del archivo original
@@ -1119,9 +1127,9 @@ void ChordMelodyTabComponent::updateUiForCurrentState()
     exportChordsButton.setEnabled(hasChordContent);
     exportMelodyButton.setEnabled(hasMelody);
     if (chordsDragHandle)
-        chordsDragHandle->setEnabled(hasChordContent);
+        chordsDragHandle->setDragEnabled(hasChordContent);
     if (melodyDragHandle)
-        melodyDragHandle->setEnabled(hasMelody);
+        melodyDragHandle->setDragEnabled(hasMelody);
     transposeUpButton.setEnabled(hasData);
     transposeDownButton.setEnabled(hasData);
     clearCanvasButton.setEnabled(hasData || !pianoRollComponent.getNotes().isEmpty() || promptAvailable);
