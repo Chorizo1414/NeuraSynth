@@ -90,6 +90,55 @@ namespace LayoutConstants
         const juce::Rectangle<float> PAN_KNOB = { 595.017f, 118.202f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
         const juce::Rectangle<float> POSITION_KNOB = { 486.832f, 232.996f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
         const juce::Rectangle<float> GAIN_KNOB = { 595.017f, 234.401f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+
+        struct Layout
+        {
+            juce::Rectangle<float> waveSelect;
+            juce::Rectangle<float> waveDisplay;
+            juce::Rectangle<float> octKnob;
+            juce::Rectangle<float> fineKnob;
+            juce::Rectangle<float> pitchKnob;
+            juce::Rectangle<float> spreadKnob;
+            juce::Rectangle<float> panKnob;
+            juce::Rectangle<float> positionKnob;
+            juce::Rectangle<float> gainKnob;
+        };
+
+        inline Layout makeLayout(float offsetX, float offsetY)
+        {
+            Layout layout;
+            layout.waveSelect = WAVE_SELECT.translated(offsetX, offsetY);
+            layout.waveDisplay = WAVE_DISPLAY.translated(offsetX, offsetY);
+            layout.octKnob = OCT_KNOB.translated(offsetX, offsetY);
+            layout.fineKnob = FINE_KNOB.translated(offsetX, offsetY);
+            layout.pitchKnob = PITCH_KNOB.translated(offsetX, offsetY);
+            layout.spreadKnob = SPREAD_KNOB.translated(offsetX, offsetY);
+            layout.panKnob = PAN_KNOB.translated(offsetX, offsetY);
+            layout.positionKnob = POSITION_KNOB.translated(offsetX, offsetY);
+            layout.gainKnob = GAIN_KNOB.translated(offsetX, offsetY);
+            return layout;
+        }
+
+        namespace Offsets
+        {
+            // Ajustes verticales medidos para compensar los desfases de cada bloque de oscilador en el arte
+            constexpr float OSC1_Y = 0.0f;
+            constexpr float OSC2_Y = 1.0f;
+            constexpr float OSC3_Y = 2.0f;
+        }
+
+        inline Layout getLayoutForVariant(int variant)
+        {
+            switch (variant)
+            {
+            case 2:
+                return makeLayout(0.0f, Offsets::OSC2_Y);
+            case 3:
+                return makeLayout(0.0f, Offsets::OSC3_Y);
+            default:
+                return makeLayout(0.0f, Offsets::OSC1_Y);
+            }
+        }
     }
 
     namespace Filter

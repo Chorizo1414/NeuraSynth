@@ -65,7 +65,7 @@ private:
     double lastPlaybackUpdateSeconds = 0.0;
 
     static constexpr int defaultLowestNote = 21;   // A0
-    static constexpr int defaultHighestNote = 108; // C8
+    static constexpr int defaultHighestNote = 143; // B10
 
     int displayLowestNote = defaultLowestNote;
     int visibleNoteCount = 24;

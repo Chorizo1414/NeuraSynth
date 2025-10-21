@@ -6,6 +6,14 @@
 #include <utility>
 #include <cmath>
 
+namespace
+{
+    constexpr int kMaxDisplayMidiNote = 143; // B10 (mantener sincronizado con PianoRollComponent::defaultHighestNote)
+    constexpr float kBasePixelsPerBeat = 100.0f;
+    constexpr float kMinHorizontalZoom = 0.25f;
+    constexpr float kMaxHorizontalZoom = 6.0f;
+}
+
 // --- Función de ayuda para convertir nombres de nota ("C4", "G#3") a números MIDI ---
 int noteNameToMidi(const std::string& noteName)
 {
@@ -44,7 +52,7 @@ int noteNameToMidi(const std::string& noteName)
 // --- Función auxiliar para convertir un número MIDI a una etiqueta de nota legible ---
 juce::String midiToNoteName(int midiNote)
 {
-    if (midiNote < 0 || midiNote > 127)
+    if (midiNote < 0 || midiNote > kMaxDisplayMidiNote)
         return {};
 
     static const juce::StringArray noteNames({ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" });
@@ -52,13 +60,6 @@ juce::String midiToNoteName(int midiNote)
     const int index = midiNote % 12;
 
     return noteNames[index] + juce::String(octave);
-}
-
-namespace
-{
-    constexpr float kBasePixelsPerBeat = 100.0f;
-    constexpr float kMinHorizontalZoom = 0.25f;
-    constexpr float kMaxHorizontalZoom = 6.0f;
 }
 
 PianoRollComponent::PianoRollComponent() {}

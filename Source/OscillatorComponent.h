@@ -14,6 +14,8 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
 
+    void setLayoutVariant(int variant);
+
     OscillatorSection oscSection;
     WaveformDisplay waveDisplay;
 
@@ -29,5 +31,7 @@ public:
     CustomKnob gainKnob;
 
 private:
+    int layoutVariant = 1;
+    juce::Rectangle<float> designReferenceBounds;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OscillatorComponent)
 };

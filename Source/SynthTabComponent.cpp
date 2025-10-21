@@ -71,9 +71,13 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     setWantsKeyboardFocus(true);
     backgroundImage = juce::ImageCache::getFromMemory(BinaryData::boceto_png, BinaryData::boceto_pngSize);
 
-    // Asignamos nombres para el modo dise     osc1.setName("Oscillator 1");
+    // Asignamos nombres para el modo diseño y fijamos el layout específico de cada oscilador
+    osc1.setName("Oscillator 1");
     osc2.setName("Oscillator 2");
     osc3.setName("Oscillator 3");
+    osc1.setLayoutVariant(1);
+    osc2.setLayoutVariant(2);
+    osc3.setLayoutVariant(3);
     unisonComp1.setName("Unison 1");
     unisonComp2.setName("Unison 2");
     unisonComp3.setName("Unison 3");

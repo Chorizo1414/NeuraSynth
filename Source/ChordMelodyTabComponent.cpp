@@ -577,11 +577,15 @@ bool ChordMelodyTabComponent::prepareAndPlaySequence(bool includeChords, bool in
 
         auto createEventsForNote = [&](int midiNote)
             {
-                if (midiNote > 0 && endSample > startSample)
-                {
-                    eventList.push_back({ startSample, juce::MidiMessage::noteOn(1, midiNote, (juce::uint8)100) });
-                    eventList.push_back({ endSample, juce::MidiMessage::noteOff(1, midiNote) });
-                }
+                if (endSample <= startSample)
+                    return;
+
+                const int safeMidiNote = juce::jlimit(0, 127, midiNote);
+                if (safeMidiNote <= 0)
+                    return;
+
+                eventList.push_back({ startSample, juce::MidiMessage::noteOn(1, safeMidiNote, (juce::uint8)100) });
+                eventList.push_back({ endSample, juce::MidiMessage::noteOff(1, safeMidiNote) });
             };
 
         if (noteInfo.isMelody)
