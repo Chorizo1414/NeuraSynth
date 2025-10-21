@@ -36,6 +36,9 @@ private:
     void updateUndoRedoButtonStates();
     py::dict deepCopyMusicDict(const py::dict& source);
     void clearGeneratedContent();
+    void handlePianoRollContentChanged();
+    py::dict rebuildMusicDictFromPianoRoll();
+    void sendEditedMusicToPython();
     juce::String buildPromptForRequest() const;
     int getSelectedChordLimit() const;
     bool hasUsableChordContent(const py::dict& data) const;

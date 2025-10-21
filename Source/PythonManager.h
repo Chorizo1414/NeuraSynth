@@ -21,6 +21,7 @@ public:
     py::dict transposeMusic(const py::dict& musicData, int semitones);
     void like();
     void dislike();
+    void updateEditedMusic(const py::dict& musicData);
 
     // ---> AADE ESTA NUEVA LNEA <---
     // --- Funcin del Generador de Sonido ---

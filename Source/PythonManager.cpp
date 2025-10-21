@@ -161,8 +161,11 @@ juce::String PythonManager::exportChords(const py::dict& musicData, int bpm)
     {
         py::gil_scoped_acquire acquire;
         // Ahora usamos el BPM que viene como argumento
+        py::object detalles = musicData.contains("acordes_detallados") ? musicData["acordes_detallados"] : py::none();
+        py::object tiempos = musicData.contains("acordes_tiempos") ? musicData["acordes_tiempos"] : py::none();
+
         py::dict result = neuraChordApi.attr("exportar_acordes_midi")(
-            musicData["acordes"], musicData["ritmo"], bpm);
+            musicData["acordes"], musicData["ritmo"], bpm, detalles, tiempos);
 
         if (result.contains("error") && !result["error"].cast<std::string>().empty())
             return "Error en Python: " + juce::String(result["error"].cast<std::string>());
@@ -249,6 +252,22 @@ void PythonManager::dislike()
     catch (const py::error_already_set& e)
     {
         DBG("Python Error en dislike(): " << e.what());
+    }
+}
+
+void PythonManager::updateEditedMusic(const py::dict& musicData)
+{
+    if (!neuraChordApi)
+        return;
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+        neuraChordApi.attr("actualizar_progresion_editada")(musicData);
+    }
+    catch (const py::error_already_set& e)
+    {
+        DBG("Python Error en updateEditedMusic(): " << e.what());
     }
 }
 

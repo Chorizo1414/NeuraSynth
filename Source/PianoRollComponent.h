@@ -4,6 +4,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <vector>
+#include <functional>
 
 namespace py = pybind11;
 
@@ -50,6 +51,9 @@ public:
     const juce::Array<Note>& getNotes() const { return notes; }
     void startPlayback(double bpm);
     void stopPlayback();
+
+    void setContentChangedCallback(std::function<void()> callback);
+    void writeCurrentStateToPyDict(py::dict& target) const;
 
 
 private:
@@ -106,8 +110,13 @@ private:
     void deleteNoteAt(int noteIndex);
     void refreshNoteInfo(int infoIndex);
     void recalculateContentLength();
+    void markContentDirty();
+    void commitContentChange();
 
     void timerCallback() override;
 
+    std::function<void()> contentChangedCallback;
+    bool hasPendingContentChange = false;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PianoRollComponent)
 };

@@ -17,6 +17,19 @@ namespace
     constexpr double kDefaultQuantiseStepBeats = 0.25;
     constexpr float kResizeHandleWidthPixels = 8.0f;
     constexpr double kMinimumNoteDurationBeats = 0.0625;
+    constexpr double kRestMergeTolerance = 1.0e-4;
+
+    juce::String formatBeats(double beats)
+    {
+        if (!std::isfinite(beats))
+            beats = 0.0;
+
+        juce::String text(beats, 6);
+        text = text.trimCharactersAtEnd("0").trimCharactersAtEnd(".");
+        if (text.isEmpty())
+            text = "0";
+        return text;
+    }
 }
 
 // --- Función de ayuda para convertir nombres de nota ("C4", "G#3") a números MIDI ---
@@ -69,6 +82,11 @@ juce::String midiToNoteName(int midiNote)
 
 PianoRollComponent::PianoRollComponent() {}
 PianoRollComponent::~PianoRollComponent() {}
+
+void PianoRollComponent::setContentChangedCallback(std::function<void()> callback)
+{
+    contentChangedCallback = std::move(callback);
+}
 
 void PianoRollComponent::paint(juce::Graphics& g)
 {
@@ -422,7 +440,8 @@ void PianoRollComponent::setMusicData(const py::dict& data)
     isResizingNotes = false;
     resizingNoteIndices.clearQuick();
     resizeAnchorBeats = 0.0;
-    float time = 0.0f;
+    hasPendingContentChange = false;
+    float sequentialChordTime = 0.0f;
 
     try
     {
@@ -433,13 +452,85 @@ void PianoRollComponent::setMusicData(const py::dict& data)
             py::list pyRhythm = data["ritmo"];
             DBG("Procesando " + juce::String(pyChords.size()) + " acordes...");
 
+            std::vector<std::vector<double>> importedOffsets;
+            std::vector<std::vector<double>> importedDurations;
+            if (data.contains("acordes_detallados"))
+            {
+                py::list pyDetailed = data["acordes_detallados"];
+                importedOffsets.resize(pyDetailed.size());
+                importedDurations.resize(pyDetailed.size());
+
+                for (size_t i = 0; i < pyDetailed.size(); ++i)
+                {
+                    if (!py::isinstance<py::list>(pyDetailed[i]))
+                        continue;
+
+                    py::list detailList = pyDetailed[i].cast<py::list>();
+                    auto& offsets = importedOffsets[i];
+                    auto& durations = importedDurations[i];
+                    offsets.reserve(detailList.size());
+                    durations.reserve(detailList.size());
+
+                    for (auto detailItem : detailList)
+                    {
+                        try
+                        {
+                            py::tuple tupleData = detailItem.cast<py::tuple>();
+                            double offset = tupleData.size() > 1 ? tupleData[1].cast<double>() : 0.0;
+                            double perNoteDur = tupleData.size() > 2 ? tupleData[2].cast<double>() : 0.0;
+                            offsets.push_back(offset);
+                            durations.push_back(perNoteDur);
+                        }
+                        catch (...)
+                        {
+                            offsets.push_back(0.0);
+                            durations.push_back(0.0);
+                        }
+                    }
+                }
+            }
+
+            std::vector<double> importedStarts;
+            if (data.contains("acordes_tiempos"))
+            {
+                py::list pyStarts = data["acordes_tiempos"];
+                importedStarts.reserve(pyStarts.size());
+                for (auto item : pyStarts)
+                {
+                    try
+                    {
+                        importedStarts.push_back(item.cast<double>());
+                    }
+                    catch (...)
+                    {
+                        importedStarts.push_back(0.0);
+                    }
+                }
+            }
+
             for (size_t i = 0; i < pyChords.size(); ++i)
             {
                 auto item = pyChords[i];
-                float duration = pyRhythm[i].cast<float>();
-                std::vector<int> chordMidiValues;
+                float duration = 0.0f;
+                try
+                {
+                    duration = pyRhythm[i].cast<float>();
+                }
+                catch (...)
+                {
+                    duration = 0.0f;
+                }
 
+                const float chordBaseTime = (i < importedStarts.size())
+                    ? static_cast<float>(importedStarts[i])
+                    : sequentialChordTime;
+
+                std::vector<int> chordMidiValues;
                 juce::Array<int> chordNoteIndices;
+                std::vector<double> actualStarts;
+                std::vector<double> actualDurations;
+                double earliestStart = std::numeric_limits<double>::infinity();
+                double latestEnd = -std::numeric_limits<double>::infinity();
 
                 if (py::isinstance<py::list>(item))
                 {
@@ -450,25 +541,48 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                         int midiNote = noteNameToMidi(noteName);
                         if (midiNote != -1)
                         {
+                            const size_t slot = chordMidiValues.size();
+                            double offset = 0.0;
+                            double perNoteDur = 0.0;
+                            if (i < importedOffsets.size() && slot < importedOffsets[i].size())
+                                offset = importedOffsets[i][slot];
+                            if (i < importedDurations.size() && slot < importedDurations[i].size())
+                                perNoteDur = importedDurations[i][slot];
+
+                            if (perNoteDur <= 0.0)
+                                perNoteDur = (double)duration;
+
+                            const double actualStart = static_cast<double>(chordBaseTime) + offset;
                             const int noteIndex = notes.size();
-                            notes.add({ midiNote, time, duration, true, -1, 0 });
+                            notes.add({ midiNote, (float)actualStart, (float)perNoteDur, true, -1, 0 });
                             chordNoteIndices.add(noteIndex);
                             chordMidiValues.push_back(midiNote);
+
+                            actualStarts.push_back(actualStart);
+                            actualDurations.push_back(perNoteDur);
+                            earliestStart = std::min(earliestStart, actualStart);
+                            latestEnd = std::max(latestEnd, actualStart + perNoteDur);
                         }
                     }
                 }
 
                 if (!chordMidiValues.empty())
                 {
+                    const double defaultStart = static_cast<double>(chordBaseTime);
+                    const double safeEarliest = std::isfinite(earliestStart) ? earliestStart : defaultStart;
+                    double safeLatest = std::isfinite(latestEnd) ? latestEnd : (safeEarliest + duration);
+                    if (safeLatest < safeEarliest)
+                        safeLatest = safeEarliest;
+
                     NoteInfo chordInfo;
                     chordInfo.isMelody = false;
-                    chordInfo.startTime = static_cast<double>(time);
-                    chordInfo.duration = static_cast<double>(duration);
+                    chordInfo.startTime = safeEarliest;
+                    chordInfo.duration = std::max<double>(0.0, std::max((double)duration, safeLatest - safeEarliest));
                     chordInfo.midiValue = chordMidiValues.front();
                     const size_t chordSize = chordMidiValues.size();
                     chordInfo.chordMidiValues = std::move(chordMidiValues);
                     chordInfo.chordNoteOffsets.assign(chordSize, 0.0);
-                    chordInfo.chordNoteDurations.assign(chordSize, static_cast<double>(duration));
+                    chordInfo.chordNoteDurations.assign(chordSize, chordInfo.duration);
                     musicData.push_back(std::move(chordInfo));
 
                     const int infoIndex = static_cast<int>(musicData.size()) - 1;
@@ -477,10 +591,19 @@ void PianoRollComponent::setMusicData(const py::dict& data)
                         auto& storedNote = notes.getReference(chordNoteIndices[slot]);
                         storedNote.infoIndex = infoIndex;
                         storedNote.chordNoteSlot = slot;
+
+                        if (slot < (int)actualStarts.size())
+                        {
+                            const double relativeOffset = actualStarts[(size_t)slot] - musicData[(size_t)infoIndex].startTime;
+                            musicData[(size_t)infoIndex].chordNoteOffsets[(size_t)slot] = relativeOffset;
+                        }
+
+                        if (slot < (int)actualDurations.size())
+                            musicData[(size_t)infoIndex].chordNoteDurations[(size_t)slot] = actualDurations[(size_t)slot];
                     }
                 }
 
-                time += duration;
+                sequentialChordTime += duration;
             }
         }
 
@@ -807,6 +930,7 @@ void PianoRollComponent::updateDraggedNotes(const juce::MouseEvent& event)
     int newBaseMidi = displayHighestNote - juce::roundToInt(noteIndexFloat);
     newBaseMidi = juce::jlimit(defaultLowestNote, defaultHighestNote, newBaseMidi);
 
+    bool anyChanged = false;
     for (int i = 0; i < draggedNoteIndices.size(); ++i)
     {
         const int index = draggedNoteIndices[i];
@@ -818,9 +942,19 @@ void PianoRollComponent::updateDraggedNotes(const juce::MouseEvent& event)
         if (i < (int)draggedStartOffsets.size())
             adjustedStart += draggedStartOffsets[(size_t)i];
 
-        note.startTime = (float)juce::jmax(0.0, adjustedStart);
+        const float clampedStart = (float)juce::jmax(0.0, adjustedStart);
+        if (std::abs(note.startTime - clampedStart) > 1.0e-4f)
+        {
+            note.startTime = clampedStart;
+            anyChanged = true;
+        }
         const int relative = draggedMidiOffsets[(size_t)i];
-        note.midiNote = juce::jlimit(defaultLowestNote, defaultHighestNote, newBaseMidi + relative);
+        const int newMidi = juce::jlimit(defaultLowestNote, defaultHighestNote, newBaseMidi + relative);
+        if (note.midiNote != newMidi)
+        {
+            note.midiNote = newMidi;
+            anyChanged = true;
+        }
     }
 
     const int infoIndex = notes.getReference(primaryDragNoteIndex).infoIndex;
@@ -830,6 +964,9 @@ void PianoRollComponent::updateDraggedNotes(const juce::MouseEvent& event)
     recalculateContentLength();
     clampHorizontalScroll();
     repaint();
+
+    if (anyChanged)
+        markContentDirty();
 }
 
 void PianoRollComponent::updateResizedNotes(const juce::MouseEvent& event)
@@ -861,6 +998,7 @@ void PianoRollComponent::updateResizedNotes(const juce::MouseEvent& event)
 
     newDuration = juce::jmax(minDuration, newDuration);
 
+    bool anyChanged = false;
     for (int i = 0; i < resizingNoteIndices.size(); ++i)
     {
         const int index = resizingNoteIndices[i];
@@ -868,7 +1006,12 @@ void PianoRollComponent::updateResizedNotes(const juce::MouseEvent& event)
             continue;
 
         auto& note = notes.getReference(index);
-        note.duration = (float)newDuration;
+        const float newDurFloat = (float)newDuration;
+        if (std::abs(note.duration - newDurFloat) > 1.0e-4f)
+        {
+            note.duration = newDurFloat;
+            anyChanged = true;
+        }
     }
 
     const int infoIndex = notes.getReference(primaryDragNoteIndex).infoIndex;
@@ -878,6 +1021,9 @@ void PianoRollComponent::updateResizedNotes(const juce::MouseEvent& event)
     recalculateContentLength();
     clampHorizontalScroll();
     repaint();
+
+    if (anyChanged)
+        markContentDirty();
 }
 
 void PianoRollComponent::endNoteDrag()
@@ -895,6 +1041,8 @@ void PianoRollComponent::endNoteDrag()
     recalculateContentLength();
     clampHorizontalScroll();
     repaint();
+
+    commitContentChange();
 }
 
 void PianoRollComponent::endNoteResize()
@@ -910,6 +1058,8 @@ void PianoRollComponent::endNoteResize()
     recalculateContentLength();
     clampHorizontalScroll();
     repaint();
+
+    commitContentChange();
 }
 
 void PianoRollComponent::deleteNoteAt(int noteIndex)
@@ -926,10 +1076,12 @@ void PianoRollComponent::deleteNoteAt(int noteIndex)
     resizingNoteIndices.clearQuick();
 
     const int infoIndex = notes.getReference(noteIndex).infoIndex;
+    bool modified = false;
 
     if (!juce::isPositiveAndBelow(infoIndex, (int)musicData.size()))
     {
         notes.remove(noteIndex);
+        modified = true;
     }
     else
     {
@@ -955,10 +1107,12 @@ void PianoRollComponent::deleteNoteAt(int noteIndex)
                 if (remaining.infoIndex > infoIndex)
                     --remaining.infoIndex;
             }
+            modified = true;
         }
         else
         {
             notes.remove(noteIndex);
+            modified = true;
 
             std::vector<int> remainingIndices;
             remainingIndices.reserve(notes.size());
@@ -983,6 +1137,12 @@ void PianoRollComponent::deleteNoteAt(int noteIndex)
     recalculateContentLength();
     clampHorizontalScroll();
     repaint();
+
+    if (modified)
+    {
+        markContentDirty();
+        commitContentChange();
+    }
 }
 
 void PianoRollComponent::refreshNoteInfo(int infoIndex)
@@ -1079,6 +1239,114 @@ void PianoRollComponent::refreshNoteInfo(int infoIndex)
     info.midiValue = info.chordMidiValues.empty() ? 0 : info.chordMidiValues.front();
 }
 
+void PianoRollComponent::writeCurrentStateToPyDict(py::dict& target) const
+{
+    py::gil_scoped_acquire acquire;
+
+    py::list chordList;
+    py::list rhythmList;
+    py::list chordDetails;
+    py::list chordStarts;
+
+    std::vector<const NoteInfo*> chordInfos;
+    chordInfos.reserve(musicData.size());
+    for (const auto& info : musicData)
+    {
+        if (!info.isMelody)
+            chordInfos.push_back(&info);
+    }
+
+    std::sort(chordInfos.begin(), chordInfos.end(), [](const NoteInfo* a, const NoteInfo* b)
+        {
+            if (a->startTime == b->startTime)
+                return a < b;
+            return a->startTime < b->startTime;
+        });
+
+    for (const auto* info : chordInfos)
+    {
+        if (info == nullptr)
+            continue;
+
+        py::list noteNames;
+        py::list detailEntries;
+
+        const size_t count = info->chordMidiValues.size();
+        for (size_t slot = 0; slot < count; ++slot)
+        {
+            const int midi = info->chordMidiValues[slot];
+            if (midi <= 0)
+                continue;
+
+            const auto noteName = midiToNoteName(midi);
+            if (noteName.isEmpty())
+                continue;
+
+            const double offset = slot < info->chordNoteOffsets.size() ? info->chordNoteOffsets[slot] : 0.0;
+            const double perDuration = slot < info->chordNoteDurations.size() ? info->chordNoteDurations[slot] : info->duration;
+
+            noteNames.append(noteName.toStdString());
+            detailEntries.append(py::make_tuple(noteName.toStdString(), offset, perDuration));
+        }
+
+        if (noteNames.size() == 0)
+            continue;
+
+        chordList.append(noteNames);
+        rhythmList.append(info->duration);
+        chordDetails.append(detailEntries);
+        chordStarts.append(info->startTime);
+    }
+
+    target["acordes"] = chordList;
+    target["ritmo"] = rhythmList;
+    target["acordes_detallados"] = chordDetails;
+    target["acordes_tiempos"] = chordStarts;
+
+    py::list melodyList;
+    std::vector<const NoteInfo*> melodyInfos;
+    melodyInfos.reserve(musicData.size());
+    for (const auto& info : musicData)
+    {
+        if (info.isMelody)
+            melodyInfos.push_back(&info);
+    }
+
+    std::sort(melodyInfos.begin(), melodyInfos.end(), [](const NoteInfo* a, const NoteInfo* b)
+        {
+            if (a->startTime == b->startTime)
+                return a < b;
+            return a->startTime < b->startTime;
+        });
+
+    double cursor = 0.0;
+    for (const auto* info : melodyInfos)
+    {
+        if (info == nullptr)
+            continue;
+
+        if (info->duration <= 0.0)
+            continue;
+
+        if (info->startTime > cursor + kRestMergeTolerance)
+        {
+            const double restDur = info->startTime - cursor;
+            melodyList.append(py::make_tuple(std::string("0"), formatBeats(restDur).toStdString()));
+            cursor = info->startTime;
+        }
+
+        juce::String noteName = midiToNoteName(info->midiValue);
+        if (noteName.isEmpty())
+            noteName = "0";
+
+        melodyList.append(py::make_tuple(noteName.toStdString(), formatBeats(info->duration).toStdString()));
+        cursor = std::max(cursor, info->startTime + info->duration);
+    }
+
+    target["melodia"] = melodyList;
+    target["error"] = "";
+}
+
 void PianoRollComponent::recalculateContentLength()
 {
     contentLengthBeats = 0.0;
@@ -1109,4 +1377,20 @@ void PianoRollComponent::timerCallback()
     }
 
     repaint();
+}
+
+void PianoRollComponent::markContentDirty()
+{
+    hasPendingContentChange = true;
+}
+
+void PianoRollComponent::commitContentChange()
+{
+    if (!hasPendingContentChange)
+        return;
+
+    hasPendingContentChange = false;
+
+    if (contentChangedCallback)
+        contentChangedCallback();
 }

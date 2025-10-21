@@ -1,5 +1,6 @@
 #include "ChordMelodyTabComponent.h"
 #include "PluginProcessor.h"
+#include <algorithm>
 #include <utility>
 
 namespace
@@ -185,6 +186,7 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     // === PIANO ROLL ===
     addAndMakeVisible(pianoRollComponent);
+    pianoRollComponent.setContentChangedCallback([this]() { handlePianoRollContentChanged(); });
 
     // === LOGICA DE LOS BOTONES ===
     generateChordsButton.onClick = [this]
@@ -205,6 +207,14 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
         likeImg, 0.85f, juce::Colours::transparentBlack,
         likeImg, 0.7f, juce::Colours::transparentBlack);
     likeButton->onClick = [this] {
+        if (pianoRollComponent.getNotes().isEmpty())
+        {
+            showNotification(juce::String::fromUTF8("No hay datos para enviar feedback."));
+            return;
+        }
+
+        lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
+        sendEditedMusicToPython();
         audioProcessor.pythonManager->like();
         showNotification("Feedback Positivo Enviado!");
         };
@@ -218,6 +228,14 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
         dislikeImg, 0.85f, juce::Colours::transparentBlack,
         dislikeImg, 0.7f, juce::Colours::transparentBlack);
     dislikeButton->onClick = [this] {
+        if (pianoRollComponent.getNotes().isEmpty())
+        {
+            showNotification(juce::String::fromUTF8("No hay datos para enviar feedback."));
+            return;
+        }
+
+        lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
+        sendEditedMusicToPython();
         audioProcessor.pythonManager->dislike();
         showNotification("Feedback Negativo Enviado! Generando nueva progresion...");
         generateChordsFromCurrentPrompt();
@@ -346,6 +364,28 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     exportChordsButton.onClick = [this]
         {
+            const auto& musicEntries = pianoRollComponent.getMusicData();
+            const bool hasChordNotes = std::any_of(musicEntries.begin(), musicEntries.end(), [](const NoteInfo& info)
+                {
+                    if (info.isMelody)
+                        return false;
+
+                    for (int midi : info.chordMidiValues)
+                        if (midi > 0)
+                            return true;
+
+                    return false;
+                });
+
+            if (!hasChordNotes)
+            {
+                showNotification(juce::String::fromUTF8("No hay acordes para exportar."));
+                return;
+            }
+
+            lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
+            sendEditedMusicToPython();
+
             int currentBpm = (int)bpmSlider.getValue();
             juce::String result = audioProcessor.pythonManager->exportChords(lastGeneratedChordsData, currentBpm);
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Acordes", result);
@@ -354,6 +394,21 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     exportMelodyButton.onClick = [this]
         {
+            const auto& musicEntries = pianoRollComponent.getMusicData();
+            const bool hasMelodyNotes = std::any_of(musicEntries.begin(), musicEntries.end(), [](const NoteInfo& info)
+                {
+                    return info.isMelody && info.midiValue > 0 && info.duration > 0.0;
+                });
+
+            if (!hasMelodyNotes)
+            {
+                showNotification(juce::String::fromUTF8("No hay melodías para exportar."));
+                return;
+            }
+
+            lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
+            sendEditedMusicToPython();
+
             int currentBpm = (int)bpmSlider.getValue();
             juce::String result = audioProcessor.pythonManager->exportMelody(lastGeneratedChordsData, currentBpm);
             juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Exportar Melodia", result);
@@ -561,7 +616,12 @@ void ChordMelodyTabComponent::resized()
 
 void ChordMelodyTabComponent::transpose(int semitones)
 {
-    if (lastGeneratedChordsData.empty()) return;
+    if (lastGeneratedChordsData.empty() && pianoRollComponent.getNotes().isEmpty())
+        return;
+
+    lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
+    if (lastGeneratedChordsData.empty())
+        return;
 
     DBG("Transponiendo por " + juce::String(semitones) + " semitonos...");
     auto transposedData = audioProcessor.pythonManager->transposeMusic(lastGeneratedChordsData, semitones);
@@ -578,6 +638,7 @@ void ChordMelodyTabComponent::transpose(int semitones)
     pianoRollComponent.setMusicData(lastGeneratedChordsData);
     updateUiForCurrentState();
     pushStateToHistory(lastGeneratedChordsData);
+    sendEditedMusicToPython();
     repaint();
 }
 
@@ -841,6 +902,25 @@ void ChordMelodyTabComponent::updateUiForCurrentState()
     clearCanvasButton.setEnabled(hasData || !pianoRollComponent.getNotes().isEmpty() || promptAvailable);
 }
 
+py::dict ChordMelodyTabComponent::rebuildMusicDictFromPianoRoll()
+{
+    py::gil_scoped_acquire acquire;
+
+    py::dict snapshot = lastGeneratedChordsData.empty() ? py::dict() : deepCopyMusicDict(lastGeneratedChordsData);
+    pianoRollComponent.writeCurrentStateToPyDict(snapshot);
+    return snapshot;
+}
+
+void ChordMelodyTabComponent::handlePianoRollContentChanged()
+{
+    lastGeneratedChordsData = rebuildMusicDictFromPianoRoll();
+
+    pushStateToHistory(lastGeneratedChordsData);
+    updateUiForCurrentState();
+    repaint();
+    sendEditedMusicToPython();
+}
+
 void ChordMelodyTabComponent::pushStateToHistory(const py::dict& data)
 {
     if (data.empty())
@@ -870,6 +950,7 @@ void ChordMelodyTabComponent::applyStateFromHistory(int newIndex)
     pianoRollComponent.setMusicData(lastGeneratedChordsData);
     setBpmValue(historyStates[historyCurrentIndex].bpm);
 
+    sendEditedMusicToPython();
     updateUiForCurrentState();
     repaint();
     updateUndoRedoButtonStates();
@@ -903,6 +984,8 @@ void ChordMelodyTabComponent::clearGeneratedContent()
     repaint();
 
     showNotification(juce::String::fromUTF8("Lienzo limpio. Genera acordes o melodía."));
+
+    sendEditedMusicToPython();
 }
 
 juce::String ChordMelodyTabComponent::buildPromptForRequest() const
@@ -1037,4 +1120,12 @@ py::dict ChordMelodyTabComponent::deepCopyMusicDict(const py::dict& source)
     static py::object deepcopyFunc = py::module::import("copy").attr("deepcopy");
     py::object result = deepcopyFunc(source);
     return result.cast<py::dict>();
+}
+
+void ChordMelodyTabComponent::sendEditedMusicToPython()
+{
+    if (audioProcessor.pythonManager == nullptr)
+        return;
+
+    audioProcessor.pythonManager->updateEditedMusic(lastGeneratedChordsData);
 }

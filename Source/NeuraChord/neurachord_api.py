@@ -2,7 +2,7 @@
 import traceback
 import os
 import json
-from music21 import stream, note, chord, instrument, tempo, midi
+from music21 import stream, note, chord, instrument, tempo, midi, pitch
 from generador_acordes import transponer_progresion
 from sound_designer import generate_synth_patch
 from sound_prompt_processor import parse_sound_prompt
@@ -246,19 +246,52 @@ def _exportar_a_midi(stream_obj, nombre_archivo_base):
         return {"error": error_msg}
 
 
-def exportar_acordes_midi(acordes, ritmo, bpm):
+def exportar_acordes_midi(acordes, ritmo, bpm, acordes_detallados=None, acordes_tiempos=None):
     s = stream.Stream()
     s.insert(0, tempo.MetronomeMark(number=bpm))
     s.append(instrument.Piano())
-    
+
     offset_actual = 0.0
     for i, ac_data in enumerate(acordes):
-        duracion = float(ritmo[i])
-        if isinstance(ac_data, list):
-            acorde_obj = chord.Chord(ac_data, quarterLength=duracion)
-            s.insert(offset_actual, acorde_obj)
-        offset_actual += duracion
-        
+        duracion = float(ritmo[i]) if i < len(ritmo) else 1.0
+        base_offset = offset_actual
+        if acordes_tiempos and i < len(acordes_tiempos):
+            try:
+                base_offset = float(acordes_tiempos[i])
+            except Exception:
+                base_offset = offset_actual
+
+        detalle_actual = None
+        if acordes_detallados and i < len(acordes_detallados):
+            detalle_actual = acordes_detallados[i]
+
+        if detalle_actual:
+            for detalle in detalle_actual:
+                try:
+                    nombre_nota = detalle[0] if len(detalle) > 0 else "0"
+                    offset = float(detalle[1]) if len(detalle) > 1 else 0.0
+                    dur_detalle = float(detalle[2]) if len(detalle) > 2 else duracion
+                    if nombre_nota and nombre_nota != "0":
+                        nota_obj = note.Note(nombre_nota, quarterLength=dur_detalle)
+                        s.insert(base_offset + offset, nota_obj)
+                except Exception as e_det:
+                    print(f"Advertencia (exportar_acordes_midi): detalle inválido {detalle}: {e_det}")
+        else:
+            if isinstance(ac_data, list):
+                acorde_obj = chord.Chord(ac_data, quarterLength=duracion)
+                s.insert(base_offset, acorde_obj)
+            elif ac_data not in (None, "", "0"):
+                acorde_obj = chord.Chord([ac_data], quarterLength=duracion)
+                s.insert(base_offset, acorde_obj)
+
+        if acordes_tiempos and i + 1 < len(acordes_tiempos):
+            try:
+                offset_actual = float(acordes_tiempos[i + 1])
+            except Exception:
+                offset_actual = base_offset + duracion
+        else:
+            offset_actual = base_offset + duracion
+
     # Usamos un nombre de archivo base simple: "acordes"
     return _exportar_a_midi(s, "acordes")
 
@@ -267,7 +300,7 @@ def exportar_melodia_midi(melodia, bpm):
     s = stream.Stream()
     s.insert(0, tempo.MetronomeMark(number=bpm))
     s.append(instrument.Violin())
-    
+
     offset_actual = 0.0
     for nota_data in melodia:
         nombre_nota = nota_data[0]
@@ -283,6 +316,35 @@ def exportar_melodia_midi(melodia, bpm):
 
     return _exportar_a_midi(s, "melodia")
 
+def actualizar_progresion_editada(datos_musica):
+    """Actualiza el estado interno con una progresión editada desde el plugin."""
+    global _ultima_progresion_generada, _ultimo_ritmo_generado, _ultimo_genero, _ultima_tonalidad_str, _ultima_fuente_generada, _ultimo_tipo_generacion
+
+    try:
+        acordes = datos_musica.get("acordes", []) or []
+        ritmo = datos_musica.get("ritmo", []) or []
+        _ultima_progresion_generada = [list(a) if isinstance(a, list) else a for a in acordes]
+        _ultimo_ritmo_generado = ritmo
+
+        estilo = datos_musica.get("estilo")
+        if estilo:
+            _ultimo_genero = estilo
+
+        raiz = datos_musica.get("raiz")
+        modo = datos_musica.get("modo")
+        if raiz:
+            modo_str = modo.lower() if isinstance(modo, str) and modo else "major"
+            _ultima_tonalidad_str = f"{raiz.lower()} {modo_str}".strip()
+
+        _ultima_fuente_generada = datos_musica.get("fuente_generacion", "Plugin Editado") or "Plugin Editado"
+        _ultimo_tipo_generacion = datos_musica.get("tipo_generacion", "plugin_edit") or "plugin_edit"
+
+        return {"status": "ok"}
+    except Exception as e:
+        error_msg = f"Error actualizando progresión editada: {e}"
+        print(f"!!! Python API Error: {error_msg}")
+        return {"status": "error", "error": error_msg}
+
 def transponer_musica(datos_musica, semitonos):
     """
     Toma un diccionario de datos musicales y lo transpone por un número de semitonos.
@@ -294,10 +356,41 @@ def transponer_musica(datos_musica, semitonos):
         # Llamamos a la función de transposición que ya existe en tu código
         acordes_transpuestos, melodia_transpuesta = transponer_progresion(acordes, semitonos, melodia)
 
+        detalles = datos_musica.get("acordes_detallados")
+        detalles_transpuestos = None
+        if detalles:
+            detalles_transpuestos = []
+            for detalle_acorde in detalles:
+                if not detalle_acorde:
+                    detalles_transpuestos.append([])
+                    continue
+
+                acorde_detalle_transformado = []
+                for detalle in detalle_acorde:
+                    try:
+                        nombre = detalle[0] if len(detalle) > 0 else "0"
+                        offset = float(detalle[1]) if len(detalle) > 1 else 0.0
+                        duracion = float(detalle[2]) if len(detalle) > 2 else 0.0
+
+                        if nombre and nombre not in ("0", ""):
+                            nombre_base = nombre if any(ch.isdigit() for ch in nombre) else f"{nombre}4"
+                            nombre_transpuesto = pitch.Pitch(nombre_base).transpose(semitonos).nameWithOctave
+                        else:
+                            nombre_transpuesto = "0"
+
+                        acorde_detalle_transformado.append((nombre_transpuesto, offset, duracion))
+                    except Exception as e_det:
+                        print(f"Advertencia (transponer_musica.detalle): {e_det}")
+                        acorde_detalle_transformado.append(detalle)
+
+                detalles_transpuestos.append(acorde_detalle_transformado)
+
         # Creamos un nuevo diccionario con los datos actualizados
         nuevos_datos = datos_musica.copy()
         nuevos_datos["acordes"] = acordes_transpuestos
         nuevos_datos["melodia"] = melodia_transpuesta
+        if detalles_transpuestos is not None:
+            nuevos_datos["acordes_detallados"] = detalles_transpuestos
         nuevos_datos["error"] = ""
         
         print(f">>> Python API: Música transpuesta por {semitonos} semitonos.")
