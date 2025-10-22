@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 #include <JuceHeader.h>
 #include "WaveformDisplay.h"
+#include "BuiltInWavetables.h"
 
 class OscillatorSection : public juce::Component
 {
@@ -29,29 +30,89 @@ public:
         waveSelector.setLookAndFeel(nullptr);
     }
 
-    void loadWavetablesFromFolder(const juce::String& folderPath)
+    void loadWavetablesFromFolder(const juce::File& folder)
     {
         waveSelector.clear();
-        waveFiles.clear();
+        waveEntries.clear();
 
-        juce::File waveFolder(folderPath);
-        if (waveFolder.exists() && waveFolder.isDirectory())
+        juce::StringArray addedNames;
+        int itemId = 1;
+
+        auto addEntry = [this, &itemId, &addedNames](WaveEntry entry)
+            {
+                entry.displayName = entry.displayName.trim();
+
+                if (entry.displayName.isEmpty() && entry.fileName.isNotEmpty())
+                    entry.displayName = entry.fileName.trim();
+
+                if (entry.displayName.isEmpty())
+                {
+                    DBG("Se omitio un wavetable por tener un nombre vacio");
+                    return;
+                }
+
+                waveSelector.addItem(entry.displayName, itemId++);
+                if (entry.fileName.isNotEmpty())
+                    addedNames.add(entry.fileName);
+                waveEntries.push_back(std::move(entry));
+            };
+
+        bool loadedFromDisk = false;
+        if (folder.exists() && folder.isDirectory())
         {
-            auto foundFiles = waveFolder.findChildFiles(juce::File::TypesOfFileToFind::findFiles, false, "*.wav");
-            int itemId = 1;
+            auto foundFiles = folder.findChildFiles(juce::File::TypesOfFileToFind::findFiles, false, "*.wav");
             for (auto& f : foundFiles)
             {
-                waveFiles.push_back(f);
-                auto waveName = f.getFileNameWithoutExtension();
-                waveSelector.addItem(waveName, itemId++);
+                if (!f.existsAsFile())
+                    continue;
+
+                WaveEntry entry;
+                entry.displayName = f.getFileNameWithoutExtension();
+                entry.fileName = f.getFileName();
+                entry.file = f;
+                entry.usesInMemory = false;
+
+                addEntry(std::move(entry));
             }
-            if (!waveFiles.empty())
-                waveSelector.setSelectedId(1);
+
+            if (!waveEntries.empty())
+            {
+                loadedFromDisk = true;
+            }
         }
-        else
+
+        if (!loadedFromDisk)
         {
-            DBG("No se encontro la carpeta wavetables o esta vacia: " << folderPath);
+            if (folder.getFullPathName().isNotEmpty())
+                DBG("No se encontro la carpeta wavetables o esta vacia: " << folder.getFullPathName()
+                    << ". Se usaran wavetables predeterminados integrados.");
+            else
+                DBG("No se proporciono una carpeta de wavetables. Se usaran wavetables predeterminados integrados.");
         }
+
+        const auto& builtInNames = BuiltInWavetables::getAllNames();
+        for (const auto& fullName : builtInNames)
+        {
+            if (addedNames.contains(fullName, true))
+                continue;
+
+            if (const auto* buffer = BuiltInWavetables::getWavetable(fullName))
+            {
+                WaveEntry entry;
+                auto displayName = fullName;
+                const auto dotIndex = displayName.lastIndexOfChar('.');
+                if (dotIndex >= 0)
+                    displayName = displayName.substring(0, dotIndex);
+                entry.fileName = fullName;
+                entry.inMemoryBuffer = *buffer;
+                entry.usesInMemory = true;
+
+                addEntry(std::move(entry));
+            }
+        }
+
+        if (!waveEntries.empty())
+            waveSelector.setSelectedId(1);
     }
 
     void resized() override
@@ -62,11 +123,9 @@ public:
     bool selectWaveByFilename(const juce::String& fileNameWithExtension,
         juce::NotificationType notificationType = juce::sendNotificationSync)
     {
-        for (size_t i = 0; i < waveFiles.size(); ++i)
+        for (size_t i = 0; i < waveEntries.size(); ++i)
         {
-            const auto& file = waveFiles[i];
-            if (file.getFileName().equalsIgnoreCase(fileNameWithExtension)
-                || file.getFileNameWithoutExtension().equalsIgnoreCase(fileNameWithExtension))
+            if (waveEntries[i].matches(fileNameWithExtension))
             {
                 waveSelector.setSelectedItemIndex((int)i, notificationType);
                 return true;
@@ -178,14 +237,39 @@ private:
     MinimalComboBoxLookAndFeel waveSelectorLookAndFeel;
 
     juce::ComboBox waveSelector;
-    std::vector<juce::File> waveFiles;
+    struct WaveEntry
+    {
+        juce::String displayName;
+        juce::String fileName;
+        juce::File file;
+        juce::AudioBuffer<float> inMemoryBuffer;
+        bool usesInMemory = false;
+
+        bool matches(const juce::String& candidate) const
+        {
+            return fileName.equalsIgnoreCase(candidate)
+                || displayName.equalsIgnoreCase(candidate);
+        }
+    };
+
+    std::vector<WaveEntry> waveEntries;
 
     void waveSelectorChanged()
     {
         int selectedIndex = waveSelector.getSelectedItemIndex();
-        if (selectedIndex >= 0 && selectedIndex < (int)waveFiles.size())
+        if (selectedIndex >= 0 && selectedIndex < (int)waveEntries.size())
         {
-            auto file = waveFiles[selectedIndex];
+            const auto& entry = waveEntries[(size_t)selectedIndex];
+
+            if (entry.usesInMemory)
+            {
+                DBG("Oscillator wave changed to built-in wavetable: " << entry.fileName);
+                if (onWaveLoaded)
+                    onWaveLoaded(entry.inMemoryBuffer);
+                return;
+            }
+
+            auto file = entry.file;
             DBG("Oscillator wave changed to: " << file.getFullPathName());
 
             juce::WavAudioFormat wavFormat;

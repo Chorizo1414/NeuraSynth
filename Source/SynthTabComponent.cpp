@@ -129,7 +129,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     // Conexion de Callbacks para el Oscilador 1 (el que est  activo)
     osc1.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
-        audioProcessor.setWavetable1(buffer); 
+        audioProcessor.setWavetable1(buffer);
         osc1.waveDisplay.setAudioBuffer(buffer, audioProcessor.getNumFrames1());
         };
     osc1.gainKnob.onValueChange = [this]() { audioProcessor.setOsc1Gain(osc1.gainKnob.getValue()); };
@@ -140,7 +140,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     osc1.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc1Spread(osc1.spreadKnob.getValue()); };
     osc1.positionKnob.onValueChange = [this]() {
         float newPosition = osc1.positionKnob.getValue();
-        audioProcessor.setWavePosition1(newPosition); 
+        audioProcessor.setWavePosition1(newPosition);
         osc1.waveDisplay.setDisplayPosition(newPosition);
         };
 
@@ -157,7 +157,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     osc2.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc2Spread(osc2.spreadKnob.getValue()); };
     osc2.positionKnob.onValueChange = [this]() {
         float newPosition = osc2.positionKnob.getValue();
-        audioProcessor.setWavePosition2(newPosition); 
+        audioProcessor.setWavePosition2(newPosition);
         osc2.waveDisplay.setDisplayPosition(newPosition);
         };
 
@@ -181,17 +181,13 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     // Carga de wavetables en cada secci n
     auto waveFolder = findDefaultWavetableDirectory();
-    if (waveFolder.exists())
-    {
-        auto waveFolderPath = waveFolder.getFullPathName();
-        osc1.oscSection.loadWavetablesFromFolder(waveFolderPath);
-        osc2.oscSection.loadWavetablesFromFolder(waveFolderPath);
-        osc3.oscSection.loadWavetablesFromFolder(waveFolderPath);
-    }
-    else
-    {
-        DBG("No se encontr・la carpeta de wavetables en las rutas esperadas.");
-    }
+
+    if (!waveFolder.exists())
+        DBG("No se encontró la carpeta de wavetables en las rutas esperadas. Se utilizarán los recursos internos.");
+
+    osc1.oscSection.loadWavetablesFromFolder(waveFolder);
+    osc2.oscSection.loadWavetablesFromFolder(waveFolder);
+    osc3.oscSection.loadWavetablesFromFolder(waveFolder);
 
     // --- SECCI N UNISON ---
     addAndMakeVisible(unisonComp1);
@@ -302,21 +298,21 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     likeButton.setTooltip("Guardar el preset actual en favoritos");
     likeButton.onClick = [this]
         {
-        // Llamamos a la función y guardamos el resultado
-        bool success = audioProcessor.pythonManager->likeLastSound();
+            // Llamamos a la función y guardamos el resultado
+            bool success = audioProcessor.pythonManager->likeLastSound();
 
-        if (success)
-        {
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon,
-                "Preset Guardado",
-                "Preset guardado en favoritos");
-        }
-        else
-        {
-            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
-                "Error",
-                "No se pudo guardar. Genera un sonido nuevo antes de darle 'Like'.");
-        }
+            if (success)
+            {
+                juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon,
+                    "Preset Guardado",
+                    "Preset guardado en favoritos");
+            }
+            else
+            {
+                juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
+                    "Error",
+                    "No se pudo guardar. Genera un sonido nuevo antes de darle 'Like'.");
+            }
         };
     likeButton.setColour(juce::TextButton::buttonColourId, controlBackground.brighter(0.2f));
     likeButton.setColour(juce::TextButton::buttonOnColourId, controlBackground.brighter(0.3f));
@@ -359,18 +355,18 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     presetSelector.setColour(juce::ComboBox::arrowColourId, mutedTextColour);
     presetSelector.onChange = [this]
         {
-        int selectedId = presetSelector.getSelectedId();
-        if (selectedId > 0)
-        {
-            juce::String presetName = presetSelector.getItemText(selectedId - 1);
-            if (currentPresets.contains(presetName.toStdString().c_str()))
+            int selectedId = presetSelector.getSelectedId();
+            if (selectedId > 0)
             {
-                pybind11::dict patch = currentPresets[presetName.toStdString().c_str()].cast<pybind11::dict>();
-                applyPatchFromPython(patch);
-                audioProcessor.applyPatchFromPython(patch);
+                juce::String presetName = presetSelector.getItemText(selectedId - 1);
+                if (currentPresets.contains(presetName.toStdString().c_str()))
+                {
+                    pybind11::dict patch = currentPresets[presetName.toStdString().c_str()].cast<pybind11::dict>();
+                    applyPatchFromPython(patch);
+                    audioProcessor.applyPatchFromPython(patch);
+                }
             }
-        }
-    };
+        };
 
     addAndMakeVisible(refreshPresetsButton);
     refreshPresetsButton.setButtonText("Refrescar");

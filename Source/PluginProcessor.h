@@ -19,7 +19,29 @@ namespace WavetableHelper
         "triangle.wav",
         "sen.wav",
         "senHarmonic.wav",
-        "whitenoise.wav"
+        "whitenoise.wav",
+        "slope.wav",
+        "pwm.wav",
+        "layered.wav",
+        "pendulumphase.wav",
+        "squeezy_keys.wav",
+        "rmi_piano.wav",
+        "zionoid_pad.wav",
+        "marbles_bell.wav",
+        "bells_and_crickets.wav",
+        "bell_picking_a_string.wav",
+        "bass_mix_destroyer.wav",
+        "bass_sin_er.wav",
+        "bass_sine_additive_fold.wav",
+        "bass_yab.wav",
+        "simple_bass.wav",
+        "lead_voice.wav",
+        "analog_wave_bass.wav",
+        "analog_stacked_saws_pad.wav",
+        "analog_mix_destroyer_ak.wav",
+        "analog_substation_harmony_ak.wav",
+        "keys_saw.wav",
+        "keys_organ.wav"
     };
 }
 
