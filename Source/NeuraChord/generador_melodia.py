@@ -1,6 +1,8 @@
 # generador_melodia.py
 import random
 import re
+from dataclasses import dataclass
+from typing import List, Optional, Sequence
 from music21 import note, pitch, scale, harmony, stream, interval, key, roman, chord as m21_chord
 
 from generador_acordes import nota_equivalente
@@ -93,6 +95,496 @@ PERFILES_GENERO = {
         "intervalos_preferidos": [(1, 0.3), (2, 0.3), (3, 0.2), (5, 0.1), (7, 0.1)],
     }
 }
+
+ALLOWED_DURATION_UNITS = [8, 4, 2, 1]
+
+
+@dataclass
+class ChordRuleContext:
+    sorted_pitches: List[pitch.Pitch]
+    triad_indices: List[int]
+    triad_pitch_classes: List[str]
+    duration_units: int
+    start_units: int
+    original_duration: float
+    chord_source: object
+
+
+@dataclass
+class MelodyEvent:
+    pitch_name: str
+    duration_units: int
+    velocity: int
+    segment_index: int
+    index_in_chord: int
+    beat_index: int
+
+
+@dataclass
+class MotifEntry:
+    index_in_sorted: int
+    duration_units: int
+    is_strong: bool
+
+
+@dataclass
+class MelodyGenerationState:
+    last_index: Optional[int] = None
+    last_pitch_name: Optional[str] = None
+    last_segment_index: Optional[int] = None
+    consecutive_units_same_pitch: int = 0
+    pending_resolution: Optional[int] = None
+    global_min: Optional[float] = None
+    global_max: Optional[float] = None
+
+
+class _DurationDistribution:
+    """Tracks rhythmic distribution to stay close to the recommended ratios."""
+
+    def __init__(self):
+        self.allowed = list(ALLOWED_DURATION_UNITS)
+        self.targets = {8: 0.10, 4: 0.40, 2: 0.40, 1: 0.10}
+        self.counts = {u: 0 for u in self.allowed}
+
+    def choose_duration(self, remaining_units: int, units_to_bar_end: int) -> int:
+        candidates = [u for u in self.allowed if u <= remaining_units and u <= units_to_bar_end]
+        if not candidates:
+            return max(1, min(self.allowed)) if remaining_units >= 1 else remaining_units
+
+        total_counts = sum(self.counts.values())
+        weights = []
+        for value in candidates:
+            target = self.targets.get(value, 0.1)
+            actual_ratio = (self.counts[value] / total_counts) if total_counts > 0 else 0.0
+            weight = max(0.05, target - actual_ratio + 0.05)
+            if value == remaining_units:
+                weight += 0.5
+            if value == units_to_bar_end:
+                weight += 0.3
+            weights.append(weight)
+
+        return random.choices(candidates, weights=weights, k=1)[0]
+
+    def register(self, value: int) -> None:
+        if value in self.counts:
+            self.counts[value] += 1
+
+
+def _velocity_for_beat(beat_index: int) -> int:
+    base = 88
+    if beat_index == 0:
+        return min(127, base + 12)
+    if beat_index == 2:
+        return min(127, base + 6)
+    return base
+
+
+def _adjust_duration_to_allowed(units: int) -> int:
+    if units <= 0:
+        return 0
+    for allowed in sorted(ALLOWED_DURATION_UNITS, reverse=True):
+        if allowed <= units:
+            return allowed
+    return 1
+
+
+def _find_index_by_name(
+    pitches_list: Sequence[pitch.Pitch],
+    target_name: str,
+    *,
+    reference_midi: Optional[float] = None,
+    prefer_lowest: bool = True,
+) -> Optional[int]:
+    matching = [i for i, item in enumerate(pitches_list) if item.name == target_name]
+    if not matching:
+        return None
+    if reference_midi is not None:
+        return min(matching, key=lambda idx: abs(pitches_list[idx].midi - reference_midi))
+    return matching[0] if prefer_lowest else matching[-1]
+
+
+def _extract_triad_pitch_classes(acorde_data) -> List[str]:
+    pitches_objs = notas_del_acorde_music21(acorde_data)
+    if not pitches_objs:
+        return []
+
+    prepared_names = []
+    for pitch_obj in pitches_objs:
+        try:
+            p = pitch.Pitch(pitch_obj.nameWithOctave)
+        except Exception:
+            p = pitch.Pitch(pitch_obj.name)
+            p.octave = p.octave if p.octave is not None else 4
+        prepared_names.append(p.nameWithOctave)
+
+    try:
+        chord_obj = m21_chord.Chord(prepared_names)
+    except Exception:
+        chord_obj = None
+
+    triad_names: List[str] = []
+    if chord_obj is not None:
+        try:
+            root_pitch = chord_obj.root()
+            if root_pitch is not None:
+                triad_names.append(root_pitch.name)
+        except Exception:
+            pass
+        try:
+            third_pitch = chord_obj.third
+            if third_pitch is not None:
+                triad_names.append(third_pitch.name)
+        except Exception:
+            pass
+        try:
+            fifth_pitch = chord_obj.fifth
+            if fifth_pitch is not None:
+                triad_names.append(fifth_pitch.name)
+        except Exception:
+            pass
+        try:
+            seventh_pitch = chord_obj.seventh
+            if seventh_pitch is not None:
+                triad_names.append(seventh_pitch.name)
+        except Exception:
+            pass
+
+    if not triad_names:
+        seen = set()
+        for p in sorted(pitches_objs, key=lambda item: item.midi):
+            base_name = p.name
+            if base_name not in seen:
+                triad_names.append(base_name)
+                seen.add(base_name)
+                if len(triad_names) >= 4:
+                    break
+
+    return triad_names
+
+
+def _map_pitch_classes_to_indices(
+    sorted_pitches: Sequence[pitch.Pitch],
+    triad_pitch_classes: Sequence[str],
+) -> List[int]:
+    indices: List[int] = []
+    used_names = set()
+    for name in triad_pitch_classes:
+        if name in used_names:
+            continue
+        idx = _find_index_by_name(sorted_pitches, name)
+        if idx is not None:
+            indices.append(idx)
+            used_names.add(name)
+    if not indices and sorted_pitches:
+        indices = list(range(min(3, len(sorted_pitches))))
+    return indices
+
+
+def _build_rule_contexts(
+    acordes: Sequence,
+    ritmos: Sequence,
+    params: ParametrosMelodicos,
+) -> List[ChordRuleContext]:
+    contexts: List[ChordRuleContext] = []
+    grid = params.melodia_grid_unit_ql
+    start_units = 0
+    for idx, acorde in enumerate(acordes):
+        try:
+            duracion = float(ritmos[idx]) if idx < len(ritmos) else 1.0
+        except (ValueError, TypeError):
+            duracion = 1.0
+        units = max(1, int(round(duracion / grid)))
+        sorted_pitches = _expandir_notas_acorde_en_rango(acorde, params)
+        if not sorted_pitches:
+            return []
+        triad_pitch_classes = _extract_triad_pitch_classes(acorde)
+        triad_indices = _map_pitch_classes_to_indices(sorted_pitches, triad_pitch_classes)
+        contexts.append(
+            ChordRuleContext(
+                sorted_pitches=sorted_pitches,
+                triad_indices=triad_indices,
+                triad_pitch_classes=list(triad_pitch_classes),
+                duration_units=units,
+                start_units=start_units,
+                original_duration=duracion,
+                chord_source=acorde,
+            )
+        )
+        start_units += units
+    return contexts
+
+
+def _choose_note_index(
+    base_indices: Sequence[int],
+    full_indices: Sequence[int],
+    state: MelodyGenerationState,
+    motif_target: Optional[int],
+) -> int:
+    available_full = sorted(set(full_indices))
+    available_base = sorted(set(base_indices)) if base_indices else available_full
+    if not available_full:
+        return 0
+
+    last_idx = state.last_index
+    pending = state.pending_resolution
+
+    if last_idx is None:
+        if motif_target is not None and motif_target in available_full:
+            return motif_target
+        if available_base:
+            return available_base[len(available_base) // 2]
+        return available_full[len(available_full) // 2]
+
+    if pending is not None:
+        direction = -pending
+        candidates = [i for i in available_full if (i - last_idx) * direction > 0 and abs(i - last_idx) <= 2]
+        if not candidates:
+            candidates = [i for i in available_full if (i - last_idx) * direction > 0]
+        if not candidates:
+            candidates = available_full
+        candidates = sorted(
+            candidates,
+            key=lambda i: (
+                abs(i - (motif_target if motif_target is not None else last_idx + direction)),
+                abs(i - last_idx),
+            ),
+        )
+        return candidates[0]
+
+    step_candidates = [i for i in available_base if abs(i - last_idx) <= 1]
+    if not step_candidates:
+        step_candidates = [i for i in available_full if abs(i - last_idx) <= 1]
+
+    leap_candidates = [i for i in available_full if abs(i - last_idx) >= 2]
+
+    use_leap = False
+    if motif_target is not None:
+        use_leap = abs(motif_target - last_idx) >= 2 and bool(leap_candidates)
+    else:
+        use_leap = bool(leap_candidates) and random.random() < 0.2
+
+    candidates = leap_candidates if use_leap and leap_candidates else step_candidates
+    if not candidates:
+        candidates = available_full
+
+    if motif_target is not None:
+        candidates = sorted(candidates, key=lambda i: (abs(i - motif_target), abs(i - last_idx)))
+    else:
+        random.shuffle(candidates)
+        candidates = sorted(candidates, key=lambda i: abs(i - last_idx))
+
+    return candidates[0]
+
+
+def _enforce_range_and_repetition(
+    chosen_idx: int,
+    available_indices: Sequence[int],
+    duration_units: int,
+    context: ChordRuleContext,
+    state: MelodyGenerationState,
+    limit_same_pitch_units: int,
+) -> tuple[int, int, float, float, float]:
+    ordered_candidates = [chosen_idx] + [i for i in available_indices if i != chosen_idx]
+    previous_pitch = state.last_pitch_name
+
+    for candidate in ordered_candidates:
+        pitch_obj = context.sorted_pitches[candidate]
+        midi_val = pitch_obj.midi
+        new_min = midi_val if state.global_min is None else min(state.global_min, midi_val)
+        new_max = midi_val if state.global_max is None else max(state.global_max, midi_val)
+        if (new_max - new_min) > 14:
+            continue
+
+        actual_duration = duration_units
+        same_note = previous_pitch == pitch_obj.nameWithOctave
+        if same_note and state.consecutive_units_same_pitch + duration_units > limit_same_pitch_units:
+            allowance = limit_same_pitch_units - state.consecutive_units_same_pitch
+            adjusted = _adjust_duration_to_allowed(allowance)
+            if adjusted <= 0:
+                continue
+            actual_duration = adjusted
+
+        return candidate, actual_duration, midi_val, new_min, new_max
+
+    fallback_pitch = context.sorted_pitches[chosen_idx]
+    midi_val = fallback_pitch.midi
+    new_min = midi_val if state.global_min is None else min(state.global_min, midi_val)
+    new_max = midi_val if state.global_max is None else max(state.global_max, midi_val)
+    actual_duration = _adjust_duration_to_allowed(duration_units)
+    if actual_duration <= 0:
+        actual_duration = 1
+    return chosen_idx, actual_duration, midi_val, new_min, new_max
+
+
+def _apply_final_resolution(events: List[MelodyEvent], contexts: Sequence[ChordRuleContext]) -> None:
+    if not events or not contexts:
+        return
+
+    last_idx = None
+    for idx in range(len(events) - 1, -1, -1):
+        if events[idx].pitch_name != "0":
+            last_idx = idx
+            break
+    if last_idx is None:
+        return
+
+    last_event = events[last_idx]
+    context = contexts[last_event.segment_index]
+    triad_names = context.triad_pitch_classes
+    if not triad_names:
+        return
+
+    reference_midi = pitch.Pitch(last_event.pitch_name).midi
+    base_probs = [0.6, 0.3, 0.1]
+    candidates = []
+
+    for pos, name in enumerate(triad_names[:3]):
+        idx = _find_index_by_name(context.sorted_pitches, name, reference_midi=reference_midi)
+        if idx is None:
+            continue
+        candidate_pitch = context.sorted_pitches[idx]
+        weight = base_probs[pos] if pos < len(base_probs) else 0.05
+        score = weight - (abs(candidate_pitch.midi - reference_midi) / 24.0)
+        candidates.append((score, candidate_pitch, idx))
+
+    if not candidates:
+        return
+
+    best_candidate = max(candidates, key=lambda item: item[0])
+    last_event.pitch_name = best_candidate[1].nameWithOctave
+    last_event.index_in_chord = best_candidate[2]
+
+
+def _convert_events_to_output(events: List[MelodyEvent], grid: float) -> List[tuple[str, str]]:
+    salida: List[tuple[str, str]] = []
+    for event in events:
+        dur_ql = event.duration_units * grid
+        salida = _agregar_evento(salida, event.pitch_name, dur_ql)
+    return salida
+
+
+def _generar_melodia_con_reglas(
+    contexts: Sequence[ChordRuleContext],
+    params: ParametrosMelodicos,
+) -> List[MelodyEvent]:
+    if not contexts:
+        return []
+
+    grid = params.melodia_grid_unit_ql
+    unidades_por_compas = max(1, int(round(4.0 / grid)))
+    unidades_por_tiempo = max(1, int(round(1.0 / grid)))
+    limite_repeticion = int(round(2.0 / grid))
+
+    distribucion = _DurationDistribution()
+    estado = MelodyGenerationState()
+    eventos: List[MelodyEvent] = []
+    motivo: List[MotifEntry] = []
+
+    total_unidades = 0
+    indice_compas = 0
+    desplazamiento_motivo = 0
+    indice_nota_en_compas = 0
+
+    for seg_idx, contexto in enumerate(contexts):
+        unidades_restantes = contexto.duration_units
+        while unidades_restantes > 0:
+            posicion_compas = total_unidades % unidades_por_compas
+            if total_unidades > 0 and posicion_compas == 0:
+                indice_compas += 1
+                indice_nota_en_compas = 0
+                desplazamiento_motivo = random.choice([-1, 0, 1]) if motivo else 0
+
+            unidades_hasta_fin = unidades_por_compas - posicion_compas
+            if unidades_hasta_fin <= 0:
+                unidades_hasta_fin = unidades_por_compas
+
+            duracion_units = distribucion.choose_duration(unidades_restantes, unidades_hasta_fin)
+            if duracion_units <= 0:
+                duracion_units = 1
+
+            beat_index = (posicion_compas // unidades_por_tiempo) % 4
+            es_fuerte = beat_index in (0, 2)
+
+            indices_disponibles = list(range(len(contexto.sorted_pitches)))
+            indices_base = contexto.triad_indices if es_fuerte and contexto.triad_indices else indices_disponibles
+
+            motivo_activo = None
+            if indice_compas > 0 and motivo and indices_disponibles:
+                motivo_base = motivo[:6] if len(motivo) > 6 else motivo
+                entrada = motivo_base[indice_nota_en_compas % len(motivo_base)]
+                candidato = entrada.index_in_sorted + desplazamiento_motivo
+                motivo_activo = max(0, min(len(indices_disponibles) - 1, candidato))
+
+            indice_elegido = _choose_note_index(indices_base, indices_disponibles, estado, motivo_activo)
+            indice_elegido, duracion_real, midi_val, nuevo_min, nuevo_max = _enforce_range_and_repetition(
+                indice_elegido,
+                indices_disponibles,
+                duracion_units,
+                contexto,
+                estado,
+                limite_repeticion,
+            )
+
+            duracion_units = duracion_real
+
+            nota_nombre = contexto.sorted_pitches[indice_elegido].nameWithOctave
+            velocidad = _velocity_for_beat(beat_index)
+
+            eventos.append(
+                MelodyEvent(
+                    pitch_name=nota_nombre,
+                    duration_units=duracion_units,
+                    velocity=velocidad,
+                    segment_index=seg_idx,
+                    index_in_chord=indice_elegido,
+                    beat_index=beat_index,
+                )
+            )
+
+            distribucion.register(duracion_units)
+
+            unidades_restantes -= duracion_units
+            total_unidades += duracion_units
+
+            anterior_indice = estado.last_index
+            anterior_nombre = estado.last_pitch_name
+
+            if motivo_activo is None and indice_compas == 0 and len(motivo) < 6:
+                motivo.append(MotifEntry(index_in_sorted=indice_elegido, duration_units=duracion_units, is_strong=es_fuerte))
+
+            if anterior_nombre == nota_nombre:
+                consecutivo = estado.consecutive_units_same_pitch + duracion_units
+            else:
+                consecutivo = duracion_units
+
+            estado.last_index = indice_elegido
+            estado.last_pitch_name = nota_nombre
+            estado.last_segment_index = seg_idx
+            estado.consecutive_units_same_pitch = consecutivo
+            estado.global_min = nuevo_min
+            estado.global_max = nuevo_max
+
+            if anterior_indice is not None:
+                movimiento = indice_elegido - anterior_indice
+                if estado.pending_resolution is not None:
+                    if movimiento == 0:
+                        pass
+                    elif movimiento == -estado.pending_resolution:
+                        estado.pending_resolution = None
+                    else:
+                        estado.pending_resolution = None
+                else:
+                    if abs(movimiento) >= 2:
+                        estado.pending_resolution = 1 if movimiento > 0 else -1
+                    else:
+                        estado.pending_resolution = None
+            else:
+                estado.pending_resolution = None
+
+            indice_nota_en_compas += 1
+
+    _apply_final_resolution(eventos, contexts)
+    return eventos
 
 _ROMAN_TOKEN_RE = re.compile(r"\b[#b♭♯-]*[ivx]+[0-9°ø+]*\b", re.IGNORECASE)
 _CHORD_TOKEN_PATTERN = re.compile(
@@ -895,6 +1387,21 @@ def generar_melodia_sobre_acordes(
             return resultado_vacio, acordes_originales, ritmo_originales
         return resultado_vacio
 
+    perfil_actual = PERFILES_GENERO.get(str(genero).lower(), PERFILES_GENERO["default"])
+    params_mel = ParametrosMelodicos(bpm=bpm, octava_melodia_min=octava_melodia_min, octava_melodia_max=octava_melodia_max)
+    _ajustar_rango_melodia_a_progresion(params_mel, acordes_para_melodia)
+
+    contexts_reglas = _build_rule_contexts(acordes_para_melodia, ritmo_para_melodia, params_mel)
+    if contexts_reglas:
+        eventos_reglas = _generar_melodia_con_reglas(contexts_reglas, params_mel)
+        if eventos_reglas:
+            melodia_reglas = _convert_events_to_output(eventos_reglas, params_mel.melodia_grid_unit_ql)
+            if leading_silence_events:
+                melodia_reglas = leading_silence_events + melodia_reglas
+            if devolver_contexto:
+                return melodia_reglas, acordes_originales, ritmo_originales
+            return melodia_reglas
+
     if len(acordes_para_melodia) < 4:
         melodia_simple = _generar_melodia_simple(
             acordes_para_melodia,
@@ -912,9 +1419,6 @@ def generar_melodia_sobre_acordes(
             return melodia_simple, acordes_originales, ritmo_originales
         return melodia_simple
 
-    perfil_actual = PERFILES_GENERO.get(str(genero).lower(), PERFILES_GENERO["default"])
-    params_mel = ParametrosMelodicos(bpm=bpm, octava_melodia_min=octava_melodia_min, octava_melodia_max=octava_melodia_max)
-    _ajustar_rango_melodia_a_progresion(params_mel, acordes_para_melodia)
     escala_actual = obtener_escala_actual(raiz_tonalidad, modo_tonalidad)
     notas_escala_disponibles_obj = _obtener_notas_escala_en_rango(escala_actual, params_mel)
     
