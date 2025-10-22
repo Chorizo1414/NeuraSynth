@@ -504,6 +504,7 @@ def _generar_melodia_con_reglas(
                 "pitch_map": pitch_map,
                 "S": set(midi_list),
                 "units_per_bar": unidades_por_compas,
+                "start_units": contexto.start_units,
             }
         )
 
@@ -605,6 +606,11 @@ def _generar_melodia_con_reglas(
         )
 
     reglas_melodicas.cuantizar_y_accentos(eventos_crudos, grid=grid)
+    reglas_melodicas.aplicar_reglas_avanzadas(
+        eventos_crudos,
+        context_data,
+        unidades_por_compas=unidades_por_compas,
+    )
     _ = reglas_melodicas.evaluar_melodia(eventos_crudos, context_data)
 
     eventos: List[MelodyEvent] = []
