@@ -83,23 +83,103 @@ def _normalize_chord_voicing(acorde):
     return notas
 
 
-def _ensure_melody_note_in_chord(notas, nota_melodia):
-    """Añade la nota de melodía al acorde si no comparte clase de pitch."""
+def _note_name_to_midi(note_name):
     try:
-        pitch_mel = pitch.Pitch(nota_melodia)
-        objetivo_pc = pitch_mel.pitchClass
-        nota_canonica = pitch_mel.nameWithOctave
+        return pitch.Pitch(note_name).midi
+    except Exception:
+        return None
+
+
+def _midi_to_note_name(value):
+    try:
+        return pitch.Pitch(midi=int(round(value))).nameWithOctave
+    except Exception:
+        return None
+
+
+def _revoice_to_range(notas, minimo=48, maximo=76):
+    """Reubica una lista de notas dentro de un rango cómodo (C3–E5 aprox.)."""
+    if not notas:
+        return []
+
+    midi_values = []
+    leftovers = []
+    for nota in notas:
+        midi_val = _note_name_to_midi(nota)
+        if midi_val is not None:
+            value = midi_val
+            while value < minimo:
+                value += 12
+            while value > maximo:
+                value -= 12
+            midi_values.append(value)
+        else:
+            leftovers.append(nota)
+
+    if not midi_values:
+        return notas
+
+    midi_values.sort()
+
+    # Evita duplicados exactos subiendo por octavas cuando sea posible
+    cleaned = []
+    used = set()
+    for value in midi_values:
+        original = value
+        while int(round(value)) in used and value + 12 <= maximo:
+            value += 12
+        rounded = int(round(value))
+        if rounded in used:
+            value = original
+            rounded = int(round(value))
+        used.add(rounded)
+        cleaned.append(value)
+
+    resultado = [n for n in (_midi_to_note_name(v) for v in cleaned) if n]
+    if not resultado:
+        return notas
+
+    resultado.extend(leftovers)
+    return resultado
+
+
+def _project_pitch_class_to_voicing(notas, nota_melodia, minimo=48, maximo=76):
+    """Añade la clase de pitch de la melodía dentro del rango del acorde."""
+    try:
+        mel_pitch = pitch.Pitch(nota_melodia)
     except Exception:
         return notas
 
-    for nota_existente in notas:
-        try:
-            if pitch.Pitch(nota_existente).pitchClass == objetivo_pc:
-                return notas
-        except Exception:
+    objetivo_pc = mel_pitch.pitchClass
+    existentes = []
+    for nota in notas:
+        midi_val = _note_name_to_midi(nota)
+        if midi_val is None:
             continue
+        if pitch.Pitch(nota).pitchClass == objetivo_pc:
+            return notas
+        existentes.append(midi_val)
 
-    notas.append(nota_canonica)
+    if not existentes:
+        base = mel_pitch.midi
+    else:
+        base = sum(existentes) / len(existentes)
+
+    candidato = mel_pitch.midi
+    if base:
+        while candidato - base > 6:
+            candidato -= 12
+        while base - candidato > 6:
+            candidato += 12
+
+    while candidato < minimo:
+        candidato += 12
+    while candidato > maximo:
+        candidato -= 12
+
+    nombre = _midi_to_note_name(candidato)
+    if nombre and nombre not in notas:
+        notas.append(nombre)
     return notas
 
 
@@ -181,21 +261,13 @@ def ajustar_acordes_a_melodia(acordes, ritmo, melodia, raiz, modo):
         if not notas:
             notas = ["C4", "E4", "G4"]
 
+        notas = _revoice_to_range(notas)
+
         notas_melodia = [evento[2] for evento in eventos if evento[0] < inicio + duracion and evento[1] > inicio]
         for nota_mel in notas_melodia:
-            notas = _ensure_melody_note_in_chord(notas, nota_mel)
+            notas = _project_pitch_class_to_voicing(notas, nota_mel)
 
-        notas_finales = []
-        vistos = set()
-        for nota in notas:
-            try:
-                canon = pitch.Pitch(nota).nameWithOctave
-            except Exception:
-                canon = str(nota)
-            if canon in vistos:
-                continue
-            vistos.add(canon)
-            notas_finales.append(canon)
+        notas_finales = _revoice_to_range(notas)
 
         acordes_ajustados.append(notas_finales)
         detalles.append([(nota, 0.0, float(duracion)) for nota in notas_finales])
