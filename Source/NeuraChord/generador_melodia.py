@@ -2,10 +2,11 @@
 import random
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 from music21 import note, pitch, scale, harmony, stream, interval, key, roman, chord as m21_chord
 
 from generador_acordes import nota_equivalente
+import reglas_melodicas_progresion as reglas_melodicas
 
 class ParametrosMelodicos:
     # Esta clase ahora es más simple, ya que la lógica principal la dictan los perfiles de género.
@@ -473,118 +474,168 @@ def _generar_melodia_con_reglas(
     grid = params.melodia_grid_unit_ql
     unidades_por_compas = max(1, int(round(4.0 / grid)))
     unidades_por_tiempo = max(1, int(round(1.0 / grid)))
-    limite_repeticion = int(round(2.0 / grid))
 
     distribucion = _DurationDistribution()
-    estado = MelodyGenerationState()
-    eventos: List[MelodyEvent] = []
-    motivo: List[MotifEntry] = []
 
-    total_unidades = 0
-    indice_compas = 0
+    context_data: List[dict] = []
+    for contexto in contexts:
+        midi_list: List[int] = []
+        pitch_map: Dict[int, str] = {}
+        for pitch_obj in contexto.sorted_pitches:
+            midi_val = int(round(pitch_obj.midi))
+            if midi_val not in pitch_map:
+                pitch_map[midi_val] = pitch_obj.nameWithOctave
+                midi_list.append(midi_val)
+        midi_list = sorted(midi_list)
+
+        triad_midis: List[int] = []
+        for idx in contexto.triad_indices:
+            if 0 <= idx < len(contexto.sorted_pitches):
+                midi_val = int(round(contexto.sorted_pitches[idx].midi))
+                if midi_val not in triad_midis:
+                    triad_midis.append(midi_val)
+        if not triad_midis:
+            triad_midis = midi_list[: min(4, len(midi_list))]
+
+        context_data.append(
+            {
+                "midi_list": midi_list,
+                "triad": triad_midis,
+                "pitch_map": pitch_map,
+                "S": set(midi_list),
+                "units_per_bar": unidades_por_compas,
+            }
+        )
+
+    eventos_crudos: List[Dict[str, int]] = []
+
+    ultima_direccion: Optional[int] = None
+    direccion_pendiente: Optional[int] = None
+    ultimo_midi: Optional[int] = None
+
+    motivo_indices: List[int] = []
     desplazamiento_motivo = 0
+    indice_compas = 0
     indice_nota_en_compas = 0
+    start_units = 0
 
     for seg_idx, contexto in enumerate(contexts):
+        datos = context_data[seg_idx]
         unidades_restantes = contexto.duration_units
         while unidades_restantes > 0:
-            posicion_compas = total_unidades % unidades_por_compas
-            if total_unidades > 0 and posicion_compas == 0:
+            posicion_compas = start_units % unidades_por_compas
+            if start_units > 0 and posicion_compas == 0:
                 indice_compas += 1
                 indice_nota_en_compas = 0
-                desplazamiento_motivo = random.choice([-1, 0, 1]) if motivo else 0
+                if motivo_indices:
+                    desplazamiento_motivo = random.choice([-1, 0, 1])
 
-            unidades_hasta_fin = unidades_por_compas - posicion_compas
-            if unidades_hasta_fin <= 0:
-                unidades_hasta_fin = unidades_por_compas
-
+            unidades_hasta_fin = unidades_por_compas - posicion_compas if unidades_por_compas else unidades_restantes
             duracion_units = distribucion.choose_duration(unidades_restantes, unidades_hasta_fin)
-            if duracion_units <= 0:
-                duracion_units = 1
+            duracion_units = max(1, min(duracion_units, unidades_restantes))
 
-            beat_index = (posicion_compas // unidades_por_tiempo) % 4
-            es_fuerte = beat_index in (0, 2)
+            beat_index = (posicion_compas // unidades_por_tiempo) % 4 if unidades_por_tiempo else 0
 
-            indices_disponibles = list(range(len(contexto.sorted_pitches)))
-            indices_base = contexto.triad_indices if es_fuerte and contexto.triad_indices else indices_disponibles
+            objetivo = None
+            if motivo_indices and indice_compas > 0:
+                base = motivo_indices[indice_nota_en_compas % len(motivo_indices)]
+                objetivo = max(0, min(len(datos["midi_list"]) - 1, base + desplazamiento_motivo))
 
-            motivo_activo = None
-            if indice_compas > 0 and motivo and indices_disponibles:
-                motivo_base = motivo[:6] if len(motivo) > 6 else motivo
-                entrada = motivo_base[indice_nota_en_compas % len(motivo_base)]
-                candidato = entrada.index_in_sorted + desplazamiento_motivo
-                motivo_activo = max(0, min(len(indices_disponibles) - 1, candidato))
-
-            indice_elegido = _choose_note_index(indices_base, indices_disponibles, estado, motivo_activo)
-            indice_elegido, duracion_real, midi_val, nuevo_min, nuevo_max = _enforce_range_and_repetition(
-                indice_elegido,
-                indices_disponibles,
-                duracion_units,
-                contexto,
-                estado,
-                limite_repeticion,
-            )
-
-            duracion_units = duracion_real
-
-            nota_nombre = contexto.sorted_pitches[indice_elegido].nameWithOctave
-            velocidad = _velocity_for_beat(beat_index)
-
-            eventos.append(
-                MelodyEvent(
-                    pitch_name=nota_nombre,
-                    duration_units=duracion_units,
-                    velocity=velocidad,
-                    segment_index=seg_idx,
-                    index_in_chord=indice_elegido,
-                    beat_index=beat_index,
+            if beat_index in (0, 2):
+                movimiento = reglas_melodicas.elegir_vecina(
+                    ultimo_midi,
+                    datos["triad"],
+                    datos["midi_list"],
+                    objetivo=objetivo,
+                    ultima_direccion=ultima_direccion,
+                    direccion_preferida=direccion_pendiente,
                 )
+            else:
+                movimiento = reglas_melodicas.variar_por_indice(
+                    ultimo_midi,
+                    datos["midi_list"],
+                    p_pasos=0.8,
+                    max_salto=2,
+                    resolver=True,
+                    subset=None,
+                    ultima_direccion=ultima_direccion,
+                    direccion_preferida=direccion_pendiente,
+                    objetivo=objetivo,
+                )
+
+            midi = movimiento.midi
+            indice = movimiento.indice
+
+            if direccion_pendiente is not None and movimiento.direccion == direccion_pendiente:
+                direccion_pendiente = None
+            elif movimiento.requiere_resolucion:
+                direccion_pendiente = -movimiento.direccion if movimiento.direccion != 0 else None
+
+            if movimiento.direccion != 0:
+                ultima_direccion = movimiento.direccion
+
+            eventos_crudos.append(
+                {
+                    "midi": midi,
+                    "index": indice,
+                    "segment": seg_idx,
+                    "duration": duracion_units,
+                    "start": start_units,
+                    "beat": beat_index,
+                }
             )
+
+            if indice_compas == 0 and len(motivo_indices) < 6:
+                motivo_indices.append(indice)
 
             distribucion.register(duracion_units)
-
             unidades_restantes -= duracion_units
-            total_unidades += duracion_units
-
-            anterior_indice = estado.last_index
-            anterior_nombre = estado.last_pitch_name
-
-            if motivo_activo is None and indice_compas == 0 and len(motivo) < 6:
-                motivo.append(MotifEntry(index_in_sorted=indice_elegido, duration_units=duracion_units, is_strong=es_fuerte))
-
-            if anterior_nombre == nota_nombre:
-                consecutivo = estado.consecutive_units_same_pitch + duracion_units
-            else:
-                consecutivo = duracion_units
-
-            estado.last_index = indice_elegido
-            estado.last_pitch_name = nota_nombre
-            estado.last_segment_index = seg_idx
-            estado.consecutive_units_same_pitch = consecutivo
-            estado.global_min = nuevo_min
-            estado.global_max = nuevo_max
-
-            if anterior_indice is not None:
-                movimiento = indice_elegido - anterior_indice
-                if estado.pending_resolution is not None:
-                    if movimiento == 0:
-                        pass
-                    elif movimiento == -estado.pending_resolution:
-                        estado.pending_resolution = None
-                    else:
-                        estado.pending_resolution = None
-                else:
-                    if abs(movimiento) >= 2:
-                        estado.pending_resolution = 1 if movimiento > 0 else -1
-                    else:
-                        estado.pending_resolution = None
-            else:
-                estado.pending_resolution = None
-
+            start_units += duracion_units
             indice_nota_en_compas += 1
 
-    _apply_final_resolution(eventos, contexts)
+            ultimo_midi = midi
+
+    if eventos_crudos:
+        ultimo_evento = eventos_crudos[-1]
+        datos_finales = context_data[ultimo_evento["segment"]]
+        reglas_melodicas.forzar_resolucion(
+            ultimo_evento,
+            datos_finales["triad"],
+            datos_finales["midi_list"],
+        )
+
+    reglas_melodicas.cuantizar_y_accentos(eventos_crudos, grid=grid)
+    _ = reglas_melodicas.evaluar_melodia(eventos_crudos, context_data)
+
+    eventos: List[MelodyEvent] = []
+    for evento in eventos_crudos:
+        datos = context_data[evento["segment"]]
+        nombre = datos["pitch_map"].get(evento["midi"])
+        if not nombre:
+            try:
+                nombre = pitch.Pitch(evento["midi"]).nameWithOctave
+            except Exception:  # noqa: BLE001
+                nombre = "0"
+        eventos.append(
+            MelodyEvent(
+                pitch_name=nombre,
+                duration_units=evento["duration"],
+                velocity=evento.get("velocity", _velocity_for_beat(evento.get("beat", 0))),
+                segment_index=evento["segment"],
+                index_in_chord=evento["index"],
+                beat_index=evento.get("beat", 0),
+            )
+        )
+
     return eventos
+
+def _convert_events_to_output(events: List[MelodyEvent], grid: float) -> List[tuple[str, str]]:
+    salida: List[tuple[str, str]] = []
+    for event in events:
+        dur_ql = event.duration_units * grid
+        salida = _agregar_evento(salida, event.pitch_name, dur_ql)
+    return salida
+
 
 _ROMAN_TOKEN_RE = re.compile(r"\b[#b♭♯-]*[ivx]+[0-9°ø+]*\b", re.IGNORECASE)
 _CHORD_TOKEN_PATTERN = re.compile(
