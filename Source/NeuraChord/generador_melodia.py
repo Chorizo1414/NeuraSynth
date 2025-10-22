@@ -374,11 +374,19 @@ def _ajustar_rango_melodia_a_progresion(params: ParametrosMelodicos, acordes_pro
     if not midi_vals:
         return
     highest_pitch = _pitch_from_midi(max(midi_vals))
-    rango_original = max(1, params.octava_melodia_max - params.octava_melodia_min)
-    objetivo_min_octava = max(params.octava_melodia_min, min(8, highest_pitch.octave + 1))
-    objetivo_max_octava = min(9, objetivo_min_octava + rango_original)
-    if objetivo_max_octava <= objetivo_min_octava:
-        objetivo_max_octava = min(9, objetivo_min_octava + 1)
+    objetivo_min_octava = max(params.octava_melodia_min, highest_pitch.octave)
+    objetivo_max_octava = min(params.octava_melodia_max, highest_pitch.octave + 1)
+
+    if objetivo_min_octava > objetivo_max_octava:
+        # Si la progresión está fuera del rango solicitado por el usuario,
+        # forzamos ambos extremos al límite más cercano permitido.
+        limite_clamp = min(
+            params.octava_melodia_max,
+            max(params.octava_melodia_min, highest_pitch.octave),
+        )
+        objetivo_min_octava = limite_clamp
+        objetivo_max_octava = limite_clamp
+
     params.octava_melodia_min = int(objetivo_min_octava)
     params.octava_melodia_max = int(objetivo_max_octava)
 
@@ -401,6 +409,32 @@ def _clamp_pitch_to_range(p_obj, params: ParametrosMelodicos):
     clamped = pitch.Pitch()
     clamped.midi = midi_val
     return clamped
+
+def _snap_pitch_to_chord(p_obj, notas_acorde, referencia=None):
+    """Ajusta una nota candidata al tono del acorde más cercano."""
+    if p_obj is None or not notas_acorde:
+        return p_obj
+
+    candidato_midi = p_obj.midi
+    ref_midi = referencia.midi if referencia is not None else candidato_midi
+    direccion = 0
+    if referencia is not None:
+        if candidato_midi > ref_midi:
+            direccion = 1
+        elif candidato_midi < ref_midi:
+            direccion = -1
+
+    def _ranking(nota_acorde):
+        distancia = abs(nota_acorde.midi - candidato_midi)
+        if direccion == 0:
+            penalizacion = 0
+        else:
+            misma_direccion = (nota_acorde.midi - ref_midi) * direccion >= 0
+            penalizacion = 0 if misma_direccion else 1
+        return (distancia, penalizacion, abs(nota_acorde.midi - ref_midi))
+
+    mejor_opcion = min(notas_acorde, key=_ranking)
+    return pitch.Pitch(mejor_opcion.nameWithOctave)
 
 def _expandir_notas_acorde_en_rango(acorde_data, params: ParametrosMelodicos):
     notas_base = notas_del_acorde_music21(acorde_data)
@@ -558,9 +592,9 @@ def _generar_frase(unidades_totales, notas_acorde, notas_escala, ultima_nota, mo
     # Empezar desde la última nota si existe Y está en el acorde actual, si no, elegir una del acorde
     # Asegurarse de que nota_actual no sea None si notas_acorde no está vacía
     if ultima_nota and any(abs(ultima_nota.midi - n.midi) < 0.5 for n in notas_acorde):
-         nota_actual = ultima_nota
+         nota_actual = pitch.Pitch(ultima_nota.nameWithOctave)
     else:
-         nota_actual = random.choice(notas_acorde) # Seguro porque ya comprobamos que notas_acorde no está vacía
+         nota_actual = pitch.Pitch(random.choice(notas_acorde).nameWithOctave) # Seguro porque ya comprobamos que notas_acorde no está vacía
 
     ultimo_intervalo = 0
 
@@ -632,6 +666,14 @@ def _generar_frase(unidades_totales, notas_acorde, notas_escala, ultima_nota, mo
             if nota_candidata is None:
                  nota_candidata = min(notas_acorde, key=lambda n: abs(n.midi - nota_actual.midi))
 
+            nota_candidata = _snap_pitch_to_chord(
+                pitch.Pitch(nota_candidata.nameWithOctave),
+                notas_acorde,
+                nota_actual,
+            )
+            if nota_candidata is None:
+                nota_candidata = pitch.Pitch(nota_actual.nameWithOctave)
+
             # D. Resolución al final de la frase (seguro)
             if unidades_usadas + dur_units >= unidades_totales:
                  tonica_acorde_final = notas_acorde[0]
@@ -690,20 +732,63 @@ def _generar_seccion_melodica(segmento_acordes_seccion, segmento_ritmos_seccion,
 
     return melodia_seccion, ultima_nota_obj
 
-def _variar_melodia(eventos_melodia, escala_obj, params):
-    """Aplica pequeñas variaciones a una melodía existente para crear la sección A'."""
+def _construir_timeline_acordes(acordes, ritmos):
+    timeline = []
+    cursor = 0.0
+    for acorde, duracion in zip(acordes, ritmos):
+        try:
+            duracion_ql = float(duracion)
+        except (TypeError, ValueError):
+            duracion_ql = 0.0
+        inicio = cursor
+        cursor += max(0.0, duracion_ql)
+        timeline.append((inicio, cursor, acorde))
+    return timeline
+
+def _variar_melodia(eventos_melodia, segmento_acordes, segmento_ritmos, notas_escala, params):
+    """Aplica variaciones manteniendo las notas dentro de los acordes correspondientes."""
+    if not eventos_melodia:
+        return []
+
+    timeline = _construir_timeline_acordes(segmento_acordes, segmento_ritmos)
+    if not timeline:
+        return list(eventos_melodia)
+
     eventos_variados = []
+    tiempo_actual = 0.0
+    indice_timeline = 0
+
     for nota, duracion in eventos_melodia:
-        if nota != "0" and random.random() < 0.3:
-            p_original = pitch.Pitch(nota)
-            vecinos = [p for p in escala_obj if 0 < abs(p.midi - p_original.midi) <= 2]
-            if vecinos:
-                p_variado = random.choice(vecinos)
-                eventos_variados.append((_clamp_pitch_to_range(p_variado, params).nameWithOctave, duracion))
-            else:
-                eventos_variados.append((nota, duracion))
+        try:
+            duracion_ql = float(duracion)
+        except (TypeError, ValueError):
+            duracion_ql = 0.0
+
+        while indice_timeline < len(timeline) and tiempo_actual >= timeline[indice_timeline][1] - 1e-6:
+            indice_timeline += 1
+
+        if indice_timeline >= len(timeline):
+            acorde_actual = segmento_acordes[-1]
+        else:
+            acorde_actual = timeline[indice_timeline][2]
+
+        notas_acorde = _expandir_notas_acorde_en_rango(acorde_actual, params)
+
+        if nota != "0" and notas_acorde:
+            nota_original = pitch.Pitch(nota)
+            candidato = pitch.Pitch(nota_original.nameWithOctave)
+            if random.random() < 0.3 and notas_escala:
+                vecinos = [p for p in notas_escala if 0 < abs(p.midi - nota_original.midi) <= 2]
+                if vecinos:
+                    candidato = random.choice(vecinos)
+            candidato = _snap_pitch_to_chord(candidato, notas_acorde, nota_original)
+            candidato = _clamp_pitch_to_range(candidato, params) or nota_original
+            eventos_variados.append((candidato.nameWithOctave, duracion))
         else:
             eventos_variados.append((nota, duracion))
+
+        tiempo_actual += max(0.0, duracion_ql)
+
     return eventos_variados
 
 def _obtener_notas_escala_en_rango(escala_actual, params):
@@ -737,7 +822,7 @@ def _generar_melodia_simple(acordes, ritmo, raiz, modo, genero, bpm, oct_min, oc
     if not notas_primer_acorde:
         total_dur = sum(float(r) for r in ritmo_para_simple)
         return [("0", str(total_dur))] if total_dur > 0 else []
-    motivo = _crear_motivo_musical(notas_primer_acorde, perfil_actual)
+    motivo = _crear_motivo_musical(notas_primer_acorde, perfil_actual, escala_actual)
     return _generar_seccion_melodica(
         acordes_para_simple,
         ritmo_para_simple,
@@ -888,7 +973,13 @@ def generar_melodia_sobre_acordes(
     if random.random() < perfil_actual["prob_variacion_A"]:
         print("DEBUG (Melodia): Generando variación A'")
         melodia_A_base_para_variacion, _ = _generar_seccion_melodica(segmento_A2_acordes, segmento_A2_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)
-        melodia_A2 = _variar_melodia(melodia_A_base_para_variacion, notas_escala_disponibles_obj, params_mel)
+        melodia_A2 = _variar_melodia(
+            melodia_A_base_para_variacion,
+            segmento_A2_acordes,
+            segmento_A2_ritmos,
+            notas_escala_disponibles_obj,
+            params_mel,
+        )
     else:
         print("DEBUG (Melodia): Repitiendo sección A")
         melodia_A2, _ = _generar_seccion_melodica(segmento_A2_acordes, segmento_A2_ritmos, tecnica_elegida, motivo_principal, perfil_actual, escala_actual, notas_escala_disponibles_obj, params_mel, None)

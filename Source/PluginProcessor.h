@@ -7,6 +7,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <memory>
+#include <cmath>
 #include "PythonManager.h"
 
 namespace WavetableHelper
@@ -218,7 +219,9 @@ private:
         const float saturatedIn = std::tanh(in * drive);
         // ------------------------------------------
 
-        const float g = std::tan(juce::MathConstants<float>::pi * cutoffHz / sampleRateHz);
+        const auto normalisedCutoff = juce::MathConstants<float>::pi * cutoffHz
+            / static_cast<float>(sampleRateHz);
+        const float g = std::tanf(normalisedCutoff);
         const float R = 1.0f / (2.0f * Q);
         const float a1 = 1.0f / (1.0f + 2.0f * R * g + g * g);
 
