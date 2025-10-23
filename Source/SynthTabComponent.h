@@ -58,6 +58,7 @@ private:
     void redoButtonClicked();
     void updateUndoRedoButtonStates();
     void addToHistory(const pybind11::dict& newPatch);
+    void refreshWaveDisplaysFromProcessor();
     std::vector<pybind11::dict> patchHistory;
     int currentHistoryIndex = -1;
 

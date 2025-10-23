@@ -2,6 +2,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "BuiltInWavetables.h"
 #include <algorithm>
 #include <cmath>
 
@@ -275,7 +276,7 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int sta
         // --- LÓGICA DEL LFO ---
         // 1. Generar la onda del LFO (seno)
         float lfoSample = std::sin(lfoPhase);
-        lfoPhase += lfoIncrement;   
+        lfoPhase += lfoIncrement;
         if (lfoPhase >= juce::MathConstants<float>::twoPi)
             lfoPhase -= juce::MathConstants<float>::twoPi;
 
@@ -443,6 +444,30 @@ NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
     // --- CORRECCIÓN AQUÍ ---
     pythonManager = std::make_unique<PythonManager>();
 
+    if (WavetableHelper::wavetableNames.size() > 0)
+    {
+        auto defaultName = WavetableHelper::wavetableNames[0];
+        if (BuiltInWavetables::isAvailable(defaultName))
+            if (const auto* buffer = BuiltInWavetables::getWavetable(defaultName))
+                setWavetable1(*buffer);
+    }
+
+    if (WavetableHelper::wavetableNames.size() > 1)
+    {
+        auto defaultName = WavetableHelper::wavetableNames[1];
+        if (BuiltInWavetables::isAvailable(defaultName))
+            if (const auto* buffer = BuiltInWavetables::getWavetable(defaultName))
+                setWavetable2(*buffer);
+    }
+
+    if (WavetableHelper::wavetableNames.size() > 2)
+    {
+        auto defaultName = WavetableHelper::wavetableNames[2];
+        if (BuiltInWavetables::isAvailable(defaultName))
+            if (const auto* buffer = BuiltInWavetables::getWavetable(defaultName))
+                setWavetable3(*buffer);
+    }
+
     for (int i = 0; i < 16; ++i)
         synth.addVoice(new SynthVoice());
     synth.addSound(new SynthSound());
@@ -601,7 +626,7 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
     // --- 3. EFECTO CHORUS ---
     juce::dsp::ProcessContextReplacing<float> chorusContext(block);
-    chorus.process(chorusContext); 
+    chorus.process(chorusContext);
 
     // --- 4. PROCESADO DE DELAY MULTI-TAP ---
     juce::AudioBuffer<float> delayInputBuffer;
@@ -706,21 +731,21 @@ void NeuraSynthAudioProcessor::updateAllVoices(bool syncFromParameters)
         lfoAmount = *apvts.getRawParameterValue("lfo_amount");
         fmAmount = *apvts.getRawParameterValue("fm_amount");
     }
-    
-        // 2. Pasamos punteros a estas variables a cada una de las voces del sintetizador.
-        // Esta llamada a setParameters AHORA SÍ coincide con la declaración en tu PluginProcessor.h
-        for (int i = 0; i < synth.getNumVoices(); ++i)
-        {
+
+    // 2. Pasamos punteros a estas variables a cada una de las voces del sintetizador.
+    // Esta llamada a setParameters AHORA SÍ coincide con la declaración en tu PluginProcessor.h
+    for (int i = 0; i < synth.getNumVoices(); ++i)
+    {
         if (auto* voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
-            {
+        {
             voice->setParameters(adsrParams,
-            &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1UnisonVoices, &osc1UnisonDetune, &osc1UnisonBalance,
-               &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
-               &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
-               &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount,
-               &glideSeconds, getSampleRate());
-           }
+                &numFrames1, &wavetable1, &wavePosition1, &osc1Gain, &pitchShift1, &osc1Pan, &osc1Spread, &osc1UnisonVoices, &osc1UnisonDetune, &osc1UnisonBalance,
+                &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
+                &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
+                &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount,
+                &glideSeconds, getSampleRate());
         }
+    }
 }
 
 // Función auxiliar para calcular el desplazamiento de pitch total
@@ -1017,153 +1042,153 @@ void NeuraSynthAudioProcessor::run()
 
 void NeuraSynthAudioProcessor::applyPatchFromPython(const py::dict& patchData) noexcept
 {
-       // Helper lambda para actualizar un parámetro de tipo 'float' o 'int' de forma segura
-       auto updateNumericParam = [&](const std::string& paramName, const std::string& pythonKey)
+    // Helper lambda para actualizar un parámetro de tipo 'float' o 'int' de forma segura
+    auto updateNumericParam = [&](const std::string& paramName, const std::string& pythonKey)
         {
-       if (patchData.contains(pythonKey))
+            if (patchData.contains(pythonKey))
             {
-                       // 1. Obtenemos el valor de Python
-               float pyValue = patchData[pythonKey.c_str()].cast<float>();
-           
-                           // 2. Obtenemos el parámetro del APVTS por su ID
-               if (auto* param = apvts.getParameter(paramName))
+                // 1. Obtenemos el valor de Python
+                float pyValue = patchData[pythonKey.c_str()].cast<float>();
+
+                // 2. Obtenemos el parámetro del APVTS por su ID
+                if (auto* param = apvts.getParameter(paramName))
                 {
-                               // 3. Obtenemos el rango del parámetro (ej: 0.0 a 5.0 para el attack)
-                   auto range = param->getNormalisableRange();
-                   float low = range.start;
-                   float high = range.end;
-                   if (low > high) { float tmp = low; low = high; high = tmp; }
-                   pyValue = juce::jlimit(low, high, pyValue);
-               
-                                   // 4. Convertimos el valor de Python a su equivalente normalizado (0.0 a 1.0)
-                                   //    y lo asignamos usando setValueNotifyingHost.
-                                   //    Esta función es la clave, ya que notifica a la GUI del cambio.
-                   param->setValueNotifyingHost(range.convertTo0to1(pyValue));
-               }
-            }
-        };
-   
-          // Helper lambda para actualizar los ComboBox de Wavetable
-       auto updateWavetableParam = [&](const std::string& paramName, const std::string& pythonKey)
-        {
-       if (patchData.contains(pythonKey))
-            {
-           std::string wtName = patchData[pythonKey.c_str()].cast<std::string>();
-           
-                           // Si el nombre es "None", lo tratamos como el índice 0 (el primer wavetable de la lista)
-               if (wtName == "None" || wtName.empty())
-                {
-               if (auto* param = apvts.getParameter(paramName))
-                    {
-                   param->setValueNotifyingHost(0.0f); // 0.0f normalizado es siempre el primer item
-                   }
-                return;
-               }
-           
-                           // Buscamos el índice del nombre del wavetable en nuestro array global
-               int index = WavetableHelper::wavetableNames.indexOf(wtName);
-           
-               if (index != -1) // Si lo encontramos...
-                {
-              if (auto* param = apvts.getParameter(paramName))
-                    {
-                                        // El valor normalizado para un ComboBox (AudioParameterChoice)
-                                            // se calcula como: indice_del_item / (numero_total_de_items - 1)
-                       float normalizedValue = (float)index / (float)(WavetableHelper::wavetableNames.size() - 1);
-                   param->setValueNotifyingHost(normalizedValue);
-                   }
+                    // 3. Obtenemos el rango del parámetro (ej: 0.0 a 5.0 para el attack)
+                    auto range = param->getNormalisableRange();
+                    float low = range.start;
+                    float high = range.end;
+                    if (low > high) { float tmp = low; low = high; high = tmp; }
+                    pyValue = juce::jlimit(low, high, pyValue);
+
+                    // 4. Convertimos el valor de Python a su equivalente normalizado (0.0 a 1.0)
+                    //    y lo asignamos usando setValueNotifyingHost.
+                    //    Esta función es la clave, ya que notifica a la GUI del cambio.
+                    param->setValueNotifyingHost(range.convertTo0to1(pyValue));
                 }
             }
         };
-   
-           // --- ACTUALIZACIÓN DE PARÁMETROS ---
-           // Ahora, en lugar de asignar a las variables locales, usamos nuestros helpers
-           // para actualizar directamente el APVTS, que a su vez actualizará la GUI.
-       updateNumericParam("attack", "attack");
-   updateNumericParam("decay", "decay");
-   updateNumericParam("sustain", "sustain");
-   updateNumericParam("release", "release");
-   
-       updateNumericParam("osc1_gain", "osc1_gain");
-   updateNumericParam("osc2_gain", "osc2_gain");
-   updateNumericParam("osc3_gain", "osc3_gain");
-   
-       updateNumericParam("osc1_unison_voices", "osc1_unison_voices");
-   updateNumericParam("osc1_unison_detune", "osc1_unison_detune");
-   updateNumericParam("osc2_unison_voices", "osc2_unison_voices");
-   updateNumericParam("osc2_unison_detune", "osc2_unison_detune");
-   updateNumericParam("osc3_unison_voices", "osc3_unison_voices");
-   updateNumericParam("osc3_unison_detune", "osc3_unison_detune");
-   
-       updateNumericParam("filter_cutoff", "filter_cutoff");
-   updateNumericParam("filter_q", "filter_q");
-   updateNumericParam("filter_env_amt", "filter_env_amt");
-   
-       updateNumericParam("lfo_speed_hz", "lfo_speed_hz");
-   updateNumericParam("lfo_amount", "lfo_amount");
-   updateNumericParam("fm_amount", "fm_amount");
-   
-           // Actualizamos los wavetables usando el helper correspondiente
-     updateWavetableParam("osc1_wavetable", "osc1_wavetable");
-   updateWavetableParam("osc2_wavetable", "osc2_wavetable");
-   updateWavetableParam("osc3_wavetable", "osc3_wavetable");
-   
-       DBG("Patch de Python aplicado con exito al procesador y la GUI.");
-   
-           // Los mensajes de depuración siguen siendo útiles para verificar
-       if (patchData.contains("osc1_wavetable"))
+
+    // Helper lambda para actualizar los ComboBox de Wavetable
+    auto updateWavetableParam = [&](const std::string& paramName, const std::string& pythonKey)
+        {
+            if (patchData.contains(pythonKey))
+            {
+                std::string wtName = patchData[pythonKey.c_str()].cast<std::string>();
+
+                // Si el nombre es "None", lo tratamos como el índice 0 (el primer wavetable de la lista)
+                if (wtName == "None" || wtName.empty())
+                {
+                    if (auto* param = apvts.getParameter(paramName))
+                    {
+                        param->setValueNotifyingHost(0.0f); // 0.0f normalizado es siempre el primer item
+                    }
+                    return;
+                }
+
+                // Buscamos el índice del nombre del wavetable en nuestro array global
+                int index = WavetableHelper::wavetableNames.indexOf(wtName);
+
+                if (index != -1) // Si lo encontramos...
+                {
+                    if (auto* param = apvts.getParameter(paramName))
+                    {
+                        // El valor normalizado para un ComboBox (AudioParameterChoice)
+                            // se calcula como: indice_del_item / (numero_total_de_items - 1)
+                        float normalizedValue = (float)index / (float)(WavetableHelper::wavetableNames.size() - 1);
+                        param->setValueNotifyingHost(normalizedValue);
+                    }
+                }
+            }
+        };
+
+    // --- ACTUALIZACIÓN DE PARÁMETROS ---
+    // Ahora, en lugar de asignar a las variables locales, usamos nuestros helpers
+    // para actualizar directamente el APVTS, que a su vez actualizará la GUI.
+    updateNumericParam("attack", "attack");
+    updateNumericParam("decay", "decay");
+    updateNumericParam("sustain", "sustain");
+    updateNumericParam("release", "release");
+
+    updateNumericParam("osc1_gain", "osc1_gain");
+    updateNumericParam("osc2_gain", "osc2_gain");
+    updateNumericParam("osc3_gain", "osc3_gain");
+
+    updateNumericParam("osc1_unison_voices", "osc1_unison_voices");
+    updateNumericParam("osc1_unison_detune", "osc1_unison_detune");
+    updateNumericParam("osc2_unison_voices", "osc2_unison_voices");
+    updateNumericParam("osc2_unison_detune", "osc2_unison_detune");
+    updateNumericParam("osc3_unison_voices", "osc3_unison_voices");
+    updateNumericParam("osc3_unison_detune", "osc3_unison_detune");
+
+    updateNumericParam("filter_cutoff", "filter_cutoff");
+    updateNumericParam("filter_q", "filter_q");
+    updateNumericParam("filter_env_amt", "filter_env_amt");
+
+    updateNumericParam("lfo_speed_hz", "lfo_speed_hz");
+    updateNumericParam("lfo_amount", "lfo_amount");
+    updateNumericParam("fm_amount", "fm_amount");
+
+    // Actualizamos los wavetables usando el helper correspondiente
+    updateWavetableParam("osc1_wavetable", "osc1_wavetable");
+    updateWavetableParam("osc2_wavetable", "osc2_wavetable");
+    updateWavetableParam("osc3_wavetable", "osc3_wavetable");
+
+    DBG("Patch de Python aplicado con exito al procesador y la GUI.");
+
+    // Los mensajes de depuración siguen siendo útiles para verificar
+    if (patchData.contains("osc1_wavetable"))
         DBG("Python eligio para OSC1: " << patchData["osc1_wavetable"].cast<std::string>());
-   if (patchData.contains("osc2_wavetable"))
-       DBG("Python eligio para OSC2: " << patchData["osc2_wavetable"].cast<std::string>());
-   if (patchData.contains("osc3_wavetable"))
-       DBG("Python eligio para OSC3: " << patchData["osc3_wavetable"].cast<std::string>());
-   // --- Parmetros adicionales fuera del APVTS ---
-   if (patchData.contains("master_gain"))        setMasterGain(patchData["master_gain"].cast<float>());
-   if (patchData.contains("master_glide"))       setGlide(patchData["master_glide"].cast<float>());
-   if (patchData.contains("master_dark"))        setDark(patchData["master_dark"].cast<float>());
-   if (patchData.contains("master_bright"))      setBright(patchData["master_bright"].cast<float>());
-   if (patchData.contains("master_drive"))       setDrive(patchData["master_drive"].cast<float>());
-   if (patchData.contains("master_chorus_on"))   setChorus(patchData["master_chorus_on"].cast<bool>());
+    if (patchData.contains("osc2_wavetable"))
+        DBG("Python eligio para OSC2: " << patchData["osc2_wavetable"].cast<std::string>());
+    if (patchData.contains("osc3_wavetable"))
+        DBG("Python eligio para OSC3: " << patchData["osc3_wavetable"].cast<std::string>());
+    // --- Parmetros adicionales fuera del APVTS ---
+    if (patchData.contains("master_gain"))        setMasterGain(patchData["master_gain"].cast<float>());
+    if (patchData.contains("master_glide"))       setGlide(patchData["master_glide"].cast<float>());
+    if (patchData.contains("master_dark"))        setDark(patchData["master_dark"].cast<float>());
+    if (patchData.contains("master_bright"))      setBright(patchData["master_bright"].cast<float>());
+    if (patchData.contains("master_drive"))       setDrive(patchData["master_drive"].cast<float>());
+    if (patchData.contains("master_chorus_on"))   setChorus(patchData["master_chorus_on"].cast<bool>());
 
-   if (patchData.contains("osc1_octave"))        setOsc1Octave(patchData["osc1_octave"].cast<int>());
-   if (patchData.contains("osc1_pitch"))         setOsc1Pitch(patchData["osc1_pitch"].cast<int>());
-   if (patchData.contains("osc1_fine"))          setOsc1FineTune(patchData["osc1_fine"].cast<double>());
-   if (patchData.contains("osc1_pan"))           setOsc1Pan(patchData["osc1_pan"].cast<float>());
-   if (patchData.contains("osc1_unison_balance")) setOsc1UnisonBalance(patchData["osc1_unison_balance"].cast<float>());
-   if (patchData.contains("osc1_unison_spread")) setOsc1Spread(patchData["osc1_unison_spread"].cast<float>());
+    if (patchData.contains("osc1_octave"))        setOsc1Octave(patchData["osc1_octave"].cast<int>());
+    if (patchData.contains("osc1_pitch"))         setOsc1Pitch(patchData["osc1_pitch"].cast<int>());
+    if (patchData.contains("osc1_fine"))          setOsc1FineTune(patchData["osc1_fine"].cast<double>());
+    if (patchData.contains("osc1_pan"))           setOsc1Pan(patchData["osc1_pan"].cast<float>());
+    if (patchData.contains("osc1_unison_balance")) setOsc1UnisonBalance(patchData["osc1_unison_balance"].cast<float>());
+    if (patchData.contains("osc1_unison_spread")) setOsc1Spread(patchData["osc1_unison_spread"].cast<float>());
 
-   if (patchData.contains("osc2_octave"))        setOsc2Octave(patchData["osc2_octave"].cast<int>());
-   if (patchData.contains("osc2_pitch"))         setOsc2Pitch(patchData["osc2_pitch"].cast<int>());
-   if (patchData.contains("osc2_fine"))          setOsc2FineTune(patchData["osc2_fine"].cast<double>());
-   if (patchData.contains("osc2_pan"))           setOsc2Pan(patchData["osc2_pan"].cast<float>());
+    if (patchData.contains("osc2_octave"))        setOsc2Octave(patchData["osc2_octave"].cast<int>());
+    if (patchData.contains("osc2_pitch"))         setOsc2Pitch(patchData["osc2_pitch"].cast<int>());
+    if (patchData.contains("osc2_fine"))          setOsc2FineTune(patchData["osc2_fine"].cast<double>());
+    if (patchData.contains("osc2_pan"))           setOsc2Pan(patchData["osc2_pan"].cast<float>());
 
-   if (patchData.contains("osc3_octave"))        setOsc3Octave(patchData["osc3_octave"].cast<int>());
-   if (patchData.contains("osc3_pitch"))         setOsc3Pitch(patchData["osc3_pitch"].cast<int>());
-   if (patchData.contains("osc3_fine"))          setOsc3FineTune(patchData["osc3_fine"].cast<double>());
-   if (patchData.contains("osc3_pan"))           setOsc3Pan(patchData["osc3_pan"].cast<float>());
+    if (patchData.contains("osc3_octave"))        setOsc3Octave(patchData["osc3_octave"].cast<int>());
+    if (patchData.contains("osc3_pitch"))         setOsc3Pitch(patchData["osc3_pitch"].cast<int>());
+    if (patchData.contains("osc3_fine"))          setOsc3FineTune(patchData["osc3_fine"].cast<double>());
+    if (patchData.contains("osc3_pan"))           setOsc3Pan(patchData["osc3_pan"].cast<float>());
 
-   if (patchData.contains("filter_keytrack"))    setKeyTrack(patchData["filter_keytrack"].cast<bool>());
+    if (patchData.contains("filter_keytrack"))    setKeyTrack(patchData["filter_keytrack"].cast<bool>());
 
-   if (patchData.contains("reverb_dry_level"))   setReverbDryLevel(patchData["reverb_dry_level"].cast<float>());
-   if (patchData.contains("reverb_wet_level"))   setReverbWetLevel(patchData["reverb_wet_level"].cast<float>());
-   if (patchData.contains("reverb_room_size"))   setReverbRoomSize(patchData["reverb_room_size"].cast<float>());
-   if (patchData.contains("reverb_pre_delay"))   setReverbPreDelay(patchData["reverb_pre_delay"].cast<float>());
-   if (patchData.contains("reverb_diffusion"))   setReverbDiffusion(patchData["reverb_diffusion"].cast<float>());
-   if (patchData.contains("reverb_damping"))     setReverbDamping(patchData["reverb_damping"].cast<float>());
-   if (patchData.contains("reverb_decay"))       setReverbDecay(patchData["reverb_decay"].cast<float>());
+    if (patchData.contains("reverb_dry_level"))   setReverbDryLevel(patchData["reverb_dry_level"].cast<float>());
+    if (patchData.contains("reverb_wet_level"))   setReverbWetLevel(patchData["reverb_wet_level"].cast<float>());
+    if (patchData.contains("reverb_room_size"))   setReverbRoomSize(patchData["reverb_room_size"].cast<float>());
+    if (patchData.contains("reverb_pre_delay"))   setReverbPreDelay(patchData["reverb_pre_delay"].cast<float>());
+    if (patchData.contains("reverb_diffusion"))   setReverbDiffusion(patchData["reverb_diffusion"].cast<float>());
+    if (patchData.contains("reverb_damping"))     setReverbDamping(patchData["reverb_damping"].cast<float>());
+    if (patchData.contains("reverb_decay"))       setReverbDecay(patchData["reverb_decay"].cast<float>());
 
-   if (patchData.contains("delay_dry_level"))    setDelayDry(patchData["delay_dry_level"].cast<float>());
-   if (patchData.contains("delay_wet_level"))    setDelayWet(patchData["delay_wet_level"].cast<float>());
-   if (patchData.contains("delay_side_level"))   setDelaySide(patchData["delay_side_level"].cast<float>());
-   if (patchData.contains("delay_hp_freq"))      setDelayHPFreq(patchData["delay_hp_freq"].cast<float>());
-   if (patchData.contains("delay_lp_freq"))      setDelayLPFreq(patchData["delay_lp_freq"].cast<float>());
-   if (patchData.contains("delay_time_left"))    setDelayTimeLeft(patchData["delay_time_left"].cast<float>());
-   if (patchData.contains("delay_time_center"))  setDelayTimeCenter(patchData["delay_time_center"].cast<float>());
-   if (patchData.contains("delay_time_right"))   setDelayTimeRight(patchData["delay_time_right"].cast<float>());
-   if (patchData.contains("delay_wow_depth"))    setDelayWow(patchData["delay_wow_depth"].cast<float>());
-   if (patchData.contains("delay_feedback"))     setDelayFeedback(patchData["delay_feedback"].cast<float>());
+    if (patchData.contains("delay_dry_level"))    setDelayDry(patchData["delay_dry_level"].cast<float>());
+    if (patchData.contains("delay_wet_level"))    setDelayWet(patchData["delay_wet_level"].cast<float>());
+    if (patchData.contains("delay_side_level"))   setDelaySide(patchData["delay_side_level"].cast<float>());
+    if (patchData.contains("delay_hp_freq"))      setDelayHPFreq(patchData["delay_hp_freq"].cast<float>());
+    if (patchData.contains("delay_lp_freq"))      setDelayLPFreq(patchData["delay_lp_freq"].cast<float>());
+    if (patchData.contains("delay_time_left"))    setDelayTimeLeft(patchData["delay_time_left"].cast<float>());
+    if (patchData.contains("delay_time_center"))  setDelayTimeCenter(patchData["delay_time_center"].cast<float>());
+    if (patchData.contains("delay_time_right"))   setDelayTimeRight(patchData["delay_time_right"].cast<float>());
+    if (patchData.contains("delay_wow_depth"))    setDelayWow(patchData["delay_wow_depth"].cast<float>());
+    if (patchData.contains("delay_feedback"))     setDelayFeedback(patchData["delay_feedback"].cast<float>());
 
-   updateAllVoices();
+    updateAllVoices();
 }
 
 

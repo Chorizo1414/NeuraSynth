@@ -375,6 +375,8 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     populatePresets();
 
+    refreshWaveDisplaysFromProcessor();
+
     // --- Botón de ayuda para tipos de sonido ---
     addAndMakeVisible(soundTypesHelpButton);
     soundTypesHelpButton.setButtonText("?");
@@ -688,6 +690,8 @@ void SynthTabComponent::applyPatchFromPython(const pybind11::dict& patchData)
     applyFloat("delay_time_right", [&](float value) { delaySection.setTimeRight(value); });
     applyFloat("delay_wow_depth", [&](float value) { delaySection.setWowDepth(value); });
     applyFloat("delay_feedback", [&](float value) { delaySection.setFeedback(value); });
+
+    refreshWaveDisplaysFromProcessor();
 }
 
 // --- IMPLEMENTACIﾓN DE LAS NUEVAS FUNCIONES DE HISTORIAL ---
@@ -751,6 +755,25 @@ void SynthTabComponent::updateUndoRedoButtonStates()
 
     // Habilitar "Redo" si hay elementos posteriores en el historial
     redoButton.setEnabled(currentHistoryIndex < (int)patchHistory.size() - 1);
+}
+
+void SynthTabComponent::refreshWaveDisplaysFromProcessor()
+{
+    auto applyToOscillator = [](OscillatorComponent& osc,
+        const juce::AudioBuffer<float>& buffer,
+        int numFrames,
+        float position)
+        {
+            if (buffer.getNumSamples() <= 0 || numFrames <= 0)
+                return;
+
+            osc.waveDisplay.setAudioBuffer(buffer, numFrames);
+            osc.waveDisplay.setDisplayPosition(juce::jlimit(0.0f, 1.0f, position));
+        };
+
+    applyToOscillator(osc1, audioProcessor.getWavetable1(), audioProcessor.getNumFrames1(), audioProcessor.getWavePosition1());
+    applyToOscillator(osc2, audioProcessor.getWavetable2(), audioProcessor.getNumFrames2(), audioProcessor.getWavePosition2());
+    applyToOscillator(osc3, audioProcessor.getWavetable3(), audioProcessor.getNumFrames3(), audioProcessor.getWavePosition3());
 }
 
 void SynthTabComponent::populatePresets()

@@ -296,6 +296,12 @@ public:
     int getNumFrames1() const { return numFrames1; }
     int getNumFrames2() const { return numFrames2; }
     int getNumFrames3() const { return numFrames3; }
+    const juce::AudioBuffer<float>& getWavetable1() const { return wavetable1; }
+    const juce::AudioBuffer<float>& getWavetable2() const { return wavetable2; }
+    const juce::AudioBuffer<float>& getWavetable3() const { return wavetable3; }
+    float getWavePosition1() const { return wavePosition1; }
+    float getWavePosition2() const { return wavePosition2; }
+    float getWavePosition3() const { return wavePosition3; }
 
     // --- Setters de Master y Posición ---
     void setMasterGain(float newGain) { masterGain = newGain; }

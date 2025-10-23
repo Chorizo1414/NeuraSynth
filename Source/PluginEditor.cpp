@@ -22,35 +22,51 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
     addAndMakeVisible(sizeComboBox);
     sizeComboBox.addItem("75%", 1);
     sizeComboBox.addItem("100%", 2);
-    sizeComboBox.setSelectedId(2);
+    sizeComboBox.setSelectedId(2, juce::dontSendNotification);
     sizeComboBox.setTooltip("Escala la interfaz del sintetizador");
     sizeComboBox.setJustificationType(juce::Justification::centred);
 
-    sizeComboBox.onChange = [this]
-        {
-            if (auto* parent = getTopLevelComponent())
-            {
-                float finalScale = 0.5f;
-                int choice = sizeComboBox.getSelectedId();
-                if (choice == 1) finalScale = 0.375f;
-                if (choice == 2) finalScale = 0.5f;
-
-                const int newWidth = LayoutConstants::DESIGN_WIDTH * finalScale;
-                const int newHeight = LayoutConstants::DESIGN_HEIGHT * finalScale;
-
-                constrainer->setMinimumSize(newWidth, newHeight);
-                parent->setSize(newWidth, newHeight);
-            }
-        };
-
     const double aspectRatio = (double)LayoutConstants::DESIGN_WIDTH / LayoutConstants::DESIGN_HEIGHT;
-    setSize(LayoutConstants::DESIGN_WIDTH * 0.5, LayoutConstants::DESIGN_HEIGHT * 0.5);
-
     constrainer = std::make_unique<juce::ComponentBoundsConstrainer>();
     constrainer->setFixedAspectRatio(aspectRatio);
     setConstrainer(constrainer.get());
 
-    setResizable(true, true);
+    setResizable(true, false);
+
+    constexpr float baseScale = 0.5f;
+    auto applyScale = [this, baseScale](float multiplier)
+        {
+            const float finalScale = baseScale * multiplier;
+            const int newWidth = juce::roundToInt(LayoutConstants::DESIGN_WIDTH * finalScale);
+            const int newHeight = juce::roundToInt(LayoutConstants::DESIGN_HEIGHT * finalScale);
+
+            // setResizeLimits() asserts in the JUCE debug runtime when there's no
+            // host-managed resizer, so we clamp via the shared constrainer instead.
+            if (constrainer != nullptr)
+                constrainer->setSizeLimits(newWidth, newHeight, newWidth, newHeight);
+
+            setSize(newWidth, newHeight);
+
+            if (auto* parent = getTopLevelComponent())
+            {
+                if (parent != this)
+                    parent->setSize(newWidth, newHeight);
+            }
+        };
+
+    sizeComboBox.onChange = [this, applyScale]
+        {
+            float multiplier = 1.0f;
+            switch (sizeComboBox.getSelectedId())
+            {
+            case 1: multiplier = 0.75f; break;
+            case 2: default: multiplier = 1.0f; break;
+            }
+
+            applyScale(multiplier);
+        };
+
+    applyScale(sizeComboBox.getSelectedId() == 1 ? 0.75f : 1.0f);
 }
 
 NeuraSynthAudioProcessorEditor::~NeuraSynthAudioProcessorEditor()
