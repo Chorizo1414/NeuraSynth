@@ -12,8 +12,9 @@ namespace LayoutConstants
     const int TAB_BAR_HEIGHT = 60; 
     const int DESIGN_WIDTH = 2340;    // El ancho de tu imagen de fondo
     const int DESIGN_SYNTH_HEIGHT = 1360;        // La ALTURA DEL ÁREA DEL SINTETIZADOR (imagen del sinte)
-    const int KEYBOARD_HEIGHT = 120; // Altura que ocupa el teclado MIDI   
-    const int DESIGN_HEIGHT = DESIGN_SYNTH_HEIGHT + KEYBOARD_HEIGHT + 35;// Altura TOTAL de la ventana del plugin, incluyendo la barra de pestañas y el teclado
+    const int KEYBOARD_HEIGHT = 150;             // Altura visible que ocupa el teclado MIDI en el diseño base
+    const int KEYBOARD_BOTTOM_MARGIN = 80;      // Margen extra para que el teclado no quede cortado en la parte inferior
+    const int DESIGN_HEIGHT = DESIGN_SYNTH_HEIGHT + KEYBOARD_HEIGHT + KEYBOARD_BOTTOM_MARGIN + 35;// Altura TOTAL de la ventana del plugin, incluyendo la barra de pestañas, el teclado y el margen inferior
     
     // --- Tamaños de Componentes (según tus medidas de Photoshop) ---
     const juce::Point<float> KNOB_LARGE = { 96.5f, 96.5f };

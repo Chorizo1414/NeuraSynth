@@ -4,6 +4,9 @@
 
 namespace
 {
+    constexpr int keyboardLowestNote = 21;   // A0
+    constexpr int keyboardHighestNote = 108; // C8
+
     juce::File findDefaultWavetableDirectory()
     {
         const juce::StringArray relativeCandidates
@@ -70,6 +73,15 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     addAndMakeVisible(keyboardComponent);
     setWantsKeyboardFocus(true);
     backgroundImage = juce::ImageCache::getFromMemory(BinaryData::boceto_png, BinaryData::boceto_pngSize);
+
+    keyboardComponent.setScrollButtonsVisible(false);
+    keyboardComponent.setAvailableRange(keyboardLowestNote, keyboardHighestNote);
+    keyboardComponent.setLowestVisibleKey(keyboardLowestNote);
+
+    const float initialKeyWidth = keyboardComponent.getKeyWidth();
+    const double initialTotalWidth = keyboardComponent.getTotalKeyboardWidth();
+    if (initialKeyWidth > 0.0f && initialTotalWidth > 0.0)
+        keyboardLayoutWidthUnits = initialTotalWidth / static_cast<double>(initialKeyWidth);
 
     // Asignamos nombres para el modo diseño y fijamos el layout específico de cada oscilador
     osc1.setName("Oscillator 1");
@@ -551,7 +563,8 @@ void SynthTabComponent::resized()
 
     const float designSynthHeight = (float)LayoutConstants::DESIGN_SYNTH_HEIGHT;
     const float designKeyboardHeight = (float)LayoutConstants::KEYBOARD_HEIGHT;
-    const float designTotalHeight = designSynthHeight + designKeyboardHeight;
+    const float designBottomMargin = (float)LayoutConstants::KEYBOARD_BOTTOM_MARGIN;
+    const float designTotalHeight = designSynthHeight + designKeyboardHeight + designBottomMargin;
 
     const float widthScale = totalBounds.getWidth() > 0
         ? (float)totalBounds.getWidth() / LayoutConstants::DESIGN_WIDTH
@@ -564,16 +577,49 @@ void SynthTabComponent::resized()
     const int scaledWidth = juce::roundToInt(LayoutConstants::DESIGN_WIDTH * contentScale);
     const int scaledSynthHeight = juce::roundToInt(LayoutConstants::DESIGN_SYNTH_HEIGHT * contentScale);
     int scaledKeyboardHeight = juce::roundToInt(LayoutConstants::KEYBOARD_HEIGHT * contentScale);
-    scaledKeyboardHeight = juce::jmax(0, juce::jmin(scaledKeyboardHeight, totalBounds.getHeight()));
+    const int scaledBottomMargin = juce::jlimit(0, totalBounds.getHeight(),
+        juce::roundToInt(LayoutConstants::KEYBOARD_BOTTOM_MARGIN * contentScale));
+    scaledKeyboardHeight = juce::jmax(0, juce::jmin(scaledKeyboardHeight, totalBounds.getHeight() - scaledBottomMargin));
 
     const int horizontalPadding = juce::jmax(0, (totalBounds.getWidth() - scaledWidth) / 2);
-    const int keyboardX = totalBounds.getX() + horizontalPadding;
-    const int keyboardY = totalBounds.getBottom() - scaledKeyboardHeight;
-    keyboardComponent.setBounds(keyboardX, keyboardY, scaledWidth, scaledKeyboardHeight);
+    const int synthAreaX = totalBounds.getX() + horizontalPadding;
+    const int keyboardY = totalBounds.getBottom() - scaledBottomMargin - scaledKeyboardHeight;
+    const int keyboardWidth = totalBounds.getWidth();
+    if (keyboardWidth > 0)
+    {
+        if (keyboardLayoutWidthUnits <= 0.0)
+        {
+            const float currentKeyWidth = keyboardComponent.getKeyWidth();
+            const double totalKeyboardWidth = keyboardComponent.getTotalKeyboardWidth();
+
+            if (currentKeyWidth > 0.0f && totalKeyboardWidth > 0.0)
+                keyboardLayoutWidthUnits = totalKeyboardWidth / static_cast<double>(currentKeyWidth);
+        }
+
+        if (keyboardLayoutWidthUnits > 0.0)
+        {
+            const float calculatedKeyWidth = static_cast<float>(static_cast<double>(keyboardWidth) / keyboardLayoutWidthUnits);
+
+            if (calculatedKeyWidth > 0.0f)
+            {
+                keyboardComponent.setKeyWidth(calculatedKeyWidth);
+
+                const double adjustedTotalWidth = keyboardComponent.getTotalKeyboardWidth();
+                if (adjustedTotalWidth > static_cast<double>(keyboardWidth) && adjustedTotalWidth > 0.0)
+                {
+                    const double correction = static_cast<double>(keyboardWidth) / adjustedTotalWidth;
+                    keyboardComponent.setKeyWidth(keyboardComponent.getKeyWidth() * static_cast<float>(correction));
+                }
+            }
+        }
+    }
+
+    keyboardComponent.setBounds(totalBounds.getX(), keyboardY, keyboardWidth, scaledKeyboardHeight);
+    keyboardComponent.setLowestVisibleKey(keyboardLowestNote);
 
     const int availableSynthHeight = juce::jmax(0, keyboardY - totalBounds.getY());
     const int synthHeight = juce::jmin(scaledSynthHeight, availableSynthHeight);
-    guiArea = { keyboardX, keyboardY - synthHeight, scaledWidth, synthHeight };
+    guiArea = { synthAreaX, keyboardY - synthHeight, scaledWidth, synthHeight };
 
     const float scale = contentScale;
     const float referenceScale = 0.5f;

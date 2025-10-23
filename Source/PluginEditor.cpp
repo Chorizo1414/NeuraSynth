@@ -12,7 +12,7 @@ NeuraSynthAudioProcessorEditor::scaleOptions{ {
     { 2, "100%", 1000 },
     { 3, "125%", 1200 },
 } };
-
+    
 NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioProcessor& p)
     : AudioProcessorEditor(&p)
     , audioProcessor(p)
@@ -155,7 +155,9 @@ NeuraSynthAudioProcessorEditor::calculateEditorBoundsForOption(const ScaleOption
         / static_cast<double>(LayoutConstants::DESIGN_WIDTH);
 
     const int contentHeight = juce::roundToInt(
-        scale * (LayoutConstants::DESIGN_SYNTH_HEIGHT + LayoutConstants::KEYBOARD_HEIGHT));
+        scale * (LayoutConstants::DESIGN_SYNTH_HEIGHT
+            + LayoutConstants::KEYBOARD_HEIGHT
+            + LayoutConstants::KEYBOARD_BOTTOM_MARGIN));
 
     const int totalHeight = contentHeight + tabDepth;
 

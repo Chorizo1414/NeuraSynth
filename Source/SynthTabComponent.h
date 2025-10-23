@@ -49,6 +49,7 @@ private:
     juce::ComboBox presetSelector;
     juce::TextButton refreshPresetsButton;
     juce::MidiKeyboardComponent keyboardComponent;
+    double keyboardLayoutWidthUnits = 0.0;
     juce::TextButton soundTypesHelpButton;
 
     // --- Miembros privados (sin cambios) ---
