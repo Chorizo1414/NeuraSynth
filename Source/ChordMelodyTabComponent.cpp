@@ -476,8 +476,29 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     generateMelodyButton.onClick = [this]
         {
+            py::dict preservedChordSection = extractChordSection(lastGeneratedChordsData);
             py::dict currentSnapshot = rebuildMusicDictFromPianoRoll();
+            restoreChordSection(currentSnapshot, preservedChordSection);
             lastGeneratedChordsData = currentSnapshot;
+
+            py::object chordsField;
+            py::object rhythmField;
+            {
+                py::gil_scoped_acquire acquire;
+                if (currentSnapshot.contains("acordes"))
+                    chordsField = py::reinterpret_borrow<py::object>(currentSnapshot["acordes"]);
+                if (currentSnapshot.contains("ritmo"))
+                    rhythmField = py::reinterpret_borrow<py::object>(currentSnapshot["ritmo"]);
+            }
+
+            py::object preservedChords = chordsField ? deepCopyPyObject(chordsField) : py::object();
+
+            int originalChordCount = 0;
+            if (preservedChords && !preservedChords.is_none())
+            {
+                py::gil_scoped_acquire acquire;
+                originalChordCount = static_cast<int>(py::len(preservedChords));
+            }
 
             const bool hasChordData = hasUsableChordContent(currentSnapshot);
             const int bpm = (int)bpmSlider.getValue();
@@ -486,8 +507,25 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
             {
                 DBG("Enviando datos a Python para generar melodia...");
 
-                py::list chords = currentSnapshot["acordes"];
-                py::list rhythm = currentSnapshot["ritmo"];
+                py::object chordsForRequest = chordsField && !chordsField.is_none()
+                    ? deepCopyPyObject(chordsField)
+                    : py::object();
+                py::object rhythmForRequest = rhythmField && !rhythmField.is_none()
+                    ? deepCopyPyObject(rhythmField)
+                    : py::object();
+
+                py::list chords;
+                py::list rhythm;
+
+                {
+                    py::gil_scoped_acquire acquire;
+                    chords = chordsForRequest && !chordsForRequest.is_none()
+                        ? chordsForRequest.cast<py::list>()
+                        : py::list();
+                    rhythm = rhythmForRequest && !rhythmForRequest.is_none()
+                        ? rhythmForRequest.cast<py::list>()
+                        : py::list();
+                }
 
                 juce::String root = lastDetectedRoot.isNotEmpty() ? lastDetectedRoot : juce::String("C");
                 juce::String mode = lastDetectedMode.isNotEmpty() ? lastDetectedMode : juce::String("major");
@@ -511,10 +549,24 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
                 py::dict updatedData = deepCopyMusicDict(currentSnapshot);
                 py::object newMelody = melodyData.contains("melodia") ? deepCopyPyObject(melodyData["melodia"]) : py::object();
 
-                if (!newMelody.is_none())
                 {
                     py::gil_scoped_acquire acquire;
-                    updatedData["melodia"] = newMelody;
+
+                    if (newMelody && !newMelody.is_none())
+                        updatedData["melodia"] = newMelody;
+                }
+
+                restoreChordSection(updatedData, preservedChordSection);
+
+                if (originalChordCount > 0)
+                {
+                    py::gil_scoped_acquire acquire;
+                    const int updatedCount = updatedData.contains("acordes")
+                        ? static_cast<int>(py::len(updatedData["acordes"]))
+                        : 0;
+                    if (updatedCount != originalChordCount)
+                        DBG("Advertencia: la generación de melodía esperaba " + juce::String(originalChordCount)
+                            + " acordes pero encontró " + juce::String(updatedCount) + ". Se forzaron los acordes originales.");
                 }
 
                 applyMusicResult(std::move(updatedData), true);
@@ -1452,6 +1504,61 @@ py::object ChordMelodyTabComponent::deepCopyPyObject(const py::object& source)
     py::gil_scoped_acquire acquire;
     static py::object deepcopyFunc = py::module::import("copy").attr("deepcopy");
     return deepcopyFunc(source);
+}
+
+py::dict ChordMelodyTabComponent::extractChordSection(const py::dict& source)
+{
+    py::dict result;
+    if (source.empty())
+        return result;
+
+    py::gil_scoped_acquire acquire;
+    static const char* kChordKeys[] = { "acordes", "ritmo", "acordes_detallados", "acordes_tiempos" };
+
+    for (const char* key : kChordKeys)
+    {
+        if (!source.contains(key))
+            continue;
+
+        py::object value = py::reinterpret_borrow<py::object>(source[key]);
+        if (value.is_none())
+        {
+            result[py::str(key)] = py::none();
+            continue;
+        }
+
+        result[py::str(key)] = deepCopyPyObject(value);
+    }
+
+    return result;
+}
+
+void ChordMelodyTabComponent::restoreChordSection(py::dict& target, const py::dict& chordSection)
+{
+    if (chordSection.empty())
+        return;
+
+    py::gil_scoped_acquire acquire;
+    static const char* kChordKeys[] = { "acordes", "ritmo", "acordes_detallados", "acordes_tiempos" };
+
+    for (const char* key : kChordKeys)
+    {
+        const bool hasKey = chordSection.contains(key);
+        const auto keyStr = py::str(key);
+
+        if (hasKey)
+        {
+            py::object value = py::reinterpret_borrow<py::object>(chordSection[key]);
+            if (value.is_none())
+                target[keyStr] = py::none();
+            else
+                target[keyStr] = deepCopyPyObject(value);
+        }
+        else if (target.contains(key))
+        {
+            target.attr("pop")(keyStr, py::none());
+        }
+    }
 }
 
 void ChordMelodyTabComponent::sendEditedMusicToPython()

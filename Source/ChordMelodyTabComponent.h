@@ -38,6 +38,8 @@ private:
     void updateUndoRedoButtonStates();
     py::dict deepCopyMusicDict(const py::dict& source);
     py::object deepCopyPyObject(const py::object& source);
+    py::dict extractChordSection(const py::dict& source);
+    void restoreChordSection(py::dict& target, const py::dict& chordSection);
     void clearGeneratedContent();
     void handlePianoRollContentChanged();
     py::dict rebuildMusicDictFromPianoRoll();
