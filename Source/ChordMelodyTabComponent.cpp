@@ -647,9 +647,13 @@ ChordMelodyTabComponent::ChordMelodyTabComponent(NeuraSynthAudioProcessor& proce
 
     updateUiForCurrentState();
     updateUndoRedoButtonStates();
+    restoreStateFromProcessor();
 }
 
-ChordMelodyTabComponent::~ChordMelodyTabComponent() {}
+ChordMelodyTabComponent::~ChordMelodyTabComponent()
+{
+    persistCurrentStateToProcessor();
+}
 
 void ChordMelodyTabComponent::paint(juce::Graphics& g)
 {
@@ -1314,6 +1318,7 @@ void ChordMelodyTabComponent::pushStateToHistory(const py::dict& data)
     historyCurrentIndex = (int)historyStates.size() - 1;
 
     updateUndoRedoButtonStates();
+    persistCurrentStateToProcessor();
 }
 
 void ChordMelodyTabComponent::applyStateFromHistory(int newIndex)
@@ -1331,6 +1336,7 @@ void ChordMelodyTabComponent::applyStateFromHistory(int newIndex)
     updateUiForCurrentState();
     repaint();
     updateUndoRedoButtonStates();
+    persistCurrentStateToProcessor();
 }
 
 void ChordMelodyTabComponent::updateUndoRedoButtonStates()
@@ -1358,6 +1364,7 @@ void ChordMelodyTabComponent::clearGeneratedContent()
 
     updateUiForCurrentState();
     updateUndoRedoButtonStates();
+    persistCurrentStateToProcessor();
     repaint();
 
     showNotification(juce::String::fromUTF8("Lienzo limpio. Genera acordes o melodía."));
@@ -1487,7 +1494,45 @@ void ChordMelodyTabComponent::applyMusicResult(py::dict data, bool pushHistory)
     else
         updateUndoRedoButtonStates();
 
+    if (!pushHistory || lastGeneratedChordsData.empty())
+        persistCurrentStateToProcessor();
+
     repaint();
+}
+
+void ChordMelodyTabComponent::restoreStateFromProcessor()
+{
+    promptEditor.setText(audioProcessor.getStoredChordMelodyPrompt(), juce::dontSendNotification);
+
+    const int storedChordSelection = juce::jmax(1, audioProcessor.getStoredChordCountSelection());
+    chordCountComboBox.setSelectedId(storedChordSelection, juce::dontSendNotification);
+
+    const int storedGenreSelection = juce::jmax(1, audioProcessor.getStoredChordMelodyGenreSelection());
+    genreComboBox.setSelectedId(storedGenreSelection, juce::dontSendNotification);
+
+    const double storedBpm = audioProcessor.getStoredChordMelodyBpm();
+    if (storedBpm > 0.0)
+        setBpmValue(storedBpm, juce::dontSendNotification);
+
+    py::dict storedState = audioProcessor.getStoredChordMelodyState();
+    if (!storedState.empty())
+    {
+        applyMusicResult(std::move(storedState), false);
+        historyStates.clear();
+        historyCurrentIndex = -1;
+        pushStateToHistory(lastGeneratedChordsData);
+    }
+    else
+    {
+        updateUndoRedoButtonStates();
+        persistCurrentStateToProcessor();
+    }
+}
+
+void ChordMelodyTabComponent::persistCurrentStateToProcessor()
+{
+    audioProcessor.storeChordMelodyState(lastGeneratedChordsData, bpmSlider.getValue(), promptEditor.getText(),
+        chordCountComboBox.getSelectedId(), genreComboBox.getSelectedId());
 }
 
 

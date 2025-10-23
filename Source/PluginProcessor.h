@@ -458,6 +458,13 @@ public:
     void run() override;
 
     void addMidiMessageToQueue(const juce::MidiMessage& msg);
+    void storeChordMelodyState(const py::dict& data, double bpmValue,
+        const juce::String& promptText, int chordCountSelection, int genreSelection);
+    py::dict getStoredChordMelodyState() const;
+    double getStoredChordMelodyBpm() const { return storedChordMelodyBpm; }
+    juce::String getStoredChordMelodyPrompt() const { return storedChordMelodyPrompt; }
+    int getStoredChordCountSelection() const { return storedChordCountSelection; }
+    int getStoredChordMelodyGenreSelection() const { return storedChordMelodyGenreSelection; }
     juce::AudioProcessorValueTreeState apvts;
     std::unique_ptr<PythonManager> pythonManager;
 
@@ -563,6 +570,13 @@ private:
 
     // El 'spec' guarda información como la frecuencia de muestreo
     juce::dsp::ProcessSpec spec;
+
+    // --- Estado persistente del generador de acordes y melodías ---
+    py::dict storedChordMelodyState;
+    double storedChordMelodyBpm = 120.0;
+    juce::String storedChordMelodyPrompt;
+    int storedChordCountSelection = 1;
+    int storedChordMelodyGenreSelection = 1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessor)
 };

@@ -15,6 +15,40 @@ void NeuraSynthAudioProcessor::addMidiMessageToQueue(const juce::MidiMessage& ms
     midiCollector.addMessageToQueue(messageWithTimestamp);
 }
 
+void NeuraSynthAudioProcessor::storeChordMelodyState(const py::dict& data, double bpmValue,
+    const juce::String& promptText, int chordCountSelection, int genreSelection)
+{
+    py::gil_scoped_acquire acquire;
+
+    storedChordMelodyBpm = bpmValue;
+    storedChordMelodyPrompt = promptText;
+    storedChordCountSelection = chordCountSelection > 0 ? chordCountSelection : 1;
+    storedChordMelodyGenreSelection = genreSelection > 0 ? genreSelection : 1;
+
+    if (data.is_none() || data.empty())
+    {
+        storedChordMelodyState = py::dict();
+        return;
+    }
+
+    static py::object deepcopyFunc = py::module::import("copy").attr("deepcopy");
+    py::dict copiedState = deepcopyFunc(data).cast<py::dict>();
+    copiedState[py::str("bpm")] = juce::roundToInt(bpmValue);
+    storedChordMelodyState = std::move(copiedState);
+}
+
+py::dict NeuraSynthAudioProcessor::getStoredChordMelodyState() const
+{
+    py::gil_scoped_acquire acquire;
+
+    if (storedChordMelodyState.empty())
+        return py::dict();
+
+    static py::object deepcopyFunc = py::module::import("copy").attr("deepcopy");
+    py::object result = deepcopyFunc(storedChordMelodyState);
+    return result.cast<py::dict>();
+}
+
 void NeuraSynthAudioProcessor::syncParameterToValue(const juce::String& paramID, float value, bool forceInteger)
 {
     if (auto* param = apvts.getParameter(paramID))

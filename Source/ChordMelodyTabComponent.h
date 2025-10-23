@@ -48,6 +48,8 @@ private:
     int getSelectedChordLimit() const;
     bool hasUsableChordContent(const py::dict& data) const;
     void applyMusicResult(py::dict data, bool pushHistory);
+    void restoreStateFromProcessor();
+    void persistCurrentStateToProcessor();
     juce::File exportChordsToFile(bool showDialog, bool notifyOnFailure);
     juce::File exportMelodyToFile(bool showDialog, bool notifyOnFailure);
     juce::File prepareChordMidiFileForDrag();
