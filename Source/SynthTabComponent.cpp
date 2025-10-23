@@ -534,7 +534,7 @@ SynthTabComponent::~SynthTabComponent()
 
 void SynthTabComponent::paint(juce::Graphics& g)
 {
-    // 1. Rellenamos todo el fondo de negro. Esto creará la barra negra inferior.
+    // 1. Rellenamos el fondo con negro como color de respaldo.
     g.fillAll(juce::Colours::black);
 
     if (backgroundImage.isValid())

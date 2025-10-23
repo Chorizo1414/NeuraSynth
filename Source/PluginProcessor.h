@@ -465,6 +465,11 @@ public:
     juce::String getStoredChordMelodyPrompt() const { return storedChordMelodyPrompt; }
     int getStoredChordCountSelection() const { return storedChordCountSelection; }
     int getStoredChordMelodyGenreSelection() const { return storedChordMelodyGenreSelection; }
+
+    void setStoredEditorScaleId(int newId) noexcept { storedEditorScaleId = newId; }
+    int getStoredEditorScaleId() const noexcept { return storedEditorScaleId; }
+    void setStoredEditorBounds(const juce::Rectangle<int>& bounds) noexcept { storedEditorBounds = bounds; }
+    juce::Rectangle<int> getStoredEditorBounds() const noexcept { return storedEditorBounds; }
     juce::AudioProcessorValueTreeState apvts;
     std::unique_ptr<PythonManager> pythonManager;
 
@@ -577,6 +582,9 @@ private:
     juce::String storedChordMelodyPrompt;
     int storedChordCountSelection = 1;
     int storedChordMelodyGenreSelection = 1;
+
+    int storedEditorScaleId = 2;
+    juce::Rectangle<int> storedEditorBounds{ 0, 0, 0, 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessor)
 };

@@ -6,6 +6,8 @@
 #include "ChordMelodyTabComponent.h"
 #include "CustomLookAndFeel.h"
 
+#include <array>
+
 class NeuraSynthAudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
@@ -14,6 +16,8 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void parentHierarchyChanged() override;
+	void globalScaleFactorChanged() override;
 
 private:
     NeuraSynthAudioProcessor& audioProcessor;
@@ -27,6 +31,24 @@ private:
 
     std::unique_ptr<juce::ComponentBoundsConstrainer> constrainer;
     CustomLookAndFeel customLookAndFeel;
+
+    struct ScaleOption
+    {
+        int id{};
+        juce::String label;
+        int width{};
+    };
+
+    static const std::array<ScaleOption, 3> scaleOptions;
+
+    ScaleOption currentScaleOption{};
+    bool isApplyingStoredSize = false;
+
+    void initialiseEditorSizeFromProcessor();
+    void applyScaleOption(int optionId, bool updateComboBoxSelection);
+    const ScaleOption* findScaleOptionById(int optionId) const;
+    juce::Rectangle<int> calculateEditorBoundsForOption(const ScaleOption& option) const;
+    void refreshParentConstraints(const juce::Rectangle<int>& targetBounds);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessorEditor)
 };
