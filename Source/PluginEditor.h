@@ -17,7 +17,6 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     void parentHierarchyChanged() override;
-	void globalScaleFactorChanged() override;
 
 private:
     NeuraSynthAudioProcessor& audioProcessor;

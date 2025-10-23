@@ -8,9 +8,9 @@
 // El alto se calcula dinámicamente a partir de LayoutConstants y la altura del TabBar.
 const std::array<NeuraSynthAudioProcessorEditor::ScaleOption, 3>
 NeuraSynthAudioProcessorEditor::scaleOptions{ {
-    { 1, "75%",  1440 },
-    { 2, "100%", 1920 },
-    { 3, "125%", 2340 },
+    { 1, "75%",  900 },
+    { 2, "100%", 1000 },
+    { 3, "125%", 1200 },
 } };
 
 NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioProcessor& p)
@@ -104,15 +104,6 @@ void NeuraSynthAudioProcessorEditor::parentHierarchyChanged()
         refreshParentConstraints(calculateEditorBoundsForOption(currentScaleOption));
 }
 
-// Se llama si cambia el factor global de escala del sistema
-void NeuraSynthAudioProcessorEditor::globalScaleFactorChanged()
-{
-    juce::AudioProcessorEditor::globalScaleFactorChanged();
-
-    if (currentScaleOption.id != 0)
-        applyScaleOption(currentScaleOption.id, true);
-}
-
 // Lee del processor la última escala/tamaño y lo aplica
 void NeuraSynthAudioProcessorEditor::initialiseEditorSizeFromProcessor()
 {
@@ -188,10 +179,18 @@ void NeuraSynthAudioProcessorEditor::refreshParentConstraints(const juce::Rectan
         {
             if (auto* window = dynamic_cast<juce::ResizableWindow*>(parent))
             {
-                window->setResizeLimits(targetBounds.getWidth(), targetBounds.getHeight(),
-                    targetBounds.getWidth(), targetBounds.getHeight());
                 window->setResizable(true, false);
                 window->setConstrainer(constrainer.get());
+
+                if (auto* windowConstrainer = window->getConstrainer())
+                {
+                    windowConstrainer->setSizeLimits(targetBounds.getWidth(), targetBounds.getHeight(), targetBounds.getWidth(), targetBounds.getHeight());
+                    windowConstrainer->setFixedAspectRatio(static_cast<double>(targetBounds.getWidth()) / static_cast<double>(targetBounds.getHeight()));
+                }
+                else
+                {
+                    window->setResizeLimits(targetBounds.getWidth(), targetBounds.getHeight(), targetBounds.getWidth(), targetBounds.getHeight());
+                }
 
                 if (window->getWidth() != targetBounds.getWidth()
                     || window->getHeight() != targetBounds.getHeight())
