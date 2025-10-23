@@ -470,6 +470,7 @@ public:
     int getStoredEditorScaleId() const noexcept { return storedEditorScaleId; }
     void setStoredEditorBounds(const juce::Rectangle<int>& bounds) noexcept { storedEditorBounds = bounds; }
     juce::Rectangle<int> getStoredEditorBounds() const noexcept { return storedEditorBounds; }
+    bool isStandaloneApp() const noexcept;
     juce::AudioProcessorValueTreeState apvts;
     std::unique_ptr<PythonManager> pythonManager;
 

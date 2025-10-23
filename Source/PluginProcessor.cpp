@@ -49,6 +49,15 @@ py::dict NeuraSynthAudioProcessor::getStoredChordMelodyState() const
     return result.cast<py::dict>();
 }
 
+bool NeuraSynthAudioProcessor::isStandaloneApp() const noexcept
+{
+#if JucePlugin_Build_Standalone
+    return true;
+#else
+    return false;
+#endif
+}
+
 void NeuraSynthAudioProcessor::syncParameterToValue(const juce::String& paramID, float value, bool forceInteger)
 {
     if (auto* param = apvts.getParameter(paramID))

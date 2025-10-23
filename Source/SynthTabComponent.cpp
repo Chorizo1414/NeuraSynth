@@ -563,7 +563,9 @@ void SynthTabComponent::resized()
 
     const float designSynthHeight = (float)LayoutConstants::DESIGN_SYNTH_HEIGHT;
     const float designKeyboardHeight = (float)LayoutConstants::KEYBOARD_HEIGHT;
-    const float designBottomMargin = (float)LayoutConstants::KEYBOARD_BOTTOM_MARGIN;
+    const float designBottomMargin = audioProcessor.isStandaloneApp()
+        ? (float)LayoutConstants::KEYBOARD_BOTTOM_MARGIN
+        : 0.0f;
     const float designTotalHeight = designSynthHeight + designKeyboardHeight + designBottomMargin;
 
     const float widthScale = totalBounds.getWidth() > 0
@@ -578,7 +580,7 @@ void SynthTabComponent::resized()
     const int scaledSynthHeight = juce::roundToInt(LayoutConstants::DESIGN_SYNTH_HEIGHT * contentScale);
     int scaledKeyboardHeight = juce::roundToInt(LayoutConstants::KEYBOARD_HEIGHT * contentScale);
     const int scaledBottomMargin = juce::jlimit(0, totalBounds.getHeight(),
-        juce::roundToInt(LayoutConstants::KEYBOARD_BOTTOM_MARGIN * contentScale));
+        juce::roundToInt(designBottomMargin * contentScale));
     scaledKeyboardHeight = juce::jmax(0, juce::jmin(scaledKeyboardHeight, totalBounds.getHeight() - scaledBottomMargin));
 
     const int horizontalPadding = juce::jmax(0, (totalBounds.getWidth() - scaledWidth) / 2);
