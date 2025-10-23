@@ -59,8 +59,12 @@ private:
     void updateUndoRedoButtonStates();
     void addToHistory(const pybind11::dict& newPatch);
     void refreshWaveDisplaysFromProcessor();
+    void syncUIWithProcessorState();
     std::vector<pybind11::dict> patchHistory;
     int currentHistoryIndex = -1;
+
+    bool isRestoringState = false;
+    bool ignoreWaveSelectionCallbacks = false;
 
     juce::ComponentDragger componentDragger;
 

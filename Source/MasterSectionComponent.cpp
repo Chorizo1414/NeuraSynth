@@ -4,18 +4,20 @@
 #include "PluginEditor.h"
 
 MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
-    masterGainKnob(BinaryData::knobmastergain_png, BinaryData::knobmastergain_pngSize, 300.0f, 0.7),
-    glideKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
-    darkKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
-    brightKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
-    driveKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
-    chorusButton("ChorusButton")
+masterGainKnob(BinaryData::knobmastergain_png, BinaryData::knobmastergain_pngSize, 300.0f, 0.7),
+glideKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
+darkKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
+brightKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
+driveKnob(BinaryData::knobmaster_png, BinaryData::knobmaster_pngSize, 300.0f, 0.0),
+chorusButton("ChorusButton")
 {
     // Función auxiliar para configurar knobs
     auto setupKnob = [&](CustomKnob& knob, float minRange, float maxRange, auto setter) {
         addAndMakeVisible(knob);
         knob.setRange(minRange, maxRange);
         knob.onValueChange = [this, setter, &knob]() {
+            if (suppressCallbacks)
+                return;
             (audioProcessor.*setter)(knob.getValue());
             };
         };
@@ -26,7 +28,7 @@ MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : au
     setupKnob(darkKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setDark);
     setupKnob(brightKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setBright);
     setupKnob(driveKnob, 0.0f, 1.0f, &NeuraSynthAudioProcessor::setDrive);
-    
+
     // Valores iniciales
     masterGainKnob.setValue(0.7, juce::dontSendNotification);
     glideKnob.setValue(0.0, juce::dontSendNotification);
@@ -41,68 +43,67 @@ MasterSectionComponent::MasterSectionComponent(NeuraSynthAudioProcessor& p) : au
     auto normalImage = juce::ImageCache::getFromMemory(BinaryData::button_png, BinaryData::button_pngSize);
     auto toggledImage = juce::ImageCache::getFromMemory(BinaryData::buttonreverse_png, BinaryData::buttonreverse_pngSize);
 
-    // Imagen inicial: solo normal para todos los estados
-    chorusButton.setImages(
-        false, true, true,
-        normalImage, 1.0f, juce::Colours::transparentBlack,
-        normalImage, 1.0f, juce::Colours::transparentBlack,
-        normalImage, 1.0f, juce::Colours::transparentBlack
-    );
+    auto applyChorusImages = [this, normalImage, toggledImage](bool enabled)
+        {
+            const auto& image = enabled ? toggledImage : normalImage;
 
-    chorusButton.onClick = [this, normalImage, toggledImage]() {
-        audioProcessor.setChorus(chorusButton.getToggleState());
-        if (chorusButton.getToggleState())
-        {
             chorusButton.setImages(
                 false, true, true,
-                toggledImage, 1.0f, juce::Colours::transparentBlack,
-                toggledImage, 1.0f, juce::Colours::transparentBlack,
-                toggledImage, 1.0f, juce::Colours::transparentBlack
+                image, 1.0f, juce::Colours::transparentBlack,
+                image, 1.0f, juce::Colours::transparentBlack,
+                image, 1.0f, juce::Colours::transparentBlack
             );
-        }
-        else
+        };
+
+    applyChorusImages(false);
+
+    chorusButton.onClick = [this, applyChorusImages]()
         {
-            chorusButton.setImages(
-                false, true, true,
-                normalImage, 1.0f, juce::Colours::transparentBlack,
-                normalImage, 1.0f, juce::Colours::transparentBlack,
-                normalImage, 1.0f, juce::Colours::transparentBlack
-            );
-        }
+            const bool enabled = chorusButton.getToggleState();
+
+            if (!suppressCallbacks)
+                audioProcessor.setChorus(enabled);
+
+            applyChorusImages(enabled);
         };
 
 }
 
 MasterSectionComponent::~MasterSectionComponent() {}
 
-void MasterSectionComponent::setMasterGain(float value)
+void MasterSectionComponent::setMasterGain(float value, juce::NotificationType notification)
 {
-    masterGainKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    masterGainKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void MasterSectionComponent::setGlide(float value)
+void MasterSectionComponent::setGlide(float value, juce::NotificationType notification)
 {
-    glideKnob.setValue(juce::jlimit(0.0f, 2.0f, value), juce::sendNotificationSync);
+    glideKnob.setValue(juce::jlimit(0.0f, 2.0f, value), notification);
 }
 
-void MasterSectionComponent::setDark(float value)
+void MasterSectionComponent::setDark(float value, juce::NotificationType notification)
 {
-    darkKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    darkKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void MasterSectionComponent::setBright(float value)
+void MasterSectionComponent::setBright(float value, juce::NotificationType notification)
 {
-    brightKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    brightKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void MasterSectionComponent::setDrive(float value)
+void MasterSectionComponent::setDrive(float value, juce::NotificationType notification)
 {
-    driveKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    driveKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void MasterSectionComponent::setChorusEnabled(bool enabled)
+void MasterSectionComponent::setChorusEnabled(bool enabled, juce::NotificationType notification)
 {
-    chorusButton.setToggleState(enabled, juce::sendNotificationSync);
+    chorusButton.setToggleState(enabled, notification);
+}
+
+void MasterSectionComponent::setCallbacksSuppressed(bool shouldSuppress)
+{
+    suppressCallbacks = shouldSuppress;
 }
 
 void MasterSectionComponent::paint(juce::Graphics& g)
@@ -122,24 +123,24 @@ void MasterSectionComponent::resized()
 {
     // El componente ya tiene el tamaño correcto gracias al PluginEditor.
     // Ahora escalamos los knobs internos basándonos en el plano de diseño.
-      
+
     // 1. Obtenemos las dimensiones de diseño de esta sección desde el plano.
     const auto& designBounds = LayoutConstants::MASTER_SECTION;
-    
+
     // 2. Calculamos los factores de escala LOCALES (solo para este componente).
     float scaleX = (float)getWidth() / designBounds.getWidth();
     float scaleY = (float)getHeight() / designBounds.getHeight();
-   
+
     // 3. Función auxiliar para simplificar el posicionamiento.
     auto scaleAndSet = [&](juce::Component& comp, const juce::Rectangle<float>& designRect)
-    {
+        {
             juce::Rectangle<float> scaled(designRect.getX() * scaleX,
                 designRect.getY() * scaleY,
                 designRect.getWidth() * scaleX,
                 designRect.getHeight() * scaleY);
             comp.setBounds(scaled.toNearestInt());
-    };
-    
+        };
+
     // 4. Aplicamos el posicionamiento a cada control usando el plano.
     scaleAndSet(masterGainKnob, LayoutConstants::Master::MASTER_GAIN_KNOB);
     scaleAndSet(glideKnob, LayoutConstants::Master::GLIDE_KNOB);

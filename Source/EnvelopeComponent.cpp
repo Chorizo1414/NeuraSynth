@@ -20,13 +20,20 @@ releaseKnob(BinaryData::knobenvelope_png, BinaryData::knobenvelope_pngSize, 300.
 	addAndMakeVisible(releaseKnob);
 	releaseKnob.setRange(0.0, 5.0);
 	
-	auto updateEnvelope = [this]() {
+	suppressCallbacks = true;
+
+	auto updateEnvelope = [this]()
+	{
 		float attack = attackKnob.getValue();
 		float decay = decayKnob.getValue();
 		float sustain = sustainKnob.getValue();
 		float release = releaseKnob.getValue();
 		
 		envelopeDisplay.setADSR(attack, decay, sustain, release);
+
+		if (suppressCallbacks)
+			return;
+
 		audioProcessor.setAttack(attack);
 		audioProcessor.setDecay(decay);
 		audioProcessor.setSustain(sustain);
@@ -39,6 +46,7 @@ releaseKnob(BinaryData::knobenvelope_png, BinaryData::knobenvelope_pngSize, 300.
 	releaseKnob.onValueChange = updateEnvelope;
 	
 	updateEnvelope();
+	suppressCallbacks = false;
 }
 
 EnvelopeComponent::~EnvelopeComponent() {}
@@ -77,22 +85,27 @@ void EnvelopeComponent::resized()
     scaleAndSet(releaseKnob, LayoutConstants::Envelope::RELEASE_KNOB);
 }
 
-void EnvelopeComponent::setAttackValue(float value)
+void EnvelopeComponent::setAttackValue(float value, juce::NotificationType notification)
 {
-	attackKnob.setValue(value, juce::sendNotificationSync);
+	attackKnob.setValue(value, notification);
 }
 
-void EnvelopeComponent::setDecayValue(float value)
+void EnvelopeComponent::setDecayValue(float value, juce::NotificationType notification)
 {
-	decayKnob.setValue(value, juce::sendNotificationSync);
+	decayKnob.setValue(value, notification);
 }
 
-void EnvelopeComponent::setSustainValue(float value)
+void EnvelopeComponent::setSustainValue(float value, juce::NotificationType notification)
 {
-	sustainKnob.setValue(value, juce::sendNotificationSync);
+	sustainKnob.setValue(value, notification);
 }
 
-void EnvelopeComponent::setReleaseValue(float value)
+void EnvelopeComponent::setReleaseValue(float value, juce::NotificationType notification)
 {
-	releaseKnob.setValue(value, juce::sendNotificationSync);
+	releaseKnob.setValue(value, notification);
+}
+
+void EnvelopeComponent::setCallbacksSuppressed(bool shouldSuppress)
+{
+	suppressCallbacks = shouldSuppress;
 }

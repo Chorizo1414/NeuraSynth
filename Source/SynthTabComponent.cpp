@@ -96,31 +96,31 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
             // Octave: 0 (centro) en un rango de -2 a 2
             osc.octKnob.setRange(-2.0, 2.0, 1.0);
-            osc.octKnob.setValue(0.0);
+            osc.octKnob.setValue(0.0, juce::dontSendNotification);
 
             // Fine: 0 (centro) en un rango de -50 a 50 cents
             osc.fineKnob.setRange(-50.0, 50.0);
-            osc.fineKnob.setValue(0.0);
+            osc.fineKnob.setValue(0.0, juce::dontSendNotification);
 
             // Pitch: 0 (centro) en un rango de -12 a 12 semitonos
             osc.pitchKnob.setRange(-12.0, 12.0, 1.0);
-            osc.pitchKnob.setValue(0.0);
+            osc.pitchKnob.setValue(0.0, juce::dontSendNotification);
 
             // Spread: 0.0 (mono) a 0.5 (ancho completo)
             osc.spreadKnob.setRange(0.0, 2.5);
-            osc.spreadKnob.setValue(0.0);
+            osc.spreadKnob.setValue(0.0, juce::dontSendNotification);
 
             // Pan (L/R): 0.5 (centro)
             osc.panKnob.setRange(0.0, 1.0);
-            osc.panKnob.setValue(0.5);
+            osc.panKnob.setValue(0.5, juce::dontSendNotification);
 
             // Position: 0.0 (izquierda)
             osc.positionKnob.setRange(0.0, 1.0);
-            osc.positionKnob.setValue(0.0);
+            osc.positionKnob.setValue(0.0, juce::dontSendNotification);
 
             // Gain: 0.5 (centro)
             osc.gainKnob.setRange(0.0, 1.0);
-            osc.gainKnob.setValue(0.5);
+            osc.gainKnob.setValue(0.5, juce::dontSendNotification);
         };
 
     setupOscillatorKnobs(osc1);
@@ -128,54 +128,132 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     setupOscillatorKnobs(osc3);
 
     // Conexion de Callbacks para el Oscilador 1 (el que est  activo)
-    osc1.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
-        audioProcessor.setWavetable1(buffer);
+    osc1.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer, const juce::String& sourceName) {
+        if (!ignoreWaveSelectionCallbacks && !isRestoringState)
+            audioProcessor.setWavetable1(buffer, sourceName);
         osc1.waveDisplay.setAudioBuffer(buffer, audioProcessor.getNumFrames1());
         };
-    osc1.gainKnob.onValueChange = [this]() { audioProcessor.setOsc1Gain(osc1.gainKnob.getValue()); };
-    osc1.panKnob.onValueChange = [this]() { audioProcessor.setOsc1Pan(osc1.panKnob.getValue()); };
-    osc1.octKnob.onValueChange = [this]() { audioProcessor.setOsc1Octave(static_cast<int>(osc1.octKnob.getValue())); };
-    osc1.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc1Pitch(static_cast<int>(osc1.pitchKnob.getValue())); };
-    osc1.fineKnob.onValueChange = [this]() { audioProcessor.setOsc1FineTune(osc1.fineKnob.getValue()); };
-    osc1.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc1Spread(osc1.spreadKnob.getValue()); };
+    osc1.gainKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1Gain(osc1.gainKnob.getValue());
+        };
+    osc1.panKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1Pan(osc1.panKnob.getValue());
+        };
+    osc1.octKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1Octave(static_cast<int>(osc1.octKnob.getValue()));
+        };
+    osc1.pitchKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1Pitch(static_cast<int>(osc1.pitchKnob.getValue()));
+        };
+    osc1.fineKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1FineTune(osc1.fineKnob.getValue());
+        };
+    osc1.spreadKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1Spread(osc1.spreadKnob.getValue());
+        };
     osc1.positionKnob.onValueChange = [this]() {
         float newPosition = osc1.positionKnob.getValue();
-        audioProcessor.setWavePosition1(newPosition);
+        if (!isRestoringState)
+            audioProcessor.setWavePosition1(newPosition);
         osc1.waveDisplay.setDisplayPosition(newPosition);
         };
 
     // Conexion de displays para OSC2 y OSC3 (solo visual, sin afectar audio)
-    osc2.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
-        audioProcessor.setWavetable2(buffer);
+    osc2.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer, const juce::String& sourceName) {
+        if (!ignoreWaveSelectionCallbacks && !isRestoringState)
+            audioProcessor.setWavetable2(buffer, sourceName);
         osc2.waveDisplay.setAudioBuffer(buffer, audioProcessor.getNumFrames2());
         };
-    osc2.gainKnob.onValueChange = [this]() { audioProcessor.setOsc2Gain(osc2.gainKnob.getValue()); };
-    osc2.panKnob.onValueChange = [this]() { audioProcessor.setOsc2Pan(osc2.panKnob.getValue()); };
-    osc2.octKnob.onValueChange = [this]() { audioProcessor.setOsc2Octave(static_cast<int>(osc2.octKnob.getValue())); };
-    osc2.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc2Pitch(static_cast<int>(osc2.pitchKnob.getValue())); };
-    osc2.fineKnob.onValueChange = [this]() { audioProcessor.setOsc2FineTune(osc2.fineKnob.getValue()); };
-    osc2.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc2Spread(osc2.spreadKnob.getValue()); };
+    osc2.gainKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc2Gain(osc2.gainKnob.getValue());
+        };
+    osc2.panKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc2Pan(osc2.panKnob.getValue());
+        };
+    osc2.octKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc2Octave(static_cast<int>(osc2.octKnob.getValue()));
+        };
+    osc2.pitchKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc2Pitch(static_cast<int>(osc2.pitchKnob.getValue()));
+        };
+    osc2.fineKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc2FineTune(osc2.fineKnob.getValue());
+        };
+    osc2.spreadKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc2Spread(osc2.spreadKnob.getValue());
+        };
     osc2.positionKnob.onValueChange = [this]() {
         float newPosition = osc2.positionKnob.getValue();
-        audioProcessor.setWavePosition2(newPosition);
+        if (!isRestoringState)
+            audioProcessor.setWavePosition2(newPosition);
         osc2.waveDisplay.setDisplayPosition(newPosition);
         };
 
     // --- Conexi n de Callbacks para el Oscilador 3 ---
-    osc3.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer) {
-        audioProcessor.setWavetable3(buffer);
+    osc3.oscSection.onWaveLoaded = [this](const juce::AudioBuffer<float>& buffer, const juce::String& sourceName) {
+        if (!ignoreWaveSelectionCallbacks && !isRestoringState)
+            audioProcessor.setWavetable3(buffer, sourceName);
         if (buffer.getNumSamples() > 0 && buffer.getNumSamples() % 2048 == 0)
             osc3.waveDisplay.setAudioBuffer(buffer, audioProcessor.getNumFrames3());
         };
-    osc3.gainKnob.onValueChange = [this]() { audioProcessor.setOsc3Gain(osc3.gainKnob.getValue()); };
-    osc3.panKnob.onValueChange = [this]() { audioProcessor.setOsc3Pan(osc3.panKnob.getValue()); };
-    osc3.octKnob.onValueChange = [this]() { audioProcessor.setOsc3Octave(static_cast<int>(osc3.octKnob.getValue())); };
-    osc3.pitchKnob.onValueChange = [this]() { audioProcessor.setOsc3Pitch(static_cast<int>(osc3.pitchKnob.getValue())); };
-    osc3.fineKnob.onValueChange = [this]() { audioProcessor.setOsc3FineTune(osc3.fineKnob.getValue()); };
-    osc3.spreadKnob.onValueChange = [this]() { audioProcessor.setOsc3Spread(osc3.spreadKnob.getValue()); };
+    osc3.gainKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc3Gain(osc3.gainKnob.getValue());
+        };
+    osc3.panKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc3Pan(osc3.panKnob.getValue());
+        };
+    osc3.octKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc3Octave(static_cast<int>(osc3.octKnob.getValue()));
+        };
+    osc3.pitchKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc3Pitch(static_cast<int>(osc3.pitchKnob.getValue()));
+        };
+    osc3.fineKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc3FineTune(osc3.fineKnob.getValue());
+        };
+    osc3.spreadKnob.onValueChange = [this]() {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc3Spread(osc3.spreadKnob.getValue());
+        };
     osc3.positionKnob.onValueChange = [this]() {
         float newPosition = osc3.positionKnob.getValue();
-        audioProcessor.setWavePosition3(newPosition);
+        if (!isRestoringState)
+            audioProcessor.setWavePosition3(newPosition);
         osc3.waveDisplay.setDisplayPosition(newPosition);
         };
 
@@ -185,9 +263,12 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     if (!waveFolder.exists())
         DBG("No se encontró la carpeta de wavetables en las rutas esperadas. Se utilizarán los recursos internos.");
 
-    osc1.oscSection.loadWavetablesFromFolder(waveFolder);
-    osc2.oscSection.loadWavetablesFromFolder(waveFolder);
-    osc3.oscSection.loadWavetablesFromFolder(waveFolder);
+    {
+        juce::ScopedValueSetter<bool> ignoreGuard(ignoreWaveSelectionCallbacks, true);
+        osc1.oscSection.loadWavetablesFromFolder(waveFolder);
+        osc2.oscSection.loadWavetablesFromFolder(waveFolder);
+        osc3.oscSection.loadWavetablesFromFolder(waveFolder);
+    }
 
     // --- SECCI N UNISON ---
     addAndMakeVisible(unisonComp1);
@@ -195,9 +276,21 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
     addAndMakeVisible(unisonComp3);
 
     // Conexi n de Callbacks para el Unison del Oscilador 1
-    unisonComp1.onVoicesChanged = [this](int voices) { audioProcessor.setOsc1UnisonVoices(voices); };
-    unisonComp1.onDetuneChanged = [this](float detune) { audioProcessor.setOsc1UnisonDetune(detune); };
-    unisonComp1.onBalanceChanged = [this](float balance) { audioProcessor.setOsc1UnisonBalance(balance); };
+    unisonComp1.onVoicesChanged = [this](int voices) {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1UnisonVoices(voices);
+        };
+    unisonComp1.onDetuneChanged = [this](float detune) {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1UnisonDetune(detune);
+        };
+    unisonComp1.onBalanceChanged = [this](float balance) {
+        if (isRestoringState)
+            return;
+        audioProcessor.setOsc1UnisonBalance(balance);
+        };
     // (Los callbacks para unison 2 y 3 se a adir n cuando el procesador los soporte)
 
     // Agregar y configurar controles de master
@@ -375,7 +468,7 @@ SynthTabComponent::SynthTabComponent(NeuraSynthAudioProcessor& p)
 
     populatePresets();
 
-    refreshWaveDisplaysFromProcessor();
+    syncUIWithProcessorState();
 
     // --- Botón de ayuda para tipos de sonido ---
     addAndMakeVisible(soundTypesHelpButton);
@@ -755,6 +848,124 @@ void SynthTabComponent::updateUndoRedoButtonStates()
 
     // Habilitar "Redo" si hay elementos posteriores en el historial
     redoButton.setEnabled(currentHistoryIndex < (int)patchHistory.size() - 1);
+}
+
+void SynthTabComponent::syncUIWithProcessorState()
+{
+    juce::ScopedValueSetter<bool> restoringGuard(isRestoringState, true);
+
+    masterSection.setCallbacksSuppressed(true);
+    masterSection.setMasterGain(audioProcessor.getMasterGain(), juce::dontSendNotification);
+    masterSection.setGlide(audioProcessor.getGlideSeconds(), juce::dontSendNotification);
+    masterSection.setDark(audioProcessor.getDarkAmount(), juce::dontSendNotification);
+    masterSection.setBright(audioProcessor.getBrightAmount(), juce::dontSendNotification);
+    masterSection.setDrive(audioProcessor.getDriveAmount(), juce::dontSendNotification);
+    masterSection.setChorusEnabled(audioProcessor.isChorusEnabled(), juce::sendNotificationSync);
+    masterSection.setCallbacksSuppressed(false);
+
+    envelopeSection.setCallbacksSuppressed(true);
+    envelopeSection.setAttackValue(audioProcessor.getAttack(), juce::sendNotificationSync);
+    envelopeSection.setDecayValue(audioProcessor.getDecay(), juce::sendNotificationSync);
+    envelopeSection.setSustainValue(audioProcessor.getSustain(), juce::sendNotificationSync);
+    envelopeSection.setReleaseValue(audioProcessor.getRelease(), juce::sendNotificationSync);
+    envelopeSection.setCallbacksSuppressed(false);
+
+    filterSection.setCallbacksSuppressed(true);
+    filterSection.setCutoffValue(audioProcessor.getFilterCutoff(), juce::dontSendNotification);
+    filterSection.setResonanceValue(audioProcessor.getFilterQ(), juce::dontSendNotification);
+    filterSection.setEnvAmountValue(audioProcessor.getFilterEnvAmt(), juce::dontSendNotification);
+    filterSection.setKeyTrackEnabled(audioProcessor.getKeyTrack(), juce::dontSendNotification);
+    filterSection.setCallbacksSuppressed(false);
+
+    modulationComp.setCallbacksSuppressed(true);
+    modulationComp.setFmAmountValue(audioProcessor.getFMAmount(), juce::dontSendNotification);
+    modulationComp.setLfoSpeedValue(audioProcessor.getLfoSpeed(), juce::dontSendNotification);
+    modulationComp.setLfoAmountValue(audioProcessor.getLfoAmount(), juce::dontSendNotification);
+    modulationComp.setCallbacksSuppressed(false);
+
+    reverbSection.setCallbacksSuppressed(true);
+    reverbSection.setDryLevel(audioProcessor.getReverbDry(), juce::dontSendNotification);
+    reverbSection.setWetLevel(audioProcessor.getReverbWet(), juce::dontSendNotification);
+    reverbSection.setRoomSize(audioProcessor.getReverbRoomSize(), juce::dontSendNotification);
+    reverbSection.setPreDelay(audioProcessor.getReverbPreDelay(), juce::dontSendNotification);
+    reverbSection.setDiffusion(audioProcessor.getReverbDiffusion(), juce::dontSendNotification);
+    reverbSection.setDamping(audioProcessor.getReverbDamping(), juce::dontSendNotification);
+    reverbSection.setDecay(audioProcessor.getReverbDecay(), juce::dontSendNotification);
+    reverbSection.setCallbacksSuppressed(false);
+
+    delaySection.setCallbacksSuppressed(true);
+    delaySection.setDryLevel(audioProcessor.getDelayDry(), juce::dontSendNotification);
+    delaySection.setCenterLevel(audioProcessor.getDelayWet(), juce::dontSendNotification);
+    delaySection.setSideLevel(audioProcessor.getDelaySide(), juce::dontSendNotification);
+    delaySection.setHighPass(audioProcessor.getDelayHP(), juce::dontSendNotification);
+    delaySection.setLowPass(audioProcessor.getDelayLP(), juce::dontSendNotification);
+    delaySection.setTimeLeft(audioProcessor.getDelayTimeLeft(), juce::dontSendNotification);
+    delaySection.setTimeCenter(audioProcessor.getDelayTimeCenter(), juce::dontSendNotification);
+    delaySection.setTimeRight(audioProcessor.getDelayTimeRight(), juce::dontSendNotification);
+    delaySection.setWowDepth(audioProcessor.getDelayWowDepth(), juce::dontSendNotification);
+    delaySection.setFeedback(audioProcessor.getDelayFeedback(), juce::dontSendNotification);
+    delaySection.setCallbacksSuppressed(false);
+
+    auto syncOscillator = [this](OscillatorComponent& osc,
+        float gain, float pan, int octave, int pitch, double fine, float spread, float position)
+        {
+            osc.gainKnob.setValue(gain, juce::dontSendNotification);
+            osc.panKnob.setValue(pan, juce::dontSendNotification);
+            osc.octKnob.setValue(octave, juce::dontSendNotification);
+            osc.pitchKnob.setValue(pitch, juce::dontSendNotification);
+            osc.fineKnob.setValue(fine, juce::dontSendNotification);
+            osc.spreadKnob.setValue(spread, juce::dontSendNotification);
+            osc.positionKnob.setValue(position, juce::dontSendNotification);
+            osc.waveDisplay.setDisplayPosition(juce::jlimit(0.0f, 1.0f, position));
+        };
+
+    syncOscillator(osc1,
+        audioProcessor.getOsc1Gain(),
+        audioProcessor.getOsc1Pan(),
+        audioProcessor.getOsc1Octave(),
+        audioProcessor.getOsc1Pitch(),
+        audioProcessor.getOsc1Fine(),
+        audioProcessor.getOsc1Spread(),
+        audioProcessor.getWavePosition1());
+
+    syncOscillator(osc2,
+        audioProcessor.getOsc2Gain(),
+        audioProcessor.getOsc2Pan(),
+        audioProcessor.getOsc2Octave(),
+        audioProcessor.getOsc2Pitch(),
+        audioProcessor.getOsc2Fine(),
+        audioProcessor.getOsc2Spread(),
+        audioProcessor.getWavePosition2());
+
+    syncOscillator(osc3,
+        audioProcessor.getOsc3Gain(),
+        audioProcessor.getOsc3Pan(),
+        audioProcessor.getOsc3Octave(),
+        audioProcessor.getOsc3Pitch(),
+        audioProcessor.getOsc3Fine(),
+        audioProcessor.getOsc3Spread(),
+        audioProcessor.getWavePosition3());
+
+    unisonComp1.setVoices(audioProcessor.getOsc1UnisonVoices());
+    unisonComp1.setDetune(audioProcessor.getOsc1UnisonDetune());
+    unisonComp1.setBalance(audioProcessor.getOsc1UnisonBalance());
+
+    {
+        juce::ScopedValueSetter<bool> ignoreGuard(ignoreWaveSelectionCallbacks, true);
+        const auto wave1 = audioProcessor.getWavetable1Name();
+        if (wave1.isNotEmpty())
+            osc1.oscSection.selectWaveByFilename(wave1, juce::dontSendNotification);
+
+        const auto wave2 = audioProcessor.getWavetable2Name();
+        if (wave2.isNotEmpty())
+            osc2.oscSection.selectWaveByFilename(wave2, juce::dontSendNotification);
+
+        const auto wave3 = audioProcessor.getWavetable3Name();
+        if (wave3.isNotEmpty())
+            osc3.oscSection.selectWaveByFilename(wave3, juce::dontSendNotification);
+    }
+
+    refreshWaveDisplaysFromProcessor();
 }
 
 void SynthTabComponent::refreshWaveDisplaysFromProcessor()

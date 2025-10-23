@@ -6,7 +6,7 @@
 class OscillatorSection : public juce::Component
 {
 public:
-    std::function<void(const juce::AudioBuffer<float>&)> onWaveLoaded;
+    std::function<void(const juce::AudioBuffer<float>&, const juce::String&)> onWaveLoaded;
 
     OscillatorSection()
     {
@@ -112,7 +112,7 @@ public:
         }
 
         if (!waveEntries.empty())
-            waveSelector.setSelectedId(1);
+            waveSelector.setSelectedId(1, juce::dontSendNotification);
     }
 
     void resized() override
@@ -133,6 +133,18 @@ public:
         }
 
         return false;
+    }
+
+    juce::String getSelectedWaveIdentifier() const
+    {
+        const int selectedIndex = waveSelector.getSelectedItemIndex();
+        if (selectedIndex >= 0 && selectedIndex < (int)waveEntries.size())
+        {
+            const auto& entry = waveEntries[(size_t)selectedIndex];
+            return entry.fileName.isNotEmpty() ? entry.fileName : entry.displayName;
+        }
+
+        return {};
     }
 
 private:
@@ -261,11 +273,13 @@ private:
         {
             const auto& entry = waveEntries[(size_t)selectedIndex];
 
+            const auto identifier = entry.fileName.isNotEmpty() ? entry.fileName : entry.displayName;
+
             if (entry.usesInMemory)
             {
-                DBG("Oscillator wave changed to built-in wavetable: " << entry.fileName);
+                DBG("Oscillator wave changed to built-in wavetable: " << identifier);
                 if (onWaveLoaded)
-                    onWaveLoaded(entry.inMemoryBuffer);
+                    onWaveLoaded(entry.inMemoryBuffer, identifier);
                 return;
             }
 
@@ -284,7 +298,7 @@ private:
                     reader->read(&wavetableBuffer, 0, (int)reader->lengthInSamples, 0, true, true);
 
                     if (onWaveLoaded)
-                        onWaveLoaded(wavetableBuffer);
+                        onWaveLoaded(wavetableBuffer, identifier);
                 }
             }
         }

@@ -449,7 +449,7 @@ NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
         auto defaultName = WavetableHelper::wavetableNames[0];
         if (BuiltInWavetables::isAvailable(defaultName))
             if (const auto* buffer = BuiltInWavetables::getWavetable(defaultName))
-                setWavetable1(*buffer);
+                setWavetable1(*buffer, defaultName);
     }
 
     if (WavetableHelper::wavetableNames.size() > 1)
@@ -457,7 +457,7 @@ NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
         auto defaultName = WavetableHelper::wavetableNames[1];
         if (BuiltInWavetables::isAvailable(defaultName))
             if (const auto* buffer = BuiltInWavetables::getWavetable(defaultName))
-                setWavetable2(*buffer);
+                setWavetable2(*buffer, defaultName);
     }
 
     if (WavetableHelper::wavetableNames.size() > 2)
@@ -465,7 +465,7 @@ NeuraSynthAudioProcessor::NeuraSynthAudioProcessor()
         auto defaultName = WavetableHelper::wavetableNames[2];
         if (BuiltInWavetables::isAvailable(defaultName))
             if (const auto* buffer = BuiltInWavetables::getWavetable(defaultName))
-                setWavetable3(*buffer);
+                setWavetable3(*buffer, defaultName);
     }
 
     for (int i = 0; i < 16; ++i)
@@ -755,9 +755,29 @@ auto calculatePitchShift = [](int oct, int pitch, double fine)
     };
 
 // Setters de Wavetable
-void NeuraSynthAudioProcessor::setWavetable1(const juce::AudioBuffer<float>& b) { wavetable1.makeCopyOf(b); numFrames1 = b.getNumSamples() / 2048; }
-void NeuraSynthAudioProcessor::setWavetable2(const juce::AudioBuffer<float>& b) { wavetable2.makeCopyOf(b); numFrames2 = b.getNumSamples() / 2048; }
-void NeuraSynthAudioProcessor::setWavetable3(const juce::AudioBuffer<float>& b) { wavetable3.makeCopyOf(b); numFrames3 = b.getNumSamples() / 2048; }
+void NeuraSynthAudioProcessor::setWavetable1(const juce::AudioBuffer<float>& b, const juce::String& sourceName)
+{
+    wavetable1.makeCopyOf(b);
+    numFrames1 = b.getNumSamples() / 2048;
+    if (sourceName.isNotEmpty())
+        wavetable1Name = sourceName;
+}
+
+void NeuraSynthAudioProcessor::setWavetable2(const juce::AudioBuffer<float>& b, const juce::String& sourceName)
+{
+    wavetable2.makeCopyOf(b);
+    numFrames2 = b.getNumSamples() / 2048;
+    if (sourceName.isNotEmpty())
+        wavetable2Name = sourceName;
+}
+
+void NeuraSynthAudioProcessor::setWavetable3(const juce::AudioBuffer<float>& b, const juce::String& sourceName)
+{
+    wavetable3.makeCopyOf(b);
+    numFrames3 = b.getNumSamples() / 2048;
+    if (sourceName.isNotEmpty())
+        wavetable3Name = sourceName;
+}
 
 // Setters de Posición
 void NeuraSynthAudioProcessor::setWavePosition1(float p) { wavePosition1 = p; }
@@ -940,25 +960,33 @@ void NeuraSynthAudioProcessor::setChorus(bool isOn)
 
 void NeuraSynthAudioProcessor::setReverbDryLevel(float level) { reverbParams.dryLevel = level; reverb.setParameters(reverbParams); }
 void NeuraSynthAudioProcessor::setReverbWetLevel(float level) { reverbParams.wetLevel = level; reverb.setParameters(reverbParams); }
-void NeuraSynthAudioProcessor::setReverbRoomSize(float size) { reverbParams.roomSize = size; reverb.setParameters(reverbParams); }
+void NeuraSynthAudioProcessor::setReverbRoomSize(float size)
+{
+    reverbRoomSizeAmount = size;
+    reverbParams.roomSize = size;
+    reverb.setParameters(reverbParams);
+}
 void NeuraSynthAudioProcessor::setReverbDamping(float damping) { reverbParams.damping = damping; reverb.setParameters(reverbParams); }
 
 void NeuraSynthAudioProcessor::setReverbPreDelay(float delay)
 {
+    reverbPreDelayAmount = juce::jlimit(0.0f, 1.0f, delay);
     // Mapeamos el valor del knob (0-1) a un rango de ms (0-500)
-    float delayMs = juce::jmap(delay, 0.0f, 1.0f, 0.0f, 500.0f);
+    float delayMs = juce::jmap(reverbPreDelayAmount, 0.0f, 1.0f, 0.0f, 500.0f);
     preDelay.setDelay(getSampleRate() * delayMs / 1000.0f);
 }
 
 void NeuraSynthAudioProcessor::setReverbDiffusion(float diffusion)
 {
     // Mapeamos "Diffusion" al parámetro "width" de la reverb. Es una buena aproximación.
+    reverbDiffusionAmount = diffusion;
     reverbParams.width = diffusion;
     reverb.setParameters(reverbParams);
 }
 
 void NeuraSynthAudioProcessor::setReverbDecay(float decay)
 {
+    reverbDecayAmount = decay;
     // Mapeamos "Decay" al parámetro "roomSize", que controla el tiempo de la cola.
     reverbParams.roomSize = decay;
     reverb.setParameters(reverbParams);

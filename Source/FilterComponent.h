@@ -14,10 +14,11 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
-    void setCutoffValue(double hz);
-    void setResonanceValue(double q);
-    void setEnvAmountValue(double amount);
-    void setKeyTrackEnabled(bool enabled);
+    void setCutoffValue(double hz, juce::NotificationType notification = juce::sendNotificationSync);
+    void setResonanceValue(double q, juce::NotificationType notification = juce::sendNotificationSync);
+    void setEnvAmountValue(double amount, juce::NotificationType notification = juce::sendNotificationSync);
+    void setKeyTrackEnabled(bool enabled, juce::NotificationType notification = juce::sendNotificationSync);
+    void setCallbacksSuppressed(bool shouldSuppress);
 
 private:
     NeuraSynthAudioProcessor& audioProcessor;
@@ -26,7 +27,8 @@ private:
     CustomKnob filterResonanceKnob;
     CustomKnob filterEnvKnob;
     juce::ImageButton keyButton;
-    
+    bool suppressCallbacks = false;
+
     // Si usas el modo diseño, puedes añadir esto también
     // DesignMouseListener designMouseListener;
 };

@@ -290,9 +290,9 @@ public:
     void updateDelay();
 
     // --- Setters de Wavetable ---
-    void setWavetable1(const juce::AudioBuffer<float>& newWavetable);
-    void setWavetable2(const juce::AudioBuffer<float>& newWavetable);
-    void setWavetable3(const juce::AudioBuffer<float>& newWavetable);
+    void setWavetable1(const juce::AudioBuffer<float>& newWavetable, const juce::String& sourceName = {});
+    void setWavetable2(const juce::AudioBuffer<float>& newWavetable, const juce::String& sourceName = {});
+    void setWavetable3(const juce::AudioBuffer<float>& newWavetable, const juce::String& sourceName = {});
     int getNumFrames1() const { return numFrames1; }
     int getNumFrames2() const { return numFrames2; }
     int getNumFrames3() const { return numFrames3; }
@@ -381,10 +381,75 @@ public:
     void setDelayHPFreq(float freq);
     void setDelayWow(float depth);
 
+    float getMasterGain() const { return masterGain; }
+    float getGlideSeconds() const { return glideSeconds; }
+    float getDarkAmount() const { return darkAmount; }
+    float getBrightAmount() const { return brightAmount; }
+    float getDriveAmount() const { return driveAmount; }
+    bool isChorusEnabled() const { return chorusOn; }
+
+    float getAttack()   const { return adsrParams.attack; }
+    float getDecay()    const { return adsrParams.decay; }
+    float getSustain()  const { return adsrParams.sustain; }
+    float getRelease()  const { return adsrParams.release; }
+
+    float  getOsc1Gain()   const { return osc1Gain; }
+    int    getOsc1Octave() const { return osc1Octave; }
+    int    getOsc1Pitch()  const { return osc1PitchSemitones; }
+    double getOsc1Fine()   const { return osc1FineTuneCents; }
+    float  getOsc1Pan()    const { return osc1Pan; }
+    float  getOsc1Spread() const { return osc1Spread; }
+    int    getOsc1UnisonVoices()   const { return osc1UnisonVoices; }
+    float  getOsc1UnisonDetune()   const { return osc1UnisonDetune; }
+    float  getOsc1UnisonBalance()  const { return osc1UnisonBalance; }
+
+    float  getOsc2Gain()   const { return osc2Gain; }
+    int    getOsc2Octave() const { return osc2Octave; }
+    int    getOsc2Pitch()  const { return osc2PitchSemitones; }
+    double getOsc2Fine()   const { return osc2FineTuneCents; }
+    float  getOsc2Pan()    const { return osc2Pan; }
+    float  getOsc2Spread() const { return osc2Spread; }
+    double getOsc2Detune() const { return osc2DetuneCents; }
+
+    float  getOsc3Gain()   const { return osc3Gain; }
+    int    getOsc3Octave() const { return osc3Octave; }
+    int    getOsc3Pitch()  const { return osc3PitchSemitones; }
+    double getOsc3Fine()   const { return osc3FineTuneCents; }
+    float  getOsc3Pan()    const { return osc3Pan; }
+    float  getOsc3Spread() const { return osc3Spread; }
+    double getOsc3Detune() const { return osc3DetuneCents; }
+
+    float getFMAmount()   const { return fmAmount; }
+    float getLfoSpeed()   const { return lfoSpeedHz; }
+    float getLfoAmount()  const { return lfoAmount; }
+
     double getFilterCutoff()   const { return filterCutoffHz; }
     double getFilterQ()        const { return filterQ; }
     double getFilterEnvAmt()   const { return filterEnvAmt; }
     bool   getKeyTrack()       const { return keyTrack; }
+
+    float getDelayDry()    const { return delayDry; }
+    float getDelayWet()    const { return delayGainCenter; }
+    float getDelaySide()   const { return delayGainSide; }
+    float getDelayTimeLeft()   const { return juce::jmap(delayTimeLeftMs, 0.0f, 2000.0f, 0.0f, 1.0f); }
+    float getDelayTimeCenter() const { return juce::jmap(delayTimeCenterMs, 0.0f, 2000.0f, 0.0f, 1.0f); }
+    float getDelayTimeRight()  const { return juce::jmap(delayTimeRightMs, 0.0f, 2000.0f, 0.0f, 1.0f); }
+    float getDelayFeedback()   const { return delayFeedback; }
+    float getDelayLP()   const { return juce::jmap(delayLPFreq, 200.0f, 20000.0f, 0.0f, 1.0f); }
+    float getDelayHP()   const { return juce::jmap(delayHPFreq, 20.0f, 5000.0f, 0.0f, 1.0f); }
+    float getDelayWowDepth() const { return delayWowDepth; }
+
+    float getReverbDry()       const { return reverbParams.dryLevel; }
+    float getReverbWet()       const { return reverbParams.wetLevel; }
+    float getReverbRoomSize()  const { return reverbRoomSizeAmount; }
+    float getReverbDecay()     const { return reverbDecayAmount; }
+    float getReverbDamping()   const { return reverbParams.damping; }
+    float getReverbDiffusion() const { return reverbDiffusionAmount; }
+    float getReverbPreDelay()  const { return reverbPreDelayAmount; }
+
+    const juce::String& getWavetable1Name() const { return wavetable1Name; }
+    const juce::String& getWavetable2Name() const { return wavetable2Name; }
+    const juce::String& getWavetable3Name() const { return wavetable3Name; }
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::MidiKeyboardState keyboardState;
@@ -419,6 +484,7 @@ private:
     float osc1Spread = 0.0f, osc2Spread = 0.0f, osc3Spread = 0.0f;
     double osc2DetuneCents = 0.0, osc3DetuneCents = 0.0;
     juce::AudioBuffer<float> wavetable1, wavetable2, wavetable3;
+    juce::String wavetable1Name, wavetable2Name, wavetable3Name;
     int numFrames1 = 1, numFrames2 = 1, numFrames3 = 1;
 
     // --- Parámetros de Unison (para OSC 1) ---
@@ -472,6 +538,10 @@ private:
     // Objeto para el efecto de Reverb
     juce::dsp::Reverb reverb;
     juce::Reverb::Parameters reverbParams;
+    float reverbRoomSizeAmount = 0.7f;
+    float reverbDecayAmount = 0.5f;
+    float reverbDiffusionAmount = 0.8f;
+    float reverbPreDelayAmount = 0.1f;
 
     // --- Componentes para una Reverb "Vintage" ---
     // Delay para el Pre-Delay

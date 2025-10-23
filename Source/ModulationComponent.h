@@ -12,9 +12,10 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
-    void setFmAmountValue(float amount);
-    void setLfoSpeedValue(float hz);
-    void setLfoAmountValue(float amount);
+    void setFmAmountValue(float amount, juce::NotificationType notification = juce::sendNotificationSync);
+    void setLfoSpeedValue(float hz, juce::NotificationType notification = juce::sendNotificationSync);
+    void setLfoAmountValue(float amount, juce::NotificationType notification = juce::sendNotificationSync);
+    void setCallbacksSuppressed(bool shouldSuppress);
 
 private:
     NeuraSynthAudioProcessor& audioProcessor;
@@ -23,5 +24,6 @@ private:
     CustomKnob fmKnob;
     CustomKnob lfoSpeedKnob;
     CustomKnob lfoAmountKnob;
+    bool suppressCallbacks = false;
 
 };

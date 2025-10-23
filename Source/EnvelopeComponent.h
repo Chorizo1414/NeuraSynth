@@ -1,4 +1,4 @@
- // EnvelopeComponent.h
+// EnvelopeComponent.h
 #pragma once
 
 #include <JuceHeader.h>
@@ -9,22 +9,24 @@
 class EnvelopeComponent : public juce::Component
 {
 public:
-	EnvelopeComponent(NeuraSynthAudioProcessor& p);
-	~EnvelopeComponent() override;
-	void paint(juce::Graphics& g) override;
-	void resized() override;
+    EnvelopeComponent(NeuraSynthAudioProcessor& p);
+    ~EnvelopeComponent() override;
+    void paint(juce::Graphics& g) override;
+    void resized() override;
 
-	void setAttackValue(float value);
-	void setDecayValue(float value);
-	void setSustainValue(float value);
-	void setReleaseValue(float value);
-	
+    void setAttackValue(float value, juce::NotificationType notification = juce::sendNotificationSync);
+    void setDecayValue(float value, juce::NotificationType notification = juce::sendNotificationSync);
+    void setSustainValue(float value, juce::NotificationType notification = juce::sendNotificationSync);
+    void setReleaseValue(float value, juce::NotificationType notification = juce::sendNotificationSync);
+    void setCallbacksSuppressed(bool shouldSuppress);
+
 private:
-	NeuraSynthAudioProcessor & audioProcessor;
-	
-	EnvelopeDisplay envelopeDisplay;
-	CustomKnob attackKnob;
-	CustomKnob decayKnob;
-	CustomKnob sustainKnob;
-	CustomKnob releaseKnob;
+    NeuraSynthAudioProcessor& audioProcessor;
+
+    EnvelopeDisplay envelopeDisplay;
+    CustomKnob attackKnob;
+    CustomKnob decayKnob;
+    CustomKnob sustainKnob;
+    CustomKnob releaseKnob;
+    bool suppressCallbacks = false;
 };

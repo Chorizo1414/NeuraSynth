@@ -18,6 +18,8 @@ ReverbComponent::ReverbComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p
         addAndMakeVisible(knob);
         knob.setRange(0.0, 1.0);
         knob.onValueChange = [this, setter, &knob]() {
+            if (suppressCallbacks)
+                return;
             (audioProcessor.*setter)(knob.getValue());
         };
     };
@@ -31,50 +33,55 @@ ReverbComponent::ReverbComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p
     setupKnob(decayKnob,     &NeuraSynthAudioProcessor::setReverbDecay);
 
     // Asignamos los valores iniciales para que coincidan con el motor de audio
-    dryKnob.setValue(0.8, juce::sendNotificationSync);
-    wetKnob.setValue(0.1, juce::sendNotificationSync);
-    sizeKnob.setValue(0.7, juce::sendNotificationSync);
-    preDelayKnob.setValue(0.1, juce::sendNotificationSync);
-    diffusionKnob.setValue(0.8, juce::sendNotificationSync);
-    dampKnob.setValue(0.8, juce::sendNotificationSync);
-    decayKnob.setValue(0.5, juce::sendNotificationSync);
+    dryKnob.setValue(0.8, juce::dontSendNotification);
+    wetKnob.setValue(0.1, juce::dontSendNotification);
+    sizeKnob.setValue(0.7, juce::dontSendNotification);
+    preDelayKnob.setValue(0.1, juce::dontSendNotification);
+    diffusionKnob.setValue(0.8, juce::dontSendNotification);
+    dampKnob.setValue(0.8, juce::dontSendNotification);
+    decayKnob.setValue(0.5, juce::dontSendNotification);
 }
 
 ReverbComponent::~ReverbComponent() {}
 
-void ReverbComponent::setDryLevel(float value)
+void ReverbComponent::setDryLevel(float value, juce::NotificationType notification)
 {
-    dryKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    dryKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void ReverbComponent::setWetLevel(float value)
+void ReverbComponent::setWetLevel(float value, juce::NotificationType notification)
 {
-    wetKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    wetKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void ReverbComponent::setRoomSize(float value)
+void ReverbComponent::setRoomSize(float value, juce::NotificationType notification)
 {
-    sizeKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    sizeKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void ReverbComponent::setPreDelay(float value)
+void ReverbComponent::setPreDelay(float value, juce::NotificationType notification)
 {
-    preDelayKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    preDelayKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void ReverbComponent::setDiffusion(float value)
+void ReverbComponent::setDiffusion(float value, juce::NotificationType notification)
 {
-    diffusionKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    diffusionKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void ReverbComponent::setDamping(float value)
+void ReverbComponent::setDamping(float value, juce::NotificationType notification)
 {
-    dampKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    dampKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void ReverbComponent::setDecay(float value)
+void ReverbComponent::setDecay(float value, juce::NotificationType notification)
 {
-    decayKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    decayKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
+}
+
+void ReverbComponent::setCallbacksSuppressed(bool shouldSuppress)
+{
+    suppressCallbacks = shouldSuppress;
 }
 
 void ReverbComponent::paint (juce::Graphics& g) 

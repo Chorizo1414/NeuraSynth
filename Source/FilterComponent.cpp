@@ -16,17 +16,21 @@ keyButton("KeyButton")
     addAndMakeVisible(filterCutoffKnob);
     filterCutoffKnob.setRange(20.0, 20000.0); // Rango en Hertz
     filterCutoffKnob.onValueChange = [this]() {
+        if (suppressCallbacks)
+            return;
         // Ahora el valor del knob ya está en Hz, no necesitamos mapearlo.
         audioProcessor.setFilterCutoff(filterCutoffKnob.getValue());
         };
     filterCutoffKnob.setSkewFactorFromMidPoint(1000.0); // Punto medio en 1000 Hz
-    filterCutoffKnob.setValue(20000.0, juce::sendNotificationSync);
+    filterCutoffKnob.setValue(20000.0, juce::dontSendNotification);
 
     // Función auxiliar para los otros knobs
     auto setupKnob = [&](CustomKnob& knob, float minRange, float maxRange, auto setter) {
         addAndMakeVisible(knob);
         knob.setRange(minRange, maxRange);
         knob.onValueChange = [this, setter, &knob]() {
+            if (suppressCallbacks)
+                return;
             (audioProcessor.*setter)(knob.getValue());
             };
         };
@@ -36,8 +40,8 @@ keyButton("KeyButton")
     setupKnob(filterEnvKnob, -1.0f, 1.0f, &NeuraSynthAudioProcessor::setFilterEnvAmount);
 
     // Valores iniciales
-    filterResonanceKnob.setValue(0.1, juce::sendNotificationSync);
-    filterEnvKnob.setValue(0.0, juce::sendNotificationSync);
+    filterResonanceKnob.setValue(0.1, juce::dontSendNotification);
+    filterEnvKnob.setValue(0.0, juce::dontSendNotification);
 
     // Configuración del botón de Key Tracking
     addAndMakeVisible(keyButton);
@@ -52,6 +56,8 @@ keyButton("KeyButton")
 
     keyButton.setClickingTogglesState(true);
     keyButton.onStateChange = [this]() {
+        if (suppressCallbacks)
+            return;
         audioProcessor.setKeyTrack(keyButton.getToggleState());
         };
 }
@@ -92,22 +98,27 @@ void FilterComponent::resized()
     scaleAndSet(keyButton, LayoutConstants::Filter::KEY_BUTTON);
 }
 
-void FilterComponent::setCutoffValue(double hz)
+void FilterComponent::setCutoffValue(double hz, juce::NotificationType notification)
 {
-    filterCutoffKnob.setValue(hz, juce::sendNotificationSync);
+    filterCutoffKnob.setValue(hz, notification);
 }
 
-void FilterComponent::setResonanceValue(double q)
+void FilterComponent::setResonanceValue(double q, juce::NotificationType notification)
 {
-    filterResonanceKnob.setValue(q, juce::sendNotificationSync);
+    filterResonanceKnob.setValue(q, notification);
 }
 
-void FilterComponent::setEnvAmountValue(double amount)
+void FilterComponent::setEnvAmountValue(double amount, juce::NotificationType notification)
 {
-    filterEnvKnob.setValue(amount, juce::sendNotificationSync);
+    filterEnvKnob.setValue(amount, notification);
 }
 
-void FilterComponent::setKeyTrackEnabled(bool enabled)
+void FilterComponent::setKeyTrackEnabled(bool enabled, juce::NotificationType notification)
 {
-    keyButton.setToggleState(enabled, juce::sendNotificationSync);
+    keyButton.setToggleState(enabled, notification);
+}
+
+void FilterComponent::setCallbacksSuppressed(bool shouldSuppress)
+{
+    suppressCallbacks = shouldSuppress;
 }

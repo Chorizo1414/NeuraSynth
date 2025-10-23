@@ -3,27 +3,29 @@
 #include "BinaryData.h"
 #include "LayoutConstants.h"
 #include "PluginEditor.h"
- 
+
 DelayComponent::DelayComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
-    dryKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 1.0),
-    centerVolKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.0),
-    sideVolKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.3),
-    hpKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.0),
-    lpKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 1.0),
-    leftKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.2),
-    centerKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.5),
-    rightKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.7),
-    wowKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.5),
-    feedbackKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.4)
+dryKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 1.0),
+centerVolKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.0),
+sideVolKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.3),
+hpKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.0),
+lpKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 1.0),
+leftKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.2),
+centerKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.5),
+rightKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.7),
+wowKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.5),
+feedbackKnob(BinaryData::knobdelay_png, BinaryData::knobdelay_pngSize, 300.0f, 0.4)
 {
     auto setupKnob = [&](CustomKnob& knob, auto setter) {
         addAndMakeVisible(knob);
         knob.setRange(0.0, 1.0);
         knob.onValueChange = [this, setter, &knob]() {
+            if (suppressCallbacks)
+                return;
             (audioProcessor.*setter)(knob.getValue());
+            };
         };
-    };
-    
+
     // Mapeamos los knobs a sus funciones en el procesador
     setupKnob(dryKnob, &NeuraSynthAudioProcessor::setDelayDry);
     setupKnob(centerVolKnob, &NeuraSynthAudioProcessor::setDelayWet);
@@ -37,73 +39,78 @@ DelayComponent::DelayComponent(NeuraSynthAudioProcessor& p) : audioProcessor(p),
     setupKnob(rightKnob, &NeuraSynthAudioProcessor::setDelayTimeRight);
     setupKnob(wowKnob, &NeuraSynthAudioProcessor::setDelayWow);
     setupKnob(feedbackKnob, &NeuraSynthAudioProcessor::setDelayFeedback);
-    
+
     // Asignamos valores iniciales para que el DSP y la UI estén sincronizados
-    dryKnob.setValue(1.0, juce::sendNotificationSync);
-    centerVolKnob.setValue(0.3, juce::sendNotificationSync);
-    sideVolKnob.setValue(0.3, juce::sendNotificationSync);
-    hpKnob.setValue(0.0, juce::sendNotificationSync);
-    lpKnob.setValue(1.0, juce::sendNotificationSync);
-    leftKnob.setValue(0.2, juce::sendNotificationSync);
-    centerKnob.setValue(0.3, juce::sendNotificationSync);
-    rightKnob.setValue(0.4, juce::sendNotificationSync);
-    wowKnob.setValue(0.5, juce::sendNotificationSync);
-    feedbackKnob.setValue(0.4, juce::sendNotificationSync);
+    dryKnob.setValue(1.0, juce::dontSendNotification);
+    centerVolKnob.setValue(0.3, juce::dontSendNotification);
+    sideVolKnob.setValue(0.3, juce::dontSendNotification);
+    hpKnob.setValue(0.0, juce::dontSendNotification);
+    lpKnob.setValue(1.0, juce::dontSendNotification);
+    leftKnob.setValue(0.2, juce::dontSendNotification);
+    centerKnob.setValue(0.3, juce::dontSendNotification);
+    rightKnob.setValue(0.4, juce::dontSendNotification);
+    wowKnob.setValue(0.5, juce::dontSendNotification);
+    feedbackKnob.setValue(0.4, juce::dontSendNotification);
 }
 
 DelayComponent::~DelayComponent() {}
 
-void DelayComponent::setDryLevel(float value)
+void DelayComponent::setDryLevel(float value, juce::NotificationType notification)
 {
-    dryKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    dryKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setCenterLevel(float value)
+void DelayComponent::setCenterLevel(float value, juce::NotificationType notification)
 {
-    centerVolKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    centerVolKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setSideLevel(float value)
+void DelayComponent::setSideLevel(float value, juce::NotificationType notification)
 {
-    sideVolKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    sideVolKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setHighPass(float value)
+void DelayComponent::setHighPass(float value, juce::NotificationType notification)
 {
-    hpKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    hpKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setLowPass(float value)
+void DelayComponent::setLowPass(float value, juce::NotificationType notification)
 {
-    lpKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    lpKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setTimeLeft(float value)
+void DelayComponent::setTimeLeft(float value, juce::NotificationType notification)
 {
-    leftKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    leftKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setTimeCenter(float value)
+void DelayComponent::setTimeCenter(float value, juce::NotificationType notification)
 {
-    centerKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    centerKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setTimeRight(float value)
+void DelayComponent::setTimeRight(float value, juce::NotificationType notification)
 {
-    rightKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    rightKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setWowDepth(float value)
+void DelayComponent::setWowDepth(float value, juce::NotificationType notification)
 {
-    wowKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    wowKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::setFeedback(float value)
+void DelayComponent::setFeedback(float value, juce::NotificationType notification)
 {
-    feedbackKnob.setValue(juce::jlimit(0.0f, 1.0f, value), juce::sendNotificationSync);
+    feedbackKnob.setValue(juce::jlimit(0.0f, 1.0f, value), notification);
 }
 
-void DelayComponent::paint (juce::Graphics& g) 
+void DelayComponent::setCallbacksSuppressed(bool shouldSuppress)
+{
+    suppressCallbacks = shouldSuppress;
+}
+
+void DelayComponent::paint(juce::Graphics& g)
 {
     // Solo dibuja el borde si el designMode del editor está activo
     if (auto* tab = findParentComponentOfClass<SynthTabComponent>())
