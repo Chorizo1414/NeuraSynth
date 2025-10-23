@@ -6,6 +6,7 @@
 #include <utility>
 #include <cmath>
 #include <limits>
+#include <numeric>
 
 namespace
 {
@@ -741,12 +742,39 @@ void PianoRollComponent::setMusicData(const py::dict& data)
         DBG("!!! pybind11::cast_error en setMusicData: " << e.what());
     }
 
-    std::sort(musicData.begin(), musicData.end(), [](const NoteInfo& a, const NoteInfo& b)
+    std::vector<int> order(musicData.size());
+    std::iota(order.begin(), order.end(), 0);
+
+    std::sort(order.begin(), order.end(), [this](int a, int b)
         {
-            if (a.startTime == b.startTime)
-                return a.isMelody && !b.isMelody; // Opcional: priorizar melodía cuando empatan
-            return a.startTime < b.startTime;
+            const auto& dataA = musicData[(size_t)a];
+            const auto& dataB = musicData[(size_t)b];
+
+            if (dataA.startTime == dataB.startTime)
+                return dataA.isMelody && !dataB.isMelody; // Opcional: priorizar melodía cuando empatan
+            return dataA.startTime < dataB.startTime;
         });
+
+    std::vector<NoteInfo> sortedData;
+    sortedData.reserve(musicData.size());
+    std::vector<int> newIndexForOld(musicData.size(), -1);
+
+    for (size_t newIndex = 0; newIndex < order.size(); ++newIndex)
+    {
+        const int oldIndex = order[newIndex];
+        sortedData.push_back(musicData[(size_t)oldIndex]);
+        newIndexForOld[(size_t)oldIndex] = (int)newIndex;
+    }
+
+    musicData = std::move(sortedData);
+
+    for (auto& note : notes)
+    {
+        if (juce::isPositiveAndBelow(note.infoIndex, (int)newIndexForOld.size()))
+            note.infoIndex = newIndexForOld[(size_t)note.infoIndex];
+        else
+            note.infoIndex = -1;
+    }
 
     DBG("Procesamiento finalizado. Total de notas en el array: " + juce::String(notes.size()) +
         ", eventos para reproducir: " + juce::String((int)musicData.size()));
