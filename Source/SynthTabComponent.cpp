@@ -548,12 +548,34 @@ void SynthTabComponent::paint(juce::Graphics& g)
 void SynthTabComponent::resized()
 {
     auto totalBounds = getLocalBounds();
-    const float widthScale = (float)getWidth() / LayoutConstants::DESIGN_WIDTH;
-    int keyboardHeight = juce::roundToInt(LayoutConstants::KEYBOARD_HEIGHT * widthScale);
-    if (keyboardHeight < 0) keyboardHeight = 0;
-    keyboardComponent.setBounds(totalBounds.removeFromBottom(keyboardHeight));
-    guiArea = totalBounds;
-    const float scale = (float)guiArea.getWidth() / LayoutConstants::DESIGN_WIDTH;
+
+    const float designSynthHeight = (float)LayoutConstants::DESIGN_SYNTH_HEIGHT;
+    const float designKeyboardHeight = (float)LayoutConstants::KEYBOARD_HEIGHT;
+    const float designTotalHeight = designSynthHeight + designKeyboardHeight;
+
+    const float widthScale = totalBounds.getWidth() > 0
+        ? (float)totalBounds.getWidth() / LayoutConstants::DESIGN_WIDTH
+        : 0.0f;
+    const float heightScale = totalBounds.getHeight() > 0
+        ? (float)totalBounds.getHeight() / designTotalHeight
+        : 0.0f;
+    const float contentScale = juce::jmax(0.0f, juce::jmin(widthScale, heightScale));
+
+    const int scaledWidth = juce::roundToInt(LayoutConstants::DESIGN_WIDTH * contentScale);
+    const int scaledSynthHeight = juce::roundToInt(LayoutConstants::DESIGN_SYNTH_HEIGHT * contentScale);
+    int scaledKeyboardHeight = juce::roundToInt(LayoutConstants::KEYBOARD_HEIGHT * contentScale);
+    scaledKeyboardHeight = juce::jmax(0, juce::jmin(scaledKeyboardHeight, totalBounds.getHeight()));
+
+    const int horizontalPadding = juce::jmax(0, (totalBounds.getWidth() - scaledWidth) / 2);
+    const int keyboardX = totalBounds.getX() + horizontalPadding;
+    const int keyboardY = totalBounds.getBottom() - scaledKeyboardHeight;
+    keyboardComponent.setBounds(keyboardX, keyboardY, scaledWidth, scaledKeyboardHeight);
+
+    const int availableSynthHeight = juce::jmax(0, keyboardY - totalBounds.getY());
+    const int synthHeight = juce::jmin(scaledSynthHeight, availableSynthHeight);
+    guiArea = { keyboardX, keyboardY - synthHeight, scaledWidth, synthHeight };
+
+    const float scale = contentScale;
     const float referenceScale = 0.5f;
     const float minScale = 0.375f;
     offsetFactor = 0.0f;

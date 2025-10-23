@@ -23,22 +23,22 @@ namespace LayoutConstants
 
     // --- Posiciones de las Secciones Principales ---
     static const juce::Rectangle<float> PROMPT_SECTION{ 370.0f, 20.0f, 510.0f, 45.0f };
-    const juce::Rectangle<float> MASTER_SECTION = { 64.1096f, 240.411f, 580.0f, 272.0f };
-    const juce::Rectangle<float> REVERB_SECTION = { 64.1096f, 627.072f, 580.0f, 242.0f };
-    const juce::Rectangle<float> DELAY_SECTION = { 64.1096f, 973.664f, 580.0f, 290.0f };
+    const juce::Rectangle<float> MASTER_SECTION = { 64.1096f, 254.087f, 581.002f, 272.569f };
+    const juce::Rectangle<float> REVERB_SECTION = { 64.1096f, 648.595f, 581.002f, 241.486f };
+    const juce::Rectangle<float> DELAY_SECTION = { 64.1096f, 1000.06f, 581.002f, 289.305f };
     
-    const juce::Rectangle<float> UNISON_1_SECTION = { 723.236f, 200.342f, 270.0f, 345.0f };
-    const juce::Rectangle<float> UNISON_2_SECTION = { 723.236f, 560.959f, 270.0f, 345.0f };
-    const juce::Rectangle<float> UNISON_3_SECTION = { 723.236f, 921.575f, 270.0f, 347.0f };
+    const juce::Rectangle<float> UNISON_1_SECTION = { 723.236f, 211.05f, 270.0f, 345.0f };
+    const juce::Rectangle<float> UNISON_2_SECTION = { 723.236f, 581.648f, 270.0f, 345.0f };
+    const juce::Rectangle<float> UNISON_3_SECTION = { 723.236f, 947.464f, 270.0f, 347.0f };
 
-    const juce::Rectangle<float> OSC_1_SECTION = { 994.0f, 200.342f, 685.0f, 345.0f };
-    const juce::Rectangle<float> OSC_2_SECTION = { 994.0f, 560.959f, 685.0f, 345.0f };
-    const juce::Rectangle<float> OSC_3_SECTION = { 994.0f, 921.575f, 685.0f, 347.0f };
+    const juce::Rectangle<float> OSC_1_SECTION = { 994.0f, 211.05f, 685.0f, 345.0f };
+    const juce::Rectangle<float> OSC_2_SECTION = { 994.0f, 581.648f, 685.0f, 345.0f };
+    const juce::Rectangle<float> OSC_3_SECTION = { 994.0f, 947.464f, 685.0f, 347.0f };
     // Nota: El Unison lo integraremos dentro del layout del oscilador.
 
-    const juce::Rectangle<float> FILTER_SECTION = { 1763.01f, 238.408f, 520.0f, 272.0f };
-    const juce::Rectangle<float> LFO_FM_SECTION = { 1763.01f, 625.068f, 520.0f, 200.0f };
-    const juce::Rectangle<float> ENVELOPE_SECTION = { 1763.01f, 939.606f, 520.0f, 340.0f };
+    const juce::Rectangle<float> FILTER_SECTION = { 1762.0f, 254.087f, 518.837f, 272.569f };
+    const juce::Rectangle<float> LFO_FM_SECTION = { 1762.0f, 646.204f, 518.837f, 200.84f };
+    const juce::Rectangle<float> ENVELOPE_SECTION = { 1762.0f, 968.982f, 518.837f, 339.515f };
 
     // --- Posiciones de los Knobs y Botones DENTRO de sus secciones ---
     
@@ -82,14 +82,14 @@ namespace LayoutConstants
     {
         // Layout para los 3 osciladores, es el mismo
         const juce::Rectangle<float> WAVE_SELECT = { 21.0f, 68.0f, 372.0f, 55.0f };
-        const juce::Rectangle<float> WAVE_DISPLAY = { 18.0308f, 154.264f, 380.0f, 152.0f };
-        const juce::Rectangle<float> OCT_KNOB = { 464.795f, 46.0788f, KNOB_SMALL.x, KNOB_SMALL.y };
-        const juce::Rectangle<float> FINE_KNOB = { 530.266f, 46.0788f, KNOB_SMALL.x, KNOB_SMALL.y };
-        const juce::Rectangle<float> PITCH_KNOB = { 595.017f, 30.0514f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<float> SPREAD_KNOB = { 484.829f, 120.205f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<float> PAN_KNOB = { 595.017f, 118.202f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<float> POSITION_KNOB = { 486.832f, 232.996f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
-        const juce::Rectangle<float> GAIN_KNOB = { 595.017f, 234.401f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<float> WAVE_DISPLAY = { 18.0308f, 154.264f, 380.0f, 157.0f };
+        const juce::Rectangle<float> OCT_KNOB = { 466.795f, 48.0788f, KNOB_SMALL.x, KNOB_SMALL.y };
+        const juce::Rectangle<float> FINE_KNOB = { 532.266f, 48.0788f, KNOB_SMALL.x, KNOB_SMALL.y };
+        const juce::Rectangle<float> PITCH_KNOB = { 596.017f, 30.0514f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<float> SPREAD_KNOB = { 484.829f, 122.205f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<float> PAN_KNOB = { 596.017f, 122.202f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<float> POSITION_KNOB = { 486.832f, 237.996f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
+        const juce::Rectangle<float> GAIN_KNOB = { 595.017f, 237.401f, KNOB_MEDIUM.x, KNOB_MEDIUM.y };
 
         struct Layout
         {
@@ -123,8 +123,8 @@ namespace LayoutConstants
         {
             // Ajustes verticales medidos para compensar los desfases de cada bloque de oscilador en el arte
             constexpr float OSC1_Y = 0.0f;
-            constexpr float OSC2_Y = 1.0f;
-            constexpr float OSC3_Y = 6.0f;
+            constexpr float OSC2_Y = -2.0f;
+            constexpr float OSC3_Y = 3.0f;
         }
 
         inline Layout getLayoutForVariant(int variant)
@@ -144,9 +144,9 @@ namespace LayoutConstants
     namespace Filter
     {
         // Coordenadas relativas a la sección FILTER
-        const juce::Rectangle<float> CUTOFF_KNOB = { 36.0616f, 28.0479f, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<float> CUTOFF_KNOB = { 38.0616f, 28.0479f, KNOB_LARGE.x, KNOB_LARGE.y };
         const juce::Rectangle<float> RES_KNOB = { 202.346f, 28.0479f, KNOB_LARGE.x, KNOB_LARGE.y };
-        const juce::Rectangle<float> ENV_KNOB = { 366.627f, 28.0479f, KNOB_LARGE.x, KNOB_LARGE.y };
+        const juce::Rectangle<float> ENV_KNOB = { 368.627f, 28.0479f, KNOB_LARGE.x, KNOB_LARGE.y };
         const juce::Rectangle<float> KEY_BUTTON = { 206.353f, 200.342f, BUTTON.x, BUTTON.y };
     }
 
