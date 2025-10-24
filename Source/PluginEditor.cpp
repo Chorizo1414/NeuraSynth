@@ -63,6 +63,9 @@ NeuraSynthAudioProcessorEditor::~NeuraSynthAudioProcessorEditor()
 void NeuraSynthAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::black);
+
+    if (audioProcessor.isStandaloneApp())
+        paintStandaloneBranding(g);
 }
 
 void NeuraSynthAudioProcessorEditor::resized()
@@ -210,6 +213,72 @@ void NeuraSynthAudioProcessorEditor::refreshParentConstraints(const juce::Rectan
             }
         }
     }
+}
+
+void NeuraSynthAudioProcessorEditor::paintStandaloneBranding(juce::Graphics& g)
+{
+    auto bounds = getLocalBounds().toFloat();
+    const float headerHeight = juce::jlimit(80.0f, 200.0f, bounds.getHeight() * 0.22f);
+    auto headerArea = bounds.removeFromTop(headerHeight);
+
+    juce::ColourGradient gradient(
+        juce::Colour::fromRGB(12, 17, 27), headerArea.getTopLeft(),
+        juce::Colour::fromRGB(5, 8, 14), headerArea.getBottomLeft(), false);
+    gradient.addColour(0.4, juce::Colour::fromRGB(16, 26, 41));
+    gradient.addColour(0.85, juce::Colour::fromRGB(8, 13, 23));
+
+    g.setGradientFill(gradient);
+    g.fillRect(headerArea);
+
+    auto accentLine = headerArea.withHeight(1.0f).withY(headerArea.getBottom() - 1.0f);
+    g.setColour(juce::Colour::fromFloatRGBA(1.0f, 1.0f, 1.0f, 0.08f));
+    g.fillRect(accentLine);
+
+    auto innerArea = headerArea.reduced(headerArea.getWidth() * 0.08f, headerArea.getHeight() * 0.28f);
+
+    const float middleWidth = juce::jlimit(80.0f, 180.0f, innerArea.getWidth() * 0.18f);
+    const float sideWidth = (innerArea.getWidth() - middleWidth) * 0.5f;
+
+    auto leftArea = innerArea.removeFromLeft(sideWidth);
+    auto middleArea = innerArea.removeFromLeft(middleWidth);
+    auto rightArea = innerArea;
+
+    juce::Font logoFont(juce::Font::getDefaultSansSerifName(), headerHeight * 0.42f, juce::Font::bold);
+    logoFont.setExtraKerningFactor(0.15f);
+
+    g.setColour(juce::Colours::white);
+    g.setFont(logoFont);
+    g.drawText("NEURA", leftArea, juce::Justification::centredRight);
+    g.drawText("SYNTH", rightArea, juce::Justification::centredLeft);
+
+    auto pulseArea = middleArea.reduced(middleArea.getWidth() * 0.08f, middleArea.getHeight() * 0.15f);
+    drawStandaloneHeartbeat(g, pulseArea);
+}
+
+void NeuraSynthAudioProcessorEditor::drawStandaloneHeartbeat(juce::Graphics& g, juce::Rectangle<float> area) const
+{
+    juce::Path heartbeat;
+    const auto baseX = area.getX();
+    const auto baseY = area.getY();
+    const auto width = area.getWidth();
+    const auto height = area.getHeight();
+    const auto midY = baseY + height * 0.5f;
+
+    heartbeat.startNewSubPath(baseX, midY);
+    heartbeat.lineTo(baseX + 0.18f * width, midY);
+    heartbeat.lineTo(baseX + 0.30f * width, baseY + 0.75f * height);
+    heartbeat.lineTo(baseX + 0.45f * width, baseY + 0.25f * height);
+    heartbeat.lineTo(baseX + 0.60f * width, baseY + 0.70f * height);
+    heartbeat.lineTo(baseX + 0.72f * width, baseY + 0.10f * height);
+    heartbeat.lineTo(baseX + 0.85f * width, midY);
+    heartbeat.lineTo(baseX + width, midY);
+
+    auto accent = juce::Colour::fromRGB(108, 229, 255);
+    juce::DropShadow shadow(accent.darker(0.7f), juce::roundToInt(height * 0.08f), { 0, juce::roundToInt(height * 0.05f) });
+    shadow.drawForPath(g, heartbeat);
+
+    g.setColour(accent);
+    g.strokePath(heartbeat, juce::PathStrokeType(juce::jmax(2.0f, height * 0.12f), juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
 // Aplica una opción de escala, actualiza combo (si procede), persiste en el processor y refresca límites

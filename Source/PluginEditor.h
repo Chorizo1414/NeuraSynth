@@ -48,6 +48,8 @@ private:
     const ScaleOption* findScaleOptionById(int optionId) const;
     juce::Rectangle<int> calculateEditorBoundsForOption(const ScaleOption& option) const;
     void refreshParentConstraints(const juce::Rectangle<int>& targetBounds);
+    void paintStandaloneBranding(juce::Graphics& g);
+    void drawStandaloneHeartbeat(juce::Graphics& g, juce::Rectangle<float> area) const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessorEditor)
 };

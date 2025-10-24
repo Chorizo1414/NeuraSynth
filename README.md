@@ -117,6 +117,22 @@ flowchart LR
    ```
 3. El binario standalone y el bundle VST3 quedarán en `build/` bajo el exportador correspondiente.
 
+### Empaquetado e instalador
+Una vez compilados los binarios puedes generar un instalador listo para distribuir utilizando `installer/build_installer.py`:
+
+```bash
+python installer/build_installer.py \
+    --standalone "build/NeuraSynth_artefacts/Release/Standalone/NeuraSynth.exe" \
+    --vst3 "build/NeuraSynth_artefacts/Release/VST3/NeuraSynth.vst3" \
+    --version 1.0.0 \
+    --platform windows \
+    --logo resources/branding/neurasynth_logo.svg
+```
+
+El script crea una carpeta de staging con la estructura esperada (`Standalone/`, `VST3/`, `Resources/`, `Python/`), genera documentación básica (`INSTALL.md`, `metadata.json`) y empaqueta el resultado (`.zip` en Windows, `.tar.gz` en macOS/Linux). En Windows también produce un script de [Inno Setup](https://jrsoftware.org/isinfo.php) para compilar el instalador `.exe`; si `iscc` está disponible lo invoca automáticamente.
+
+Consulta [installer/README.md](installer/README.md) para opciones avanzadas (incluir runtimes de Python, recursos adicionales, personalizar branding, etc.).
+
 ## Uso rápido
 
 1. **Standalone**: Ejecuta el binario generado, selecciona tu interfaz de audio/MIDI.
