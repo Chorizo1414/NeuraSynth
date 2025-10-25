@@ -50,6 +50,7 @@ private:
     void refreshParentConstraints(const juce::Rectangle<int>& targetBounds);
     void paintStandaloneBranding(juce::Graphics& g);
     void drawStandaloneHeartbeat(juce::Graphics& g, juce::Rectangle<float> area) const;
+    void applyStandaloneWindowBranding();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NeuraSynthAudioProcessorEditor)
 };

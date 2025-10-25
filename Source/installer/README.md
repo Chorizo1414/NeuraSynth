@@ -22,6 +22,10 @@ python installer/build_installer.py \
     --logo resources/branding/neurasynth_logo.svg
 ```
 
+> 💡 **Sugerencia:** si omites `--standalone`, `--vst3` o `--version`, el script intentará detectarlos automáticamente
+> buscando en las carpetas de compilación típicas (`Builds/VisualStudio20xx/.../Release`, `build/**/Release`, etc.) y
+> leyendo la versión desde Git. Aun así puedes sobreescribir cualquier valor pasando el parámetro explícito.
+
 El script creará:
 - Una carpeta de *staging* con la estructura `Standalone/`, `VST3/`, `Resources/`, `Python/` (si los especificas) y documentación (`INSTALL.md`, `metadata.json`).
 - Un archivo comprimido (`.zip` en Windows, `.tar.gz` en macOS/Linux).
@@ -41,7 +45,9 @@ python installer/build_installer.py \
 ```
 
 ### Personalizar branding
-El logo por defecto incluido en `resources/branding/neurasynth_logo.svg` replica la identidad visual del proyecto. Puedes reemplazarlo con tu propio archivo (`.svg`, `.png`, `.bmp`) utilizando el parámetro `--logo`. El archivo se copia al paquete y se enlaza automáticamente en el script de Inno Setup.
+El parámetro `--logo` es opcional: si no lo proporcionas, el script buscará `installer/resources/icon.png` automáticamente. Ese archivo replica la identidad visual del proyecto y puedes reemplazarlo con tu propio recurso (`.png`, `.bmp`, `.ico`).
+
+Cuando el logo es un `.png`, el script genera automáticamente un `.ico` en la carpeta `branding/` para que los accesos directos de Windows y el instalador utilicen la misma imagen. Si proporcionas directamente un `.ico`, se reutiliza tal cual. El logo original (PNG/BMP) se sigue copiando para que puedas mostrarlo en documentación o en el propio instalador.
 
 ### Variables útiles
 - `--skip-archive`: evita generar el `.zip`/`.tar.gz` si solo quieres el árbol de archivos o el script de Inno Setup.
@@ -52,8 +58,15 @@ El logo por defecto incluido en `resources/branding/neurasynth_logo.svg` replica
 ## Flujo recomendado
 1. Compila NeuraSynth en modo *Release* para obtener el ejecutable standalone y el paquete `.vst3`.
 2. Ejecuta `installer/build_installer.py` con la plataforma deseada.
-3. (Windows) Abre o compila el `.iss` con Inno Setup para producir `NeuraSynth-<version>-Setup.exe`.
-4. Distribuye el `.exe` y/o el archivo comprimido generado.
+3. Revisa el resumen JSON impreso por el script: verás la carpeta de *staging*, los archivos comprimidos y, en Windows, la ruta del script `.iss` generado.
+4. (Windows) Si `iscc` no estaba en tu `PATH`, abre `dist/windows/<producto>-<versión>.iss` con Inno Setup Compiler y compílalo manualmente para producir `NeuraSynth-<versión>-Setup.exe`.
+5. Distribuye el `.exe` y/o el archivo comprimido generado.
+
+### ¿Qué hacer después de generar los artefactos?
+- **Verifica la carpeta de staging** (`dist/staging/...`) para confirmar que el standalone, el VST3 y los recursos adicionales se copiaron correctamente.
+- **Prueba los binarios directamente** desde la carpeta de staging antes de empaquetarlos o firmarlos.
+- **Personaliza el instalador**: dentro del script `.iss` puedes ajustar textos, iconos o rutas adicionales si necesitas un flujo más complejo.
+- **Firma y versiona** los artefactos finales según las políticas de tu organización antes de publicarlos.
 
 ## Checklist de lanzamiento
 Antes de compartir el instalador con otros usuarios, valida estos puntos:
@@ -66,3 +79,5 @@ Antes de compartir el instalador con otros usuarios, valida estos puntos:
 
 ## Logo
 El archivo `resources/branding/neurasynth_logo.svg` proporciona el logotipo utilizado en la versión standalone del sintetizador y en el instalador. Puedes sustituirlo por una versión vectorial diferente si necesitas otro idioma o variación cromática.
+
+Para que la ventana standalone y la barra de tareas de Windows muestren el icono correcto, la imagen también se empaqueta en el binario mediante `Source/pictures/app_icon.png`. Si actualizas el logo, recuerda reemplazar ambos archivos (o ejecutar nuevamente el script para copiar el recurso actualizado).

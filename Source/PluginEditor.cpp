@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "LayoutConstants.h"
+#include "BinaryData.h"
 
 #include <array>
 
@@ -53,6 +54,8 @@ NeuraSynthAudioProcessorEditor::NeuraSynthAudioProcessorEditor(NeuraSynthAudioPr
 
     // Inicializa tamaño/escala según lo almacenado en el processor
     initialiseEditorSizeFromProcessor();
+
+    applyStandaloneWindowBranding();
 }
 
 NeuraSynthAudioProcessorEditor::~NeuraSynthAudioProcessorEditor()
@@ -105,6 +108,8 @@ void NeuraSynthAudioProcessorEditor::parentHierarchyChanged()
 
     if (currentScaleOption.id != 0)
         refreshParentConstraints(calculateEditorBoundsForOption(currentScaleOption));
+
+    applyStandaloneWindowBranding();
 }
 
 // Lee del processor la última escala/tamaño y lo aplica
@@ -253,6 +258,24 @@ void NeuraSynthAudioProcessorEditor::paintStandaloneBranding(juce::Graphics& g)
 
     auto pulseArea = middleArea.reduced(middleArea.getWidth() * 0.08f, middleArea.getHeight() * 0.15f);
     drawStandaloneHeartbeat(g, pulseArea);
+}
+
+void NeuraSynthAudioProcessorEditor::applyStandaloneWindowBranding()
+{
+    if (!audioProcessor.isStandaloneApp())
+        return;
+
+    auto iconImage = juce::ImageCache::getFromMemory(BinaryData::app_icon_png, BinaryData::app_icon_pngSize);
+    if (!iconImage.isValid())
+        return;
+
+    if (auto* window = dynamic_cast<juce::TopLevelWindow*>(getTopLevelComponent()))
+    {
+        window->setIcon(iconImage);
+
+        if (auto* peer = window->getPeer())
+            peer->setIcon(iconImage);
+    }
 }
 
 void NeuraSynthAudioProcessorEditor::drawStandaloneHeartbeat(juce::Graphics& g, juce::Rectangle<float> area) const

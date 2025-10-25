@@ -1,0 +1,8 @@
+{
+  "product": "NeuraSynth",
+  "version": "2025.10.25",
+  "platform": "windows",
+  "created": "2025-10-25T00:54:56.255401Z",
+  "standalone": "NeuraSynth.exe",
+  "vst3": "NeuraSynth.vst3"
+}
