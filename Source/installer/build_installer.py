@@ -220,8 +220,11 @@ def build_installer(args: argparse.Namespace) -> None:
         logo_candidate = DEFAULT_LOGO if DEFAULT_LOGO.exists() else None
 
     if logo_candidate is not None:
-        _copy_any(logo_candidate, staging_root / "branding" / logo_candidate.name)
-        logo_for_script = logo_candidate
+        staging_logo = staging_root / "branding" / logo_candidate.name
+        _copy_any(logo_candidate, staging_logo)
+        logo_for_script = staging_logo
+    else:
+        print("[INFO] No se incluyó logotipo porque no se encontró ninguno en installer/resources ni se proporcionó --logo.")
 
     license_for_script: Optional[Path] = None
     if args.license:

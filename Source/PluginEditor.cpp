@@ -243,7 +243,7 @@ void NeuraSynthAudioProcessorEditor::paintStandaloneBranding(juce::Graphics& g)
     auto middleArea = innerArea.removeFromLeft(middleWidth);
     auto rightArea = innerArea;
 
-    juce::Font logoFont(juce::Font::getDefaultSansSerifName(), headerHeight * 0.42f, juce::Font::bold);
+    juce::Font logoFont(juce::Font::getDefaultSansSerifFontName(), headerHeight * 0.42f, juce::Font::bold);
     logoFont.setExtraKerningFactor(0.15f);
 
     g.setColour(juce::Colours::white);
