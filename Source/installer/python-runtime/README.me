@@ -1,0 +1,25 @@
+# Runtime embebido de Python
+
+Coloca aquí la distribución embebida de Python que quieras incluir en el instalador.
+
+## Estructura recomendada
+
+```
+installer/
+  python-runtime/
+    windows/
+      python-3.8.10-embed-amd64/
+        python38.dll
+        python38.zip
+        ...
+    macos/
+      <paquetes opcionales>
+    linux/
+      <paquetes opcionales>
+```
+
+Cada subcarpeta dentro de `windows/`, `macos/` o `linux/` se copiará íntegramente en `Python/` dentro de la carpeta de staging. Puedes mantener varias versiones siempre que las renombres para diferenciarlas.
+
+> 📁 **Sugerencia:** si solo necesitas un runtime, descomprime el zip oficial de Python 3.8 (o la versión requerida) directamente dentro de `windows/`.
+
+Cuando ejecutes `build_installer.py` verás un mensaje indicando qué rutas de Python se detectaron y copiaron automáticamente. Si no aparece ningún mensaje y la carpeta está vacía, el instalador final dependerá de que el usuario tenga Python instalado.

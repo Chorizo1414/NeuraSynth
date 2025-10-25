@@ -1,21 +1,222 @@
 #include "PythonManager.h"
 #include <mutex>
+#include <vector>
+#include <cstdlib>
 
 namespace
 {
     std::mutex pythonInitMutex;
     bool pythonInterpreterReady = false;
+
+    using FileList = std::vector<juce::File>;
+
+    void setEnvironmentVariable(const juce::String& name, const juce::String& value)
+    {
+#if JUCE_WINDOWS
+        _putenv_s(name.toRawUTF8(), value.toRawUTF8());
+#else
+        ::setenv(name.toRawUTF8(), value.toRawUTF8(), 1);
+#endif
+    }
+
+    void appendIfUnique(FileList& files, const juce::File& candidate)
+    {
+        if (candidate == juce::File())
+            return;
+
+        const auto path = candidate.getFullPathName();
+        if (path.isEmpty())
+            return;
+
+        for (const auto& existing : files)
+            if (existing.getFullPathName() == path)
+                return;
+
+        files.push_back(candidate);
+    }
+
+    FileList enumerateBaseDirectories()
+    {
+        FileList bases;
+
+        const juce::File currentExecutable = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+        if (currentExecutable.existsAsFile())
+        {
+            auto directory = currentExecutable.getParentDirectory();
+            for (int i = 0; i < 8 && directory != juce::File(); ++i)
+            {
+                appendIfUnique(bases, directory);
+                appendIfUnique(bases, directory.getChildFile("Resources"));
+                appendIfUnique(bases, directory.getChildFile("Python"));
+                directory = directory.getParentDirectory();
+            }
+        }
+
+        const juce::File invokedExecutable = juce::File::getSpecialLocation(juce::File::invokedExecutableFile);
+        if (invokedExecutable.existsAsFile())
+        {
+            auto directory = invokedExecutable.getParentDirectory();
+            for (int i = 0; i < 6 && directory != juce::File(); ++i)
+            {
+                appendIfUnique(bases, directory);
+                appendIfUnique(bases, directory.getChildFile("Resources"));
+                appendIfUnique(bases, directory.getChildFile("Python"));
+                directory = directory.getParentDirectory();
+            }
+        }
+
+#if JUCE_WINDOWS
+        const juce::File programFiles = juce::File::getSpecialLocation(juce::File::globalApplicationsDirectory);
+        appendIfUnique(bases, programFiles.getChildFile("NeuraSynth"));
+        appendIfUnique(bases, programFiles.getChildFile("NeuraSynth").getChildFile("Python"));
+
+        const juce::File commonAppData = juce::File::getSpecialLocation(juce::File::commonApplicationDataDirectory);
+        appendIfUnique(bases, commonAppData.getChildFile("NeuraSynth"));
+        appendIfUnique(bases, commonAppData.getChildFile("NeuraSynth").getChildFile("Python"));
+#endif
+
+        return bases;
+    }
+
+    bool looksLikePythonHome(const juce::File& directory)
+    {
+        if (!directory.isDirectory())
+            return false;
+
+        static const char* pythonDlls[] = { "python38.dll", "python39.dll", "python310.dll", "python311.dll" };
+
+        for (auto* dll : pythonDlls)
+            if (directory.getChildFile(dll).existsAsFile())
+                return true;
+
+        if (directory.getChildFile("python3.dll").existsAsFile())
+            return true;
+
+        if (directory.getChildFile("bin").isDirectory() && directory.getChildFile("lib").isDirectory())
+            return true;
+
+        return false;
+    }
+
+    juce::File findPythonHome()
+    {
+        const juce::String envOverride = juce::SystemStats::getEnvironmentVariable("NEURASYNTH_PYTHON_HOME", {});
+        if (envOverride.isNotEmpty())
+        {
+            juce::File envCandidate(envOverride);
+            if (looksLikePythonHome(envCandidate))
+                return envCandidate;
+        }
+
+        for (const auto& base : enumerateBaseDirectories())
+        {
+            if (looksLikePythonHome(base))
+                return base;
+
+            const auto pythonDir = base.getChildFile("Python");
+            if (looksLikePythonHome(pythonDir))
+                return pythonDir;
+
+            if (pythonDir.isDirectory())
+            {
+                juce::DirectoryIterator iterator(pythonDir, false, "*", juce::File::findDirectories);
+                while (iterator.next())
+                {
+                    const auto subDirectory = iterator.getFile();
+                    if (looksLikePythonHome(subDirectory))
+                        return subDirectory;
+                }
+            }
+        }
+
+        return {};
+    }
+
+    juce::File findNeuraChordRoot(const juce::File& pythonHome)
+    {
+        const juce::String envOverride = juce::SystemStats::getEnvironmentVariable("NEURASYNTH_PYTHON_MODULE", {});
+        if (envOverride.isNotEmpty())
+        {
+            juce::File envCandidate(envOverride);
+            if (envCandidate.isDirectory())
+                return envCandidate;
+        }
+
+        if (pythonHome.isDirectory())
+        {
+            const juce::File direct = pythonHome.getChildFile("NeuraChord");
+            if (direct.isDirectory())
+                return direct;
+
+            const juce::File sitePackages = pythonHome.getChildFile("Lib").getChildFile("site-packages").getChildFile("NeuraChord");
+            if (sitePackages.isDirectory())
+                return sitePackages;
+        }
+
+        for (const auto& base : enumerateBaseDirectories())
+        {
+            const juce::File direct = base.getChildFile("NeuraChord");
+            if (direct.isDirectory())
+                return direct;
+
+            const juce::File inPython = base.getChildFile("Python").getChildFile("NeuraChord");
+            if (inPython.isDirectory())
+                return inPython;
+
+            const juce::File inResources = base.getChildFile("Resources").getChildFile("NeuraChord");
+            if (inResources.isDirectory())
+                return inResources;
+
+            const juce::File inSource = base.getChildFile("Source").getChildFile("NeuraChord");
+            if (inSource.isDirectory())
+                return inSource;
+        }
+
+        return {};
+    }
 }
 
 PythonManager::PythonManager()
 {
     try {
-        _putenv_s("PYTHONHOME", "C:\\Users\\Progra.CHORI1414\\AppData\\Local\\Programs\\Python\\Python38");
         std::scoped_lock<std::mutex> lock(pythonInitMutex);
+
+        const juce::File pythonHome = findPythonHome();
+        if (!pythonHome.isDirectory())
+        {
+            DBG("!!! PYTHON MANAGER ERROR: No se encontró el runtime embebido de Python.");
+            return;
+        }
+
+        const juce::File neuraChordRoot = findNeuraChordRoot(pythonHome);
+
+        juce::StringArray pythonPathEntries;
+        pythonPathEntries.add(pythonHome.getFullPathName());
+
+        const juce::File libDir = pythonHome.getChildFile("Lib");
+        if (libDir.isDirectory())
+        {
+            pythonPathEntries.add(libDir.getFullPathName());
+
+            const juce::File sitePackages = libDir.getChildFile("site-packages");
+            if (sitePackages.isDirectory())
+                pythonPathEntries.add(sitePackages.getFullPathName());
+        }
+
+        if (neuraChordRoot.isDirectory())
+            pythonPathEntries.add(neuraChordRoot.getFullPathName());
+
+        const juce::String existingPythonPath = juce::SystemStats::getEnvironmentVariable("PYTHONPATH", {});
+        if (existingPythonPath.isNotEmpty())
+            pythonPathEntries.add(existingPythonPath);
+
+        const juce::String combinedPythonPath = pythonPathEntries.joinIntoString(juce::File::pathSeparatorString);
+
+        setEnvironmentVariable("PYTHONHOME", pythonHome.getFullPathName());
+        setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
 
         if (!pythonInterpreterReady)
         {
-            _putenv_s("PYTHONHOME", "C:\\Users\\Progra.CHORI1414\\AppData\\Local\\Programs\\Python\\Python38");
             py::initialize_interpreter();
             pythonInterpreterReady = true;
         }
@@ -23,20 +224,23 @@ PythonManager::PythonManager()
         py::gil_scoped_acquire acquire;
         auto sys = py::module::import("sys");
         py::list sysPath = sys.attr("path");
-        const std::string targetPath = "C:\\Users\\Progra.CHORI1414\\Desktop\\Proyectos\\JUCE\\NeuraSynth\\Source\\NeuraChord";
 
-        bool pathAlreadyPresent = false;
-        for (auto entry : sysPath)
+        for (const auto& entry : pythonPathEntries)
         {
-            if (entry.cast<std::string>() == targetPath)
+            bool alreadyPresent = false;
+            for (auto item : sysPath)
             {
-                pathAlreadyPresent = true;
-                break;
+                if (item.cast<std::string>() == entry.toStdString())
+                {
+                    alreadyPresent = true;
+                    break;
+                }
             }
+
+            if (!alreadyPresent)
+                sysPath.attr("append")(entry.toStdString());
         }
 
-        if (!pathAlreadyPresent)
-            sysPath.attr("append")(targetPath);
         neuraChordApi = py::module::import("neurachord_api");
         DBG("PythonManager: Interprete y neurachord_api importados con EXITO!");
     }

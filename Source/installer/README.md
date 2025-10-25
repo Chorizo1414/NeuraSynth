@@ -32,7 +32,10 @@ El script creará:
 - En Windows, un script `.iss` con la configuración de Inno Setup. Si `iscc` está presente, también intentará compilar el instalador automáticamente.
 
 ### Incluir Python y recursos adicionales
-Añade las rutas con `--python-runtime` y `--resources` tantas veces como necesites:
+
+El script empaqueta automáticamente `Source/NeuraChord` dentro de la carpeta `Python/` porque es imprescindible para que el motor funcione. Además, si detecta un runtime embebido en `installer/python-runtime/<plataforma>/`, lo copia sin que tengas que pasar parámetros extra.
+
+Si deseas sobreescribir esta selección (por ejemplo para añadir una versión distinta del runtime, librerías adicionales o documentación), añade las rutas con `--python-runtime` y `--resources` tantas veces como necesites:
 ```bash
 python installer/build_installer.py \
     --standalone path/al/Standalone/NeuraSynth.exe \
@@ -44,10 +47,14 @@ python installer/build_installer.py \
     --resources "docs/Manual.pdf"
 ```
 
+> 💾 **Runtime recomendado:** descarga la [distribución embebida de Python](https://www.python.org/downloads/windows/) (por ejemplo `python-3.8.x-embed-amd64.zip`), descomprímela dentro de `installer/python-runtime/windows/` y vuelve a ejecutar el script. Verás un mensaje indicando que se detectó automáticamente.
+
+Si el paquete resultante no contiene archivos como `python38.dll`, el standalone mostrará un error al abrirse en máquinas que no tengan Python instalado. El script avisará con una advertencia cuando detecte este escenario.
+
 ### Personalizar branding
 El parámetro `--logo` es opcional: si no lo proporcionas, el script buscará `installer/resources/icon.png` automáticamente. Ese archivo replica la identidad visual del proyecto y puedes reemplazarlo con tu propio recurso (`.png`, `.bmp`, `.ico`).
 
-Cuando el logo es un `.png`, el script genera automáticamente un `.ico` en la carpeta `branding/` para que los accesos directos de Windows y el instalador utilicen la misma imagen. Si proporcionas directamente un `.ico`, se reutiliza tal cual. El logo original (PNG/BMP) se sigue copiando para que puedas mostrarlo en documentación o en el propio instalador.
+Cuando el logo es un `.png`, el script genera automáticamente un `.ico` en la carpeta `branding/` para que los accesos directos de Windows y el instalador utilicen la misma imagen. Si proporcionas directamente un `.ico`, se reutiliza tal cual. El logo original (PNG/BMP) se sigue copiando para que puedas mostrarlo en documentación o en el propio instalador. Asegúrate de que cualquier PNG utilizado para este fin no supere los 256×256 píxeles, que es el tamaño máximo admitido por el conversor integrado y por Inno Setup.
 
 ### Variables útiles
 - `--skip-archive`: evita generar el `.zip`/`.tar.gz` si solo quieres el árbol de archivos o el script de Inno Setup.
@@ -76,6 +83,28 @@ Antes de compartir el instalador con otros usuarios, valida estos puntos:
 3. **Revisa los recursos adicionales** (presets, documentación, runtimes de Python) dentro de `Resources/` y `Python/` si los incluiste.
 4. **Ejecuta el instalador compilado** (si usaste Inno Setup) en una máquina de pruebas limpia o en una máquina virtual para asegurarte de que copia los archivos correctos.
 5. **Actualiza la versión** en `--version` y en cualquier documento de lanzamiento/notas de cambios antes de subir los artefactos finales.
+
+## SmartScreen y firma de código
+
+Para evitar el mensaje de *"No se descarga habitualmente"* que muestra SmartScreen, es necesario firmar tanto el instalador como el ejecutable standalone con un certificado válido (Authenticode). Una vez que generes `NeuraSynth-<versión>-Setup.exe` y `Standalone/NeuraSynth.exe`, firma ambos con `signtool` u otra herramienta equivalente. Si trabajas con un certificado EV, la reputación de SmartScreen se acumulará más rápido. Sin la firma, Windows advertirá a los usuarios que el binario es de "editor desconocido".
+
+Cuando utilices `signtool`, recuerda firmar primero el ejecutable standalone y después el instalador para que éste pueda encapsular la firma interna:
+
+```powershell
+signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a "dist/staging/.../Standalone/NeuraSynth.exe"
+signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a "dist/windows/NeuraSynth-<versión>-Setup.exe"
+```
+
+Tras la firma, vuelve a ejecutar el instalador en una máquina de pruebas para verificar que Windows muestra al emisor correcto en lugar de "Desconocido".
+
+## Variables de entorno opcionales
+
+En tiempo de ejecución puedes forzar rutas personalizadas sin recompilar:
+
+- `NEURASYNTH_PYTHON_HOME`: apunta al directorio que contiene `python38.dll` (u otra versión embebida). Si está definido, la aplicación lo utilizará antes de buscar en `Program Files\NeuraSynth\Python` o `CommonAppData`.
+- `NEURASYNTH_PYTHON_MODULE`: permite indicar la carpeta donde vive `neurachord_api.py` cuando quieras probar parches externos.
+
+Estas variables son útiles para depurar instalaciones en las que se quiera aislar el runtime o para ejecutar desde un pendrive antes de empaquetar definitivamente.
 
 ## Logo
 El archivo `resources/branding/neurasynth_logo.svg` proporciona el logotipo utilizado en la versión standalone del sintetizador y en el instalador. Puedes sustituirlo por una versión vectorial diferente si necesitas otro idioma o variación cromática.

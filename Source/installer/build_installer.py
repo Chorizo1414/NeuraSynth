@@ -32,6 +32,8 @@ def _detect_repo_root(start: Path) -> Path:
 
 REPO_ROOT = _detect_repo_root(SCRIPT_ROOT)
 DEFAULT_LOGO = SCRIPT_ROOT / "resources" / "icon.png"
+DEFAULT_PYTHON_RUNTIME_ROOT = SCRIPT_ROOT / "python-runtime"
+NEURACHORD_SOURCE = REPO_ROOT / "Source" / "NeuraChord"
 
 
 def _parse_png_dimensions(data: bytes) -> tuple[int, int]:
@@ -47,13 +49,18 @@ def _ensure_ico_for_png(png_path: Path) -> Path:
     data = png_path.read_bytes()
     width, height = _parse_png_dimensions(data)
 
+    if width > 256 or height > 256:
+        raise ValueError(
+            "El PNG excede las dimensiones admitidas para un icono (256x256)."
+        )
+    
     entry = bytearray()
-    entry += (0 if width >= 256 else width).to_bytes(1, "little")
-    entry += (0 if height >= 256 else height).to_bytes(1, "little")
+    entry += (0 if width == 256 else width).to_bytes(1, "little")
+    entry += (0 if height == 256 else height).to_bytes(1, "little")
     entry += (0).to_bytes(1, "little")  # colour count
     entry += (0).to_bytes(1, "little")  # reserved
-    entry += (1).to_bytes(2, "little")  # planes
-    entry += (32).to_bytes(2, "little")  # bit count
+    entry += (0).to_bytes(2, "little")  # planes (0 when data is PNG)
+    entry += (0).to_bytes(2, "little")  # bit count (0 when data is PNG)
     entry += len(data).to_bytes(4, "little")
     entry += (6 + 16).to_bytes(4, "little")  # offset after header + entry
 
@@ -67,6 +74,22 @@ def _ensure_ico_for_png(png_path: Path) -> Path:
     ico_path = png_path.with_suffix(".ico")
     ico_path.write_bytes(ico_bytes)
     return ico_path
+
+
+def _collect_default_python_payloads(platform_key: str) -> list[Path]:
+    payloads: list[Path] = []
+
+    runtime_root = DEFAULT_PYTHON_RUNTIME_ROOT / platform_key
+    if runtime_root.exists():
+        for child in runtime_root.iterdir():
+            if child.name.startswith("."):
+                continue
+            payloads.append(child)
+
+    if NEURACHORD_SOURCE.exists():
+        payloads.append(NEURACHORD_SOURCE)
+
+    return payloads
 
 
 def _format_inno_path(path: Path) -> str:
@@ -401,12 +424,47 @@ def build_installer(args: argparse.Namespace) -> None:
         dest = staging_root / "Resources" / resource_path.name
         _copy_any(resource_path, dest)
 
+    python_payloads: list[Path] = []
+    seen_payloads: set[Path] = set()
+
+    def _add_python_payload(path: Path) -> None:
+        resolved = path.resolve()
+        if resolved in seen_payloads:
+            return
+        seen_payloads.add(resolved)
+        python_payloads.append(resolved)
+
     for runtime in args.python_runtime:
         runtime_path = Path(runtime).expanduser().resolve()
         if not runtime_path.exists():
             raise FileNotFoundError(f"Ruta de Python '{runtime_path}' no existe.")
-        dest = staging_root / "Python" / runtime_path.name
-        _copy_any(runtime_path, dest)
+        _add_python_payload(runtime_path)
+
+    defaults = _collect_default_python_payloads(platform_key)
+    for default in defaults:
+        if default.exists():
+            _add_python_payload(default)
+
+    if not args.python_runtime and defaults:
+        pretty_defaults = ", ".join(str(path) for path in defaults if path.exists())
+        if pretty_defaults:
+            print(f"[INFO] Recursos de Python detectados automáticamente: {pretty_defaults}")
+    elif not python_payloads:
+        print("[ADVERTENCIA] No se especificaron rutas de Python. El ejecutable requerirá un intérprete externo.")
+
+    for payload in python_payloads:
+        dest = staging_root / "Python" / payload.name
+        _copy_any(payload, dest)
+
+    python_root = staging_root / "Python"
+    if python_root.exists():
+        has_embedded_runtime = (
+            any(python_root.rglob("python3*.dll"))
+            or any(python_root.rglob("libpython3*.so"))
+            or any(python_root.rglob("libpython3*.dylib"))
+        )
+        if not has_embedded_runtime:
+            print("[ADVERTENCIA] La carpeta Python no contiene un runtime embebido (python3*.dll). Comprueba que copiaste la distribución embebida de Python.")
 
     install_md = staging_root / "INSTALL.md"
     _write_install_instructions(install_md, platform_key, args.product_name)

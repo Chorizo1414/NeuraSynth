@@ -271,8 +271,6 @@ void NeuraSynthAudioProcessorEditor::applyStandaloneWindowBranding()
 
     if (auto* window = dynamic_cast<juce::TopLevelWindow*>(getTopLevelComponent()))
     {
-        window->setIcon(iconImage);
-
         if (auto* peer = window->getPeer())
             peer->setIcon(iconImage);
     }
