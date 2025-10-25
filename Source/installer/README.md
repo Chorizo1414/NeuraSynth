@@ -55,5 +55,14 @@ El logo por defecto incluido en `resources/branding/neurasynth_logo.svg` replica
 3. (Windows) Abre o compila el `.iss` con Inno Setup para producir `NeuraSynth-<version>-Setup.exe`.
 4. Distribuye el `.exe` y/o el archivo comprimido generado.
 
+## Checklist de lanzamiento
+Antes de compartir el instalador con otros usuarios, valida estos puntos:
+
+1. **Prueba el modo standalone** desde la carpeta de *staging* generada (`dist/staging/.../Standalone`). Comprueba que el logo y la animación del latido aparecen al abrir la aplicación.
+2. **Instala el plugin VST3 manualmente** copiando `VST3/NeuraSynth.vst3` en la carpeta estándar de tu sistema y verifica que tu DAW lo reconoce.
+3. **Revisa los recursos adicionales** (presets, documentación, runtimes de Python) dentro de `Resources/` y `Python/` si los incluiste.
+4. **Ejecuta el instalador compilado** (si usaste Inno Setup) en una máquina de pruebas limpia o en una máquina virtual para asegurarte de que copia los archivos correctos.
+5. **Actualiza la versión** en `--version` y en cualquier documento de lanzamiento/notas de cambios antes de subir los artefactos finales.
+
 ## Logo
 El archivo `resources/branding/neurasynth_logo.svg` proporciona el logotipo utilizado en la versión standalone del sintetizador y en el instalador. Puedes sustituirlo por una versión vectorial diferente si necesitas otro idioma o variación cromática.
