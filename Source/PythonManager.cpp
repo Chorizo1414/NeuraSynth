@@ -10,6 +10,15 @@ namespace
 
     using FileList = std::vector<juce::File>;
 
+    juce::String getPathListSeparator()
+    {
+#if JUCE_WINDOWS
+        return ";";
+#else
+        return ":";
+#endif
+    }
+
     void setEnvironmentVariable(const juce::String& name, const juce::String& value)
     {
 #if JUCE_WINDOWS
@@ -210,7 +219,8 @@ PythonManager::PythonManager()
         if (existingPythonPath.isNotEmpty())
             pythonPathEntries.add(existingPythonPath);
 
-        const juce::String combinedPythonPath = pythonPathEntries.joinIntoString(juce::File::pathSeparatorString);
+        const juce::String combinedPythonPath = pythonPathEntries.joinIntoString(getPathListSeparator());
+
 
         setEnvironmentVariable("PYTHONHOME", pythonHome.getFullPathName());
         setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
