@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 
+SCRIPT_ROOT = Path(__file__).resolve().parent
+DEFAULT_LOGO = SCRIPT_ROOT / "resources" / "icon.png"
+
+
 def _normalise_platform(value: Optional[str]) -> str:
     if value is None:
         current = sys.platform
@@ -207,12 +211,17 @@ def build_installer(args: argparse.Namespace) -> None:
                     standalone=standalone, vst3=vst3)
 
     logo_for_script: Optional[Path] = None
+    logo_candidate: Optional[Path]
     if args.logo:
-        logo_path = Path(args.logo).expanduser().resolve()
-        if not logo_path.exists():
-            raise FileNotFoundError(f"Logo '{logo_path}' no existe.")
-        _copy_any(logo_path, staging_root / "branding" / logo_path.name)
-        logo_for_script = logo_path
+        logo_candidate = Path(args.logo).expanduser().resolve()
+        if not logo_candidate.exists():
+            raise FileNotFoundError(f"Logo '{logo_candidate}' no existe.")
+    else:
+        logo_candidate = DEFAULT_LOGO if DEFAULT_LOGO.exists() else None
+
+    if logo_candidate is not None:
+        _copy_any(logo_candidate, staging_root / "branding" / logo_candidate.name)
+        logo_for_script = logo_candidate
 
     license_for_script: Optional[Path] = None
     if args.license:
@@ -259,7 +268,7 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
     parser.add_argument("--company-name", default="NeuraSynth", help="Nombre de la compañía para el instalador.")
     parser.add_argument("--product-name", default="NeuraSynth", help="Nombre del producto mostrado al usuario.")
     parser.add_argument("--license", help="Ruta al archivo de licencia para el instalador (opcional).")
-    parser.add_argument("--logo", help="Logo opcional para branding del instalador.")
+    parser.add_argument("--logo", help="Logo opcional para branding del instalador. Por defecto usa installer/resources/icon.png si existe.")
     parser.add_argument("--python-runtime", action="append", default=[],
                         help="Rutas adicionales de Python a incluir en el paquete (se puede repetir).")
     parser.add_argument("--resources", action="append", default=[],
