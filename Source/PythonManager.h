@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
+#include <atomic>
 
 namespace py = pybind11;
 
@@ -34,8 +35,11 @@ public:
     pybind11::dict getLearnedSounds();
     juce::StringArray getSoundArchetypes();
 
+    bool isRuntimeAvailable() const noexcept { return runtimeAvailable.load(); }
+
 private:
     py::module neuraChordApi;
     juce::File lastExportedChordsFile;
     juce::File lastExportedMelodyFile;
+    std::atomic<bool> runtimeAvailable{ false };
 };

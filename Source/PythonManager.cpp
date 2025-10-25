@@ -190,40 +190,61 @@ PythonManager::PythonManager()
     try {
         std::scoped_lock<std::mutex> lock(pythonInitMutex);
 
+        runtimeAvailable.store(false);
+
         const juce::File pythonHome = findPythonHome();
-        if (!pythonHome.isDirectory())
-        {
-            DBG("!!! PYTHON MANAGER ERROR: No se encontró el runtime embebido de Python.");
-            return;
-        }
+        const bool hasEmbeddedRuntime = pythonHome.isDirectory();
+        if (!hasEmbeddedRuntime)
+            DBG("!!! PYTHON MANAGER ERROR: No se encontró el runtime embebido de Python. Se intentará usar el intérprete global si está disponible.");
 
         const juce::File neuraChordRoot = findNeuraChordRoot(pythonHome);
 
         juce::StringArray pythonPathEntries;
-        pythonPathEntries.add(pythonHome.getFullPathName());
+        auto addPathEntry = [&pythonPathEntries](const juce::String& path)
+            {
+                if (path.isNotEmpty())
+                    pythonPathEntries.addIfNotAlreadyThere(path);
+            };
 
-        const juce::File libDir = pythonHome.getChildFile("Lib");
-        if (libDir.isDirectory())
+        if (hasEmbeddedRuntime)
         {
-            pythonPathEntries.add(libDir.getFullPathName());
+            addPathEntry(pythonHome.getFullPathName());
 
-            const juce::File sitePackages = libDir.getChildFile("site-packages");
-            if (sitePackages.isDirectory())
-                pythonPathEntries.add(sitePackages.getFullPathName());
+            const juce::File libDir = pythonHome.getChildFile("Lib");
+            if (libDir.isDirectory())
+            {
+                addPathEntry(libDir.getFullPathName());
+
+                const juce::File sitePackages = libDir.getChildFile("site-packages");
+                if (sitePackages.isDirectory())
+                    addPathEntry(sitePackages.getFullPathName());
+            }
         }
 
         if (neuraChordRoot.isDirectory())
-            pythonPathEntries.add(neuraChordRoot.getFullPathName());
+            addPathEntry(neuraChordRoot.getFullPathName());
 
         const juce::String existingPythonPath = juce::SystemStats::getEnvironmentVariable("PYTHONPATH", {});
         if (existingPythonPath.isNotEmpty())
-            pythonPathEntries.add(existingPythonPath);
+        {
+            juce::StringArray existingEntries;
+            existingEntries.addTokens(existingPythonPath, getPathListSeparator(), "\"");
+            existingEntries.trim();
+            existingEntries.removeEmptyStrings();
 
-        const juce::String combinedPythonPath = pythonPathEntries.joinIntoString(getPathListSeparator());
+            for (const auto& entry : existingEntries)
+                addPathEntry(entry);
+        }
+
+        if (hasEmbeddedRuntime)
+            setEnvironmentVariable("PYTHONHOME", pythonHome.getFullPathName());
 
 
-        setEnvironmentVariable("PYTHONHOME", pythonHome.getFullPathName());
-        setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
+        if (pythonPathEntries.size() > 0)
+        {
+            const juce::String combinedPythonPath = pythonPathEntries.joinIntoString(getPathListSeparator());
+            setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
+        }
 
         if (!pythonInterpreterReady)
         {
@@ -252,10 +273,12 @@ PythonManager::PythonManager()
         }
 
         neuraChordApi = py::module::import("neurachord_api");
+        runtimeAvailable.store(true);
         DBG("PythonManager: Interprete y neurachord_api importados con EXITO!");
     }
     catch (const std::exception& e) {
         DBG("!!! PYTHON MANAGER ERROR: " << e.what());
+        runtimeAvailable.store(false);
     }
 }
 
@@ -275,6 +298,8 @@ PythonManager::~PythonManager()
     {
         DBG("PythonManager::~PythonManager - error liberando modulo: " << e.what());
     }
+
+    runtimeAvailable.store(false);
     // No finalizamos el interprete para evitar cierres inesperados cuando otros objetos
     // de Python (py::dict, etc.) aun estan vivos. El interprete permanece activo durante
     // toda la vida del proceso, lo que es seguro en el contexto del plugin standalone/host.
