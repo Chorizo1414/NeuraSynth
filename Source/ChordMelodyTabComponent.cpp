@@ -16,13 +16,19 @@ namespace
     const juce::Colour mainTextColour = juce::Colour::fromRGB(218, 222, 227);
     const juce::Colour subtleTextColour = juce::Colour::fromRGB(148, 156, 165);
 
-    constexpr int bottomControlsHeight = 90;
-    constexpr int promptEditorHeight = 90;
+    constexpr int promptEditorHeight = 100;
+    constexpr int playbackRowHeight = 34;
+    constexpr int exportRowHeight = 34;
+    constexpr int bottomRowsSpacing = 10;
+    constexpr int bottomControlsHeight = playbackRowHeight + exportRowHeight + bottomRowsSpacing;
+    constexpr int bottomControlsLift = 24;
     constexpr int topControlRowHeight = 30;
     constexpr int topControlSpacing = 5;
     constexpr int promptToControlsSpacing = 10;
     constexpr int topControlsHeight = promptEditorHeight + promptToControlsSpacing
         + topControlRowHeight + topControlSpacing + topControlRowHeight;
+    constexpr int playbackButtonVerticalPadding = 4;
+    constexpr int exportControlVerticalPadding = 4;
     constexpr int dragStartDistance = 10;
 
     juce::Rectangle<int> expanded(const juce::Rectangle<int>& rect, int amountX, int amountY)
@@ -694,6 +700,7 @@ void ChordMelodyTabComponent::paint(juce::Graphics& g)
 
     auto bounds = getLocalBounds().reduced(10);
 
+    bounds.removeFromBottom(bottomControlsLift);
     auto bottomArea = bounds.removeFromBottom(bottomControlsHeight);
     auto topArea = bounds.removeFromTop(topControlsHeight);
     bounds.removeFromTop(10);
@@ -715,8 +722,9 @@ void ChordMelodyTabComponent::paint(juce::Graphics& g)
         leftColumnArea = leftColumnArea.getUnion(clearArea);
 
     auto bottomWorking = bottomArea;
-    auto playbackRow = bottomWorking.removeFromTop(40);
-    auto exportRow = bottomWorking.removeFromBottom(40);
+    auto playbackRow = bottomWorking.removeFromTop(playbackRowHeight);
+    bottomWorking.removeFromTop(bottomRowsSpacing);
+    auto exportRow = bottomWorking.removeFromBottom(exportRowHeight);
 
     drawPanel(expanded(leftColumnArea, 12, 8));
     drawPanel(expanded(rightColumn, 12, 8));
@@ -756,13 +764,17 @@ void ChordMelodyTabComponent::resized()
 
     // --- 1. ÁREA INFERIOR: Botones de Playback y Exportación ---
     // Se define esta área primero, tomándola de la parte de abajo del plugin.
-    auto bottomButtonsArea = bounds.removeFromBottom(bottomControlsHeight); // 40px para cada fila + 10px de espacio
+    bounds.removeFromBottom(bottomControlsLift);
+    auto bottomButtonsArea = bounds.removeFromBottom(bottomControlsHeight);
 
     // Fila superior de este bloque (Playback)
-    auto playbackRow = bottomButtonsArea.removeFromTop(40);
+    auto playbackRow = bottomButtonsArea.removeFromTop(playbackRowHeight);
+
+    // Espacio entre las filas inferiores
+    bottomButtonsArea.removeFromTop(bottomRowsSpacing);
 
     // Fila inferior de este bloque (Exportar)
-    auto exportRow = bottomButtonsArea.removeFromBottom(40);
+    auto exportRow = bottomButtonsArea.removeFromBottom(exportRowHeight);
 
     // Distribuimos los botones de Playback
     {
@@ -783,7 +795,7 @@ void ChordMelodyTabComponent::resized()
 
         auto setPlaybackButton = [&](juce::Button& button, bool isLast) {
             auto buttonArea = playbackRow.removeFromLeft(playbackButtonWidth);
-            button.setBounds(buttonArea.reduced(5, 2));
+            button.setBounds(buttonArea.reduced(5, playbackButtonVerticalPadding));
             if (!isLast)
                 playbackRow.removeFromLeft(playbackButtonSpacing);
             };
@@ -813,20 +825,21 @@ void ChordMelodyTabComponent::resized()
             int buttonWidth = juce::jmax(minWidth, juce::jmin(maxWidth, area.getWidth() / 3));
             buttonWidth = juce::jmin(buttonWidth, area.getWidth());
             auto buttonArea = area.removeFromLeft(buttonWidth);
-            button.setBounds(buttonArea.reduced(5, 2));
+            button.setBounds(buttonArea.reduced(5, exportControlVerticalPadding));
 
             area.removeFromLeft(4);
             if (dragHandle)
-                dragHandle->setBounds(area.reduced(5, 2));
+                dragHandle->setBounds(area.reduced(5, exportControlVerticalPadding));
         };
 
     layoutExportSection(chordsExportArea, exportChordsButton, chordsDragHandle ? chordsDragHandle.get() : nullptr);
     layoutExportSection(melodyExportArea, exportMelodyButton, melodyDragHandle ? melodyDragHandle.get() : nullptr);
 
 
-    // --- 2. ÁREA SUPERIOR: Prompt y todos los controles ---
-    auto topArea = bounds.removeFromTop(topControlsHeight); // Altura para el prompt y los botones de abajo
+    // --- 2. ÁREA SUPERIOR: Prompt y controles generales ---
+    auto topArea = bounds.removeFromTop(topControlsHeight);
 
+    // --- 3. DISTRIBUCIÓN DEL BLOQUE SUPERIOR ---
     // Dividimos en columna izquierda y derecha
     auto rightColumn = topArea.removeFromRight(200); // Ancho fijo de 200px para la columna derecha
     auto leftColumn = topArea;
@@ -881,7 +894,7 @@ void ChordMelodyTabComponent::resized()
         clearCanvasButton.setBounds({});
 
 
-    // --- 3. PIANO ROLL: Ocupa el espacio central restante ---
+    // --- 4. PIANO ROLL: Ocupa el espacio restante ---
     bounds.removeFromTop(10); // Un último espacio antes del piano roll
     pianoRollComponent.setBounds(bounds);
 
