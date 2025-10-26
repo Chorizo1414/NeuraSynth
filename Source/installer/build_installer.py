@@ -294,13 +294,15 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
         f"AppName={product_name}\n"
         f"AppVersion={version}\n"
         f"AppPublisher={company}\n"
-        f"DefaultDirName={{{{pf64}}}}\\{company}\\{product_name}\n"
+        f"DefaultDirName={{{{userdocs}}}}\\{product_name}\n"
         f"DefaultGroupName={product_name}\n"
         f"OutputBaseFilename={product_name.replace(' ', '')}-{version}-Setup\n"
         "ArchitecturesInstallIn64BitMode=x64\n"
         "Compression=lzma\n"
         "SolidCompression=yes\n"
         "DisableProgramGroupPage=yes\n"
+        "DisableDirPage=yes\n"
+        "DisableWelcomePage=no\n"
         f"{license_entry}\n"
         f"{wizard_small_image}\n"
         f"{setup_icon}\n"
@@ -308,8 +310,8 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
     )
 
     files_lines = [
-        f"Source: \"{(staging_root / 'Standalone').as_posix()}\\\\*\"; DestDir: \"{{app}}\"; Flags: ignoreversion recursesubdirs createallsubdirs",
-        f"Source: \"{(staging_root / 'VST3').as_posix()}\\\\*\"; DestDir: \"{{commoncf64}}\\\\VST3\"; Flags: ignoreversion recursesubdirs createallsubdirs",
+        f"Source: \"{(staging_root / 'Standalone').as_posix()}\\\\*\"; DestDir: \"{{app}}\"; Components: standalone; Flags: ignoreversion recursesubdirs createallsubdirs",
+        f"Source: \"{(staging_root / 'VST3').as_posix()}\\\\*\"; DestDir: \"{{code:GetVst3Dir}}\"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs",
     ]
 
     optional_dirs = [
@@ -322,13 +324,15 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
         folder_path = staging_root / folder
         if folder_path.exists():
             files_lines.append(
-                f"Source: \"{folder_path.as_posix()}\\\\*\"; DestDir: \"{destination}\"; Flags: ignoreversion recursesubdirs createallsubdirs"
+                f"Source: \"{folder_path.as_posix()}\\\\*\"; DestDir: \"{destination}\"; Components: standalone; Flags: ignoreversion recursesubdirs createallsubdirs"
             )
 
     files_section = "[Files]\n" + "\n".join(files_lines)
 
     standalone_entries = list((staging_root / "Standalone").iterdir())
     standalone_target = standalone_entries[0].name if standalone_entries else "NeuraSynth.exe"
+    vst3_entries = list((staging_root / "VST3").iterdir())
+    vst3_target = vst3_entries[0].name if vst3_entries else "NeuraSynth.vst3"
 
     icon_filename_clause = (
         f"; IconFilename: \"{{app}}\\\\branding\\\\{shortcut_icon.name}\""
@@ -337,15 +341,129 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
 
     icons_section = (
         "[Icons]\n"
-        f"Name: \"{{group}}\\\\{product_name}\"; Filename: \"{{app}}\\\\{standalone_target}\"{icon_filename_clause}\n"
-        f"Name: \"{{autodesktop}}\\\\{product_name}\"; Filename: \"{{app}}\\\\{standalone_target}\"{icon_filename_clause}"
+        f"Name: \"{{group}}\\\\{product_name}\"; Filename: \"{{app}}\\\\{standalone_target}\"; Components: standalone{icon_filename_clause}\n"
+        f"Name: \"{{autodesktop}}\\\\{product_name}\"; Filename: \"{{app}}\\\\{standalone_target}\"; Components: standalone{icon_filename_clause}"
     )
 
     run_section = f"""[Run]
-Filename: "{{app}}\\{standalone_target}"; Description: "Iniciar {product_name}"; Flags: nowait postinstall skipifsilent
+Filename: "{{app}}\\{standalone_target}"; Description: "Iniciar {product_name}"; Components: standalone; Flags: nowait postinstall skipifsilent
 """
 
-    script_path.write_text(setup_section + "\n" + files_section + "\n" + icons_section + "\n" + run_section, encoding="utf-8")
+    components_section = (
+        "[Components]\n"
+        "Name: \"standalone\"; Description: \"Aplicación standalone\"; Types: full\n"
+        "Name: \"vst3\"; Description: \"Plugin VST3\"; Types: full"
+    )
+
+    app_id_literal = f"{{{product_name.replace(' ', '')}}}"
+    uninstall_key = f"Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\{app_id_literal}_is1"
+    standalone_default_dir = "{userdocs}\\" + product_name
+    vst3_default_dir = "{commoncf64}\\VST3"
+
+    code_section = f"""[Code]
+const
+  StandaloneFileName = '{standalone_target}';
+  Vst3ItemName = '{vst3_target}';
+
+var
+  InstallDirsPage: TInputDirWizardPage;
+  PrevStandaloneDir: string;
+  ExistingStandaloneDir: string;
+  Vst3DirValue: string;
+
+function PreviousInstallExists(): Boolean;
+var
+  existingStandalone: string;
+  existingVst3: string;
+begin
+  Result := RegKeyExists(HKLM, '{uninstall_key}') or RegKeyExists(HKCU, '{uninstall_key}');
+  if Result then begin
+    if not RegQueryStringValue(HKLM, '{uninstall_key}', 'InstallLocation', PrevStandaloneDir) then
+      RegQueryStringValue(HKCU, '{uninstall_key}', 'InstallLocation', PrevStandaloneDir);
+  end;
+
+  ExistingStandaloneDir := PrevStandaloneDir;
+  if ExistingStandaloneDir = '' then
+    ExistingStandaloneDir := ExpandConstant('{standalone_default_dir}');
+  ExistingStandaloneDir := RemoveBackslashUnlessRoot(ExistingStandaloneDir);
+  existingStandalone := AddBackslash(ExistingStandaloneDir) + StandaloneFileName;
+  existingVst3 := ExpandConstant('{vst3_default_dir}\\') + Vst3ItemName;
+  if not Result then
+    Result := FileExists(existingStandalone) or DirExists(existingStandalone);
+  if not Result then
+    Result := FileExists(existingVst3) or DirExists(existingVst3);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  if PreviousInstallExists() then
+  begin
+    if MsgBox('Se detectó una instalación previa de {product_name}. ¿Deseas reemplazarla?', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDNO then
+      Result := False;
+  end;
+end;
+
+procedure InitializeWizard;
+begin
+  if PrevStandaloneDir = '' then
+  begin
+    PrevStandaloneDir := ExpandConstant('{standalone_default_dir}');
+  end
+  else
+  begin
+    PrevStandaloneDir := RemoveBackslashUnlessRoot(PrevStandaloneDir);
+  end;
+  Vst3DirValue := ExpandConstant('{vst3_default_dir}');
+  InstallDirsPage := CreateInputDirPage(wpSelectComponents,
+    'Carpetas de instalación',
+    'Selecciona dónde instalar {product_name}',
+    'Elige las rutas de instalación para cada componente. Puedes cambiar la carpeta del modo standalone. El plugin VST3 se instalará en la ubicación estándar de tu sistema.',
+    False, '');
+  InstallDirsPage.Add('Standalone');
+  InstallDirsPage.Values[0] := PrevStandaloneDir;
+  WizardForm.DirEdit.Text := InstallDirsPage.Values[0];
+  InstallDirsPage.Add('VST3 (solo lectura)');
+  InstallDirsPage.Values[1] := Vst3DirValue;
+  InstallDirsPage.Edits[1].Enabled := False;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if CurPageID = InstallDirsPage.ID then
+  begin
+    if InstallDirsPage.Values[0] = '' then
+    begin
+      MsgBox('Selecciona una carpeta válida para la aplicación standalone.', mbError, MB_OK);
+      Result := False;
+    end
+    else
+      WizardForm.DirEdit.Text := InstallDirsPage.Values[0];
+  end;
+end;
+
+function GetVst3Dir(Param: string): string;
+begin
+  Result := Vst3DirValue;
+end;
+"""
+
+    script_content = (
+        setup_section
+        + "\n"
+        + components_section
+        + "\n"
+        + files_section
+        + "\n"
+        + icons_section
+        + "\n"
+        + run_section
+        + "\n"
+        + code_section
+    )
+
+    script_path.write_text(script_content, encoding="utf-8")
     return script_path
 
 
