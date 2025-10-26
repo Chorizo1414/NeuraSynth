@@ -17,7 +17,7 @@ namespace
     const juce::Colour subtleTextColour = juce::Colour::fromRGB(148, 156, 165);
 
     constexpr int bottomControlsHeight = 90;
-    constexpr int promptEditorHeight = 125;
+    constexpr int promptEditorHeight = 90;
     constexpr int topControlRowHeight = 30;
     constexpr int topControlSpacing = 5;
     constexpr int promptToControlsSpacing = 10;
@@ -765,11 +765,34 @@ void ChordMelodyTabComponent::resized()
     auto exportRow = bottomButtonsArea.removeFromBottom(40);
 
     // Distribuimos los botones de Playback
-    int playbackButtonWidth = playbackRow.getWidth() / 4;
-    playAllButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 2));
-    playChordsButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 2));
-    playMelodyButton.setBounds(playbackRow.removeFromLeft(playbackButtonWidth).reduced(5, 2));
-    stopButton.setBounds(playbackRow.reduced(5, 2));
+    {
+        constexpr int playbackButtonCount = 4;
+        constexpr int playbackButtonSpacing = 8;
+        const int totalSpacing = playbackButtonSpacing * (playbackButtonCount - 1);
+        const int availableWidth = playbackRow.getWidth() - totalSpacing;
+        const int baseWidth = availableWidth > 0 ? (availableWidth / playbackButtonCount) : 0;
+        const int widthReduction = baseWidth > 0 ? juce::jmin(12, baseWidth / 4) : 0;
+        int playbackButtonWidth = baseWidth - widthReduction;
+        playbackButtonWidth = juce::jmax(70, playbackButtonWidth);
+        playbackButtonWidth = juce::jmin(playbackButtonWidth, baseWidth);
+        const int totalButtonsWidth = playbackButtonWidth * playbackButtonCount + totalSpacing;
+        const int leftover = juce::jmax(0, playbackRow.getWidth() - totalButtonsWidth);
+
+        playbackRow.removeFromLeft(leftover / 2);
+        playbackRow.removeFromRight(leftover - (leftover / 2));
+
+        auto setPlaybackButton = [&](juce::Button& button, bool isLast) {
+            auto buttonArea = playbackRow.removeFromLeft(playbackButtonWidth);
+            button.setBounds(buttonArea.reduced(5, 2));
+            if (!isLast)
+                playbackRow.removeFromLeft(playbackButtonSpacing);
+            };
+
+        setPlaybackButton(playAllButton, false);
+        setPlaybackButton(playChordsButton, false);
+        setPlaybackButton(playMelodyButton, false);
+        setPlaybackButton(stopButton, true);
+    }
 
     // Distribuimos los controles de Exportar con botones más compactos y manijas de arrastre
     auto chordsExportArea = exportRow.removeFromLeft(exportRow.getWidth() / 2);
