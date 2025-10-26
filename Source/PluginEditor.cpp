@@ -194,23 +194,21 @@ void NeuraSynthAudioProcessorEditor::refreshParentConstraints(const juce::Rectan
             if (auto* window = dynamic_cast<juce::ResizableWindow*>(parent))
             {
                 window->setResizable(true, false);
-                window->setConstrainer(constrainer.get());
+                window->setConstrainer(nullptr);
 
-                if (auto* windowConstrainer = window->getConstrainer())
-                {
-                    windowConstrainer->setSizeLimits(targetBounds.getWidth(), targetBounds.getHeight(), targetBounds.getWidth(), targetBounds.getHeight());
-                    windowConstrainer->setFixedAspectRatio(static_cast<double>(targetBounds.getWidth()) / static_cast<double>(targetBounds.getHeight()));
-                }
-                else
-                {
-                    window->setResizeLimits(targetBounds.getWidth(), targetBounds.getHeight(), targetBounds.getWidth(), targetBounds.getHeight());
-                }
+                auto frame = window->getBorderThickness();
+                if (auto* peer = window->getPeer())
+                    frame = peer->getFrameSize();
 
-                if (window->getWidth() != targetBounds.getWidth()
-                    || window->getHeight() != targetBounds.getHeight())
-                {
-                    window->setSize(targetBounds.getWidth(), targetBounds.getHeight());
-                }
+                const int outerWidth = targetBounds.getWidth() + frame.getLeftAndRight();
+                const int outerHeight = targetBounds.getHeight() + frame.getTopAndBottom();
+
+                window->setResizeLimits(outerWidth, outerHeight, outerWidth, outerHeight);
+
+                if (window->getWidth() != outerWidth || window->getHeight() != outerHeight)
+                    window->setSize(outerWidth, outerHeight);
+
+                window->setContentComponentSize(targetBounds.getWidth(), targetBounds.getHeight());
             }
             else
             {

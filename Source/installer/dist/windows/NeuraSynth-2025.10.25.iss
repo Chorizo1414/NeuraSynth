@@ -18,6 +18,7 @@ UninstallDisplayIcon={app}\branding\icon.ico
 Source: "C:/Users/Progra.CHORI1414/Desktop/Proyectos/JUCE/NeuraSynth/Source/installer/dist/staging/NeuraSynth-2025.10.25-windows/Standalone\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "C:/Users/Progra.CHORI1414/Desktop/Proyectos/JUCE/NeuraSynth/Source/installer/dist/staging/NeuraSynth-2025.10.25-windows/VST3\\*"; DestDir: "{commoncf64}\\VST3"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "C:/Users/Progra.CHORI1414/Desktop/Proyectos/JUCE/NeuraSynth/Source/installer/dist/staging/NeuraSynth-2025.10.25-windows/branding\\*"; DestDir: "{app}\branding"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:/Users/Progra.CHORI1414/Desktop/Proyectos/JUCE/NeuraSynth/Source/installer/dist/staging/NeuraSynth-2025.10.25-windows/Python\\*"; DestDir: "{app}\Python"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
 Name: "{group}\\NeuraSynth"; Filename: "{app}\\NeuraSynth.exe"; IconFilename: "{app}\\branding\\icon.ico"
 Name: "{autodesktop}\\NeuraSynth"; Filename: "{app}\\NeuraSynth.exe"; IconFilename: "{app}\\branding\\icon.ico"
