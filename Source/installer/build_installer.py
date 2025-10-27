@@ -441,7 +441,8 @@ def _write_install_instructions(target: Path, platform_key: str, product_name: s
             "",
             "## Instalación en Windows",
             "1. Ejecuta `Setup.exe` si está disponible o copia manualmente los archivos:",
-            "   - Copia la carpeta `Standalone` a `C\\\Program Files\\NeuraSynth` (o la ruta que prefieras).",
+            "   - Copia el contenido de `Standalone/` a `C\\\Program Files\\NeuraSynth`.",
+            "   - Copia la carpeta `Python/` a `C\\\ProgramData\\NeuraSynth\\Python` (además de junto al standalone si deseas usarlo).",
             "   - Copia `VST3/NeuraSynth.vst3` a `C\\\Program Files\\Common Files\\VST3`.",
             "2. Inicia tu DAW y reescanea la carpeta de plugins.",
         ]
@@ -508,7 +509,7 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
         f"AppName={product_name}\n"
         f"AppVersion={version}\n"
         f"AppPublisher={company}\n"
-        f"DefaultDirName={{{{userdocs}}}}\\{product_name}\n"
+        f"DefaultDirName={{{{pf}}}}\\{product_name}\n"
         f"DefaultGroupName={product_name}\n"
         f"OutputBaseFilename={product_name.replace(' ', '')}-{version}-Setup\n"
         "ArchitecturesInstallIn64BitMode=x64\n"
@@ -528,17 +529,23 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
         f"Source: \"{(staging_root / 'VST3').as_posix()}\\\\*\"; DestDir: \"{{code:GetVst3Dir}}\"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs",
     ]
 
-    optional_dirs = [
-        ("branding", "{app}\\branding"),
-        ("Resources", "{app}\\Resources"),
-        ("Python", "{app}\\Python"),
-    ]
+    optional_dirs = {
+        "branding": [("{app}\\branding", "standalone")],
+        "Resources": [("{app}\\Resources", "standalone or vst3")],
+        "Python": [
+            ("{app}\\Python", "standalone"),
+            ("{commonappdata}\\NeuraSynth\\Python", "standalone or vst3"),
+        ],
+    }
 
-    for folder, destination in optional_dirs:
+    for folder, destinations in optional_dirs.items():
         folder_path = staging_root / folder
-        if folder_path.exists():
+        if not folder_path.exists():
+            continue
+
+        for destination, components in destinations:
             files_lines.append(
-                f"Source: \"{folder_path.as_posix()}\\\\*\"; DestDir: \"{destination}\"; Components: standalone; Flags: ignoreversion recursesubdirs createallsubdirs"
+                f"Source: \"{folder_path.as_posix()}\\\\*\"; DestDir: \"{destination}\"; Components: {components}; Flags: ignoreversion recursesubdirs createallsubdirs"
             )
 
     files_section = "[Files]\n" + "\n".join(files_lines)
@@ -571,7 +578,7 @@ Filename: "{{app}}\\{standalone_target}"; Description: "Iniciar {product_name}";
 
     app_id_literal = f"{{{product_name.replace(' ', '')}}}"
     uninstall_key = f"Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\{app_id_literal}_is1"
-    standalone_default_dir = "{userdocs}\\" + product_name
+    standalone_default_dir = "{pf}\\" + product_name
     vst3_default_dir = "{commoncf64}\\VST3"
 
     code_section = f"""[Code]
