@@ -4,3 +4,5 @@ JuceLibraryCode/
 .vs
 __pycache__/
 *.pyc
+Source/installer/python-runtime/windows/
+Source/installer/dist/
