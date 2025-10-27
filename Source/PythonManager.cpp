@@ -94,11 +94,31 @@ namespace
 
         static const char* pythonDlls[] = { "python38.dll", "python39.dll", "python310.dll", "python311.dll" };
 
+        bool hasRuntimeLibrary = false;
         for (auto* dll : pythonDlls)
+        {
             if (directory.getChildFile(dll).existsAsFile())
-                return true;
+            {
+                hasRuntimeLibrary = true;
+                break;
+            }
+        }
 
-        if (directory.getChildFile("python3.dll").existsAsFile())
+        if (!hasRuntimeLibrary && directory.getChildFile("python3.dll").existsAsFile())
+            hasRuntimeLibrary = true;
+
+        if (!hasRuntimeLibrary)
+            return false;
+
+        const bool hasLibFolder = directory.getChildFile("Lib").isDirectory()
+            || directory.getChildFile("lib").isDirectory();
+
+        if (hasLibFolder)
+            return true;
+
+        juce::Array<juce::File> pythonZips;
+        directory.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
+        if (!pythonZips.isEmpty())
             return true;
 
         if (directory.getChildFile("bin").isDirectory() && directory.getChildFile("lib").isDirectory())

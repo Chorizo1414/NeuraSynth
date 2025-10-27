@@ -583,6 +583,18 @@ def build_installer(args: argparse.Namespace) -> None:
         )
         if not has_embedded_runtime:
             print("[ADVERTENCIA] La carpeta Python no contiene un runtime embebido (python3*.dll). Comprueba que copiaste la distribución embebida de Python.")
+        else:
+            standalone_dir = staging_root / "Standalone"
+            standalone_dir.mkdir(parents=True, exist_ok=True)
+
+            dll_sources: dict[str, Path] = {}
+            for dll in python_root.rglob("python3*.dll"):
+                if dll.is_file():
+                    dll_sources.setdefault(dll.name, dll)
+
+            for name, source in dll_sources.items():
+                target = standalone_dir / name
+                shutil.copy2(source, target)
 
     install_md = staging_root / "INSTALL.md"
     _write_install_instructions(install_md, platform_key, args.product_name)
