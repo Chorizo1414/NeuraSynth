@@ -430,7 +430,7 @@ PythonManager::PythonManager()
         if (hasEmbeddedRuntime && pythonPathEntries.size() > 0)
         {
             const juce::String combinedPythonPath = pythonPathEntries.joinIntoString(getPathListSeparator());
-            //setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
+            setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
         }
 
         if (!pythonInterpreterReady)
