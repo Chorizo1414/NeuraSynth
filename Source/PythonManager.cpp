@@ -94,34 +94,65 @@ namespace
 
         static const char* pythonDlls[] = { "python38.dll", "python39.dll", "python310.dll", "python311.dll" };
 
-        bool hasRuntimeLibrary = false;
-        for (auto* dll : pythonDlls)
-        {
-            if (directory.getChildFile(dll).existsAsFile())
+        auto hasRuntimeLibraryIn = [](const juce::File& candidate)
             {
-                hasRuntimeLibrary = true;
-                break;
-            }
-        }
+                if (!candidate.isDirectory())
+                    return false;
 
-        if (!hasRuntimeLibrary && directory.getChildFile("python3.dll").existsAsFile())
-            hasRuntimeLibrary = true;
+                for (auto* dll : pythonDlls)
+                {
+                    if (candidate.getChildFile(dll).existsAsFile())
+                        return true;
+                }
+
+                if (candidate.getChildFile("python3.dll").existsAsFile())
+                    return true;
+
+                if (candidate.getChildFile("python.exe").existsAsFile()
+                    || candidate.getChildFile("pythonw.exe").existsAsFile())
+                    return true;
+
+                juce::Array<juce::File> pythonZips;
+                candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
+                return !pythonZips.isEmpty();
+            };
+
+        bool hasRuntimeLibrary = hasRuntimeLibraryIn(directory);
+        if (!hasRuntimeLibrary)
+        {
+            const auto parent = directory.getParentDirectory();
+            hasRuntimeLibrary = hasRuntimeLibraryIn(parent);
+        }
 
         if (!hasRuntimeLibrary)
             return false;
 
-        const bool hasLibFolder = directory.getChildFile("Lib").isDirectory()
-            || directory.getChildFile("lib").isDirectory();
+        auto hasLibStructure = [](const juce::File& candidate)
+            {
+                if (!candidate.isDirectory())
+                    return false;
 
-        if (hasLibFolder)
+                if (candidate.getChildFile("Lib").isDirectory()
+                    || candidate.getChildFile("lib").isDirectory())
+                    return true;
+
+                juce::Array<juce::File> pythonZips;
+                candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
+                if (!pythonZips.isEmpty())
+                    return true;
+
+                const auto binDir = candidate.getChildFile("bin");
+                if (binDir.isDirectory() && candidate.getChildFile("lib").isDirectory())
+                    return true;
+
+                return false;
+            };
+
+        if (hasLibStructure(directory))
             return true;
 
-        juce::Array<juce::File> pythonZips;
-        directory.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
-        if (!pythonZips.isEmpty())
-            return true;
-
-        if (directory.getChildFile("bin").isDirectory() && directory.getChildFile("lib").isDirectory())
+        const auto embeddedPythonDir = directory.getChildFile("Python");
+        if (hasLibStructure(embeddedPythonDir))
             return true;
 
         return false;

@@ -38,7 +38,15 @@ REPO_ROOT = _detect_repo_root(SCRIPT_ROOT)
 DEFAULT_LOGO = SCRIPT_ROOT / "resources" / "icon.png"
 DEFAULT_PYTHON_RUNTIME_ROOT = SCRIPT_ROOT / "python-runtime"
 NEURACHORD_SOURCE = REPO_ROOT / "Source" / "NeuraChord"
-DEFAULT_BUNDLED_PACKAGES = ["music21", "numpy"]
+DEFAULT_BUNDLED_PACKAGES = [
+    "music21",
+    "numpy",
+    "pygame",
+    "tkinterdnd2",
+    "PIL",
+    "fuzzywuzzy",
+    "customtkinter",
+]
 
 
 def _parse_png_dimensions(data: bytes) -> tuple[int, int]:
@@ -134,7 +142,21 @@ def _extract_requirement_name(requirement: str) -> Optional[str]:
     if not requirement:
         return None
 
-    match = _RE_REQUIREMENT.match(requirement)
+    name_part = requirement
+    marker_part = ""
+    if ";" in requirement:
+        name_part, marker_part = requirement.split(";", 1)
+        marker_part = marker_part.strip().lower()
+        normalised_marker = marker_part.replace(" ", "")
+
+        # Ignore optional extras such as "package; extra == 'docs'" which pull in
+        # large dependency sets that are irrelevant for the embedded runtime.
+        if "extra==" in normalised_marker or "extra!=" in normalised_marker or "extra~=" in normalised_marker:
+            return None
+        if "extra" in marker_part:
+            return None
+
+    match = _RE_REQUIREMENT.match(name_part.strip())
     if not match:
         return None
 
@@ -196,10 +218,32 @@ def _resolve_modules_to_bundle(packages: Iterable[str], include_dependencies: bo
         dist_name = _normalise_distribution_name(raw_name)
         dist_info_path: Optional[Path] = None
 
+        candidates: list[str] = []
+        for value in {raw_name, module_name, dist_name}:
+            if value:
+                normalised = _normalise_distribution_name(value)
+                if normalised not in candidates:
+                    candidates.append(normalised)
+
         try:
-            dist = importlib_metadata.distribution(dist_name)
-        except importlib_metadata.PackageNotFoundError:
-            dist = None
+            package_map = importlib_metadata.packages_distributions()
+        except Exception:
+            package_map = {}
+
+        for mapped in package_map.get(module_name, []):
+            normalised = _normalise_distribution_name(mapped)
+            if normalised not in candidates:
+                candidates.append(normalised)
+
+        dist = None
+        for candidate in candidates:
+            try:
+                dist = importlib_metadata.distribution(candidate)
+            except importlib_metadata.PackageNotFoundError:
+                continue
+            else:
+                dist_name = candidate
+                break
 
         if dist is not None:
             if include_dependencies and dist_name not in seen_distributions:
@@ -217,7 +261,13 @@ def _resolve_modules_to_bundle(packages: Iterable[str], include_dependencies: bo
     return resolved
 
 
-def _bundle_python_packages(packages: Iterable[str], runtimes: Iterable[Path], *, include_dependencies: bool) -> None:
+def _bundle_python_packages(
+    packages: Iterable[str],
+    runtimes: Iterable[Path],
+    *,
+    include_dependencies: bool,
+    skip_existing: bool,
+) -> None:
     modules = _resolve_modules_to_bundle(packages, include_dependencies)
     if not modules:
         return
@@ -235,6 +285,18 @@ def _bundle_python_packages(packages: Iterable[str], runtimes: Iterable[Path], *
 
         for module in modules:
             destination = site_packages / module.target_name
+            if destination.exists():
+                if skip_existing:
+                    print(
+                        f"[INFO] El paquete '{module.name}' ya existe en '{destination}'. Se omite el copiado."
+                    )
+                    continue
+                action = "Reemplazando"
+            else:
+                action = "Copiando"
+
+            print(f"[INFO] {action} paquete '{module.name}' en '{destination}'.")
+
             if module.is_package:
                 if destination.exists():
                     shutil.rmtree(destination)
@@ -246,7 +308,19 @@ def _bundle_python_packages(packages: Iterable[str], runtimes: Iterable[Path], *
             if module.dist_info is not None and module.dist_info.exists():
                 dist_destination = site_packages / module.dist_info.name
                 if dist_destination.exists():
+                    if skip_existing:
+                        print(
+                            f"[INFO] Los metadatos '{module.dist_info.name}' ya existen en '{dist_destination}'. Se omiten."
+                        )
+                        continue
+                    print(
+                        f"[INFO] Reemplazando metadatos '{module.dist_info.name}' en '{dist_destination}'."
+                    )
                     shutil.rmtree(dist_destination)
+                else:
+                    print(
+                        f"[INFO] Copiando metadatos '{module.dist_info.name}' a '{dist_destination}'."
+                    )
                 shutil.copytree(module.dist_info, dist_destination)
 
 
@@ -765,6 +839,9 @@ def build_installer(args: argparse.Namespace) -> None:
 
     python_payloads: list[Path] = []
     seen_payloads: set[Path] = set()
+    default_runtime_root = DEFAULT_PYTHON_RUNTIME_ROOT / platform_key
+    source_runtime_targets: list[Path] = []
+    source_runtime_target_set: set[Path] = set()
 
     def _add_python_payload(path: Path) -> None:
         resolved = path.resolve()
@@ -772,6 +849,11 @@ def build_installer(args: argparse.Namespace) -> None:
             return
         seen_payloads.add(resolved)
         python_payloads.append(resolved)
+
+        if resolved.is_dir() and _looks_like_python_runtime(resolved):
+            if resolved not in source_runtime_target_set:
+                source_runtime_target_set.add(resolved)
+                source_runtime_targets.append(resolved)
 
     for runtime in args.python_runtime:
         runtime_path = Path(runtime).expanduser().resolve()
@@ -784,6 +866,12 @@ def build_installer(args: argparse.Namespace) -> None:
         if default.exists():
             _add_python_payload(default)
 
+    if default_runtime_root.exists() and _looks_like_python_runtime(default_runtime_root):
+        resolved_default_runtime_root = default_runtime_root.resolve()
+        if resolved_default_runtime_root not in source_runtime_target_set:
+            source_runtime_target_set.add(resolved_default_runtime_root)
+            source_runtime_targets.append(resolved_default_runtime_root)
+
     if not args.python_runtime and defaults:
         pretty_defaults = ", ".join(str(path) for path in defaults if path.exists())
         if pretty_defaults:
@@ -791,32 +879,52 @@ def build_installer(args: argparse.Namespace) -> None:
     elif not python_payloads:
         print("[ADVERTENCIA] No se especificaron rutas de Python. El ejecutable requerirá un intérprete externo.")
 
+    python_root = staging_root / "Python"
+    runtime_targets: list[Path] = []
+    runtime_target_set: set[Path] = set()
+
+    def _register_runtime_target(candidate: Path) -> None:
+        resolved_candidate = candidate.resolve()
+        if resolved_candidate in runtime_target_set:
+            return
+        runtime_target_set.add(resolved_candidate)
+        runtime_targets.append(resolved_candidate)
+
+    if python_root.exists():
+        if _looks_like_python_runtime(python_root):
+            _register_runtime_target(python_root)
+        for child in python_root.iterdir():
+            if child.is_dir() and _looks_like_python_runtime(child):
+                _register_runtime_target(child)
+
+    packages_to_bundle: list[str] = list(args.python_package)
+    if not args.no_default_python_packages:
+        for default_package in DEFAULT_BUNDLED_PACKAGES:
+            if default_package not in packages_to_bundle:
+                packages_to_bundle.append(default_package)
+
+    if packages_to_bundle and source_runtime_targets:
+        _bundle_python_packages(
+            packages_to_bundle,
+            source_runtime_targets,
+            include_dependencies=not args.skip_python_package_deps,
+            skip_existing=not args.overwrite_python_packages,
+        )
+
     for payload in python_payloads:
         dest = staging_root / "Python" / payload.name
         _copy_any(payload, dest)
 
-    python_root = staging_root / "Python"
-    runtime_targets: list[Path] = []
-    if python_root.exists():
-        for child in python_root.iterdir():
-            if child.is_dir() and _looks_like_python_runtime(child):
-                runtime_targets.append(child)
+    if packages_to_bundle and runtime_targets:
+        _bundle_python_packages(
+            packages_to_bundle,
+            runtime_targets,
+            include_dependencies=not args.skip_python_package_deps,
+            skip_existing=not args.overwrite_python_packages,
+        )
 
-        packages_to_bundle: list[str] = list(args.python_package)
-        if not args.no_default_python_packages:
-            for default_package in DEFAULT_BUNDLED_PACKAGES:
-                if default_package not in packages_to_bundle:
-                    packages_to_bundle.append(default_package)
-
-        if packages_to_bundle and runtime_targets:
-            _bundle_python_packages(
-                packages_to_bundle,
-                runtime_targets,
-                include_dependencies=not args.skip_python_package_deps,
-            )
-
-        for runtime in runtime_targets:
-            _configure_embedded_runtime(runtime)
+    for runtime in runtime_targets:
+        _configure_embedded_runtime(runtime)
 
     if python_root.exists():
         has_embedded_runtime = (
@@ -928,10 +1036,23 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
                         help="Rutas adicionales de Python a incluir en el paquete (se puede repetir).")
     parser.add_argument("--python-package", action="append", default=[],
                         help="Paquetes de Python adicionales a copiar dentro del runtime embebido (se puede repetir).")
-    parser.add_argument("--no-default-python-packages", action="store_true",
-                        help="Desactiva el copiado automático de paquetes esenciales (music21, numpy).")
+    parser.add_argument(
+        "--no-default-python-packages",
+        action="store_true",
+        help=(
+            "Desactiva el copiado automático de paquetes esenciales "
+            "(music21, numpy, pygame, tkinterdnd2, PIL, fuzzywuzzy, customtkinter)."
+        ),
+    )
     parser.add_argument("--skip-python-package-deps", action="store_true",
                         help="No copiar las dependencias declaradas de los paquetes indicados.")
+    parser.add_argument(
+        "--overwrite-python-packages",
+        action="store_true",
+        help=(
+            "Copiar siempre los paquetes de Python incluso si ya existen en Lib/site-packages del runtime embebido."
+        ),
+    )
     parser.add_argument("--resources", action="append", default=[],
                         help="Recursos adicionales (presets, documentación, etc.).")
     parser.add_argument("--skip-archive", action="store_true", help="No generar archivos comprimidos finales.")

@@ -1,0 +1,7 @@
+music21
+fuzzywuzzy
+python-Levenshtein
+tkinterdnd2
+Pillow
+pygame
+customtkinter
