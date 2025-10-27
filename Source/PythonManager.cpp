@@ -10,6 +10,9 @@ namespace
 
     using FileList = std::vector<juce::File>;
 
+    void appendIfUnique(FileList& files, const juce::File& candidate);
+    bool hasRuntimeLibraryIn(const juce::File& candidate);
+
     juce::String getPathListSeparator()
     {
 #if JUCE_WINDOWS
@@ -27,6 +30,62 @@ namespace
         ::setenv(name.toRawUTF8(), value.toRawUTF8(), 1);
 #endif
     }
+
+#if JUCE_WINDOWS
+    void prependToPathIfNecessary(const juce::File& directory)
+    {
+        if (!directory.isDirectory())
+            return;
+
+        const auto candidate = directory.getFullPathName();
+        if (candidate.isEmpty())
+            return;
+
+        const juce::String existingPath = juce::SystemStats::getEnvironmentVariable("PATH", {});
+
+        juce::StringArray entries;
+        entries.addTokens(existingPath, getPathListSeparator(), "\"");
+        entries.trim();
+        entries.removeEmptyStrings();
+
+        for (const auto& entry : entries)
+            if (entry == candidate)
+                return;
+
+        const juce::String newPath = existingPath.isEmpty()
+            ? candidate
+            : candidate + getPathListSeparator() + existingPath;
+
+        setEnvironmentVariable("PATH", newPath);
+    }
+
+    void exposePythonRuntimeOnPath(const juce::File& pythonHome)
+    {
+        if (!pythonHome.isDirectory())
+            return;
+
+        FileList candidates;
+
+        auto addCandidate = [&candidates](const juce::File& directory)
+            {
+                appendIfUnique(candidates, directory);
+            };
+
+        addCandidate(pythonHome);
+        addCandidate(pythonHome.getChildFile("DLLs"));
+
+        const auto parent = pythonHome.getParentDirectory();
+        if (hasRuntimeLibraryIn(parent))
+            addCandidate(parent);
+
+        const auto binDir = pythonHome.getChildFile("bin");
+        if (hasRuntimeLibraryIn(binDir))
+            addCandidate(binDir);
+
+        for (const auto& candidate : candidates)
+            prependToPathIfNecessary(candidate);
+    }
+#endif
 
     void appendIfUnique(FileList& files, const juce::File& candidate)
     {
@@ -87,75 +146,89 @@ namespace
         return bases;
     }
 
-    bool looksLikePythonHome(const juce::File& directory)
+    bool hasRuntimeLibraryIn(const juce::File& candidate)
     {
-        if (!directory.isDirectory())
+        if (!candidate.isDirectory())
             return false;
 
         static const char* pythonDlls[] = { "python38.dll", "python39.dll", "python310.dll", "python311.dll" };
 
-        auto hasRuntimeLibraryIn = [](const juce::File& candidate)
-            {
-                if (!candidate.isDirectory())
-                    return false;
-
-                for (auto* dll : pythonDlls)
-                {
-                    if (candidate.getChildFile(dll).existsAsFile())
-                        return true;
-                }
-
-                if (candidate.getChildFile("python3.dll").existsAsFile())
-                    return true;
-
-                if (candidate.getChildFile("python.exe").existsAsFile()
-                    || candidate.getChildFile("pythonw.exe").existsAsFile())
-                    return true;
-
-                juce::Array<juce::File> pythonZips;
-                candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
-                return !pythonZips.isEmpty();
-            };
-
-        bool hasRuntimeLibrary = hasRuntimeLibraryIn(directory);
-        if (!hasRuntimeLibrary)
+        for (auto* dll : pythonDlls)
         {
-            const auto parent = directory.getParentDirectory();
-            hasRuntimeLibrary = hasRuntimeLibraryIn(parent);
+            if (candidate.getChildFile(dll).existsAsFile())
+                return true;
         }
 
-        if (!hasRuntimeLibrary)
-            return false;
-
-        auto hasLibStructure = [](const juce::File& candidate)
-            {
-                if (!candidate.isDirectory())
-                    return false;
-
-                if (candidate.getChildFile("Lib").isDirectory()
-                    || candidate.getChildFile("lib").isDirectory())
-                    return true;
-
-                juce::Array<juce::File> pythonZips;
-                candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
-                if (!pythonZips.isEmpty())
-                    return true;
-
-                const auto binDir = candidate.getChildFile("bin");
-                if (binDir.isDirectory() && candidate.getChildFile("lib").isDirectory())
-                    return true;
-
-                return false;
-            };
-
-        if (hasLibStructure(directory))
+        if (candidate.getChildFile("python3.dll").existsAsFile())
             return true;
 
-        const auto embeddedPythonDir = directory.getChildFile("Python");
-        if (hasLibStructure(embeddedPythonDir))
+        if (candidate.getChildFile("python.exe").existsAsFile()
+            || candidate.getChildFile("pythonw.exe").existsAsFile())
+            return true;
+
+        juce::Array<juce::File> pythonZips;
+        candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
+        return !pythonZips.isEmpty();
+    }
+
+    bool hasLibStructure(const juce::File& candidate)
+    {
+        if (!candidate.isDirectory())
+            return false;
+
+        if (candidate.getChildFile("Lib").isDirectory()
+            || candidate.getChildFile("lib").isDirectory())
+            return true;
+
+        juce::Array<juce::File> pythonZips;
+        candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
+        if (!pythonZips.isEmpty())
+            return true;
+
+        const auto binDir = candidate.getChildFile("bin");
+        if (binDir.isDirectory() && candidate.getChildFile("lib").isDirectory())
             return true;
 
         return false;
+    }
+
+    juce::File resolvePythonHomeCandidate(const juce::File& base)
+    {
+        if (!base.isDirectory())
+            return {};
+
+        if (hasLibStructure(base))
+            return base;
+
+        const auto embeddedPythonDir = base.getChildFile("Python");
+        if (hasLibStructure(embeddedPythonDir))
+            return embeddedPythonDir;
+
+        return {};
+    }
+
+    juce::File findPythonHomeInDescendants(const juce::File& root, int maxDepth)
+    {
+        if (!root.isDirectory() || maxDepth < 0)
+            return {};
+
+        const auto direct = resolvePythonHomeCandidate(root);
+        if (direct.isDirectory())
+            return direct;
+
+        if (maxDepth == 0)
+            return {};
+
+        juce::DirectoryIterator iterator(root, false, "*", juce::File::findDirectories);
+        while (iterator.next())
+        {
+            const auto child = iterator.getFile();
+            const auto found = findPythonHomeInDescendants(child, maxDepth - 1);
+            if (found.isDirectory())
+                return found;
+        }
+
+        return {};
     }
 
     juce::File findPythonHome()
@@ -164,28 +237,50 @@ namespace
         if (envOverride.isNotEmpty())
         {
             juce::File envCandidate(envOverride);
-            if (looksLikePythonHome(envCandidate))
-                return envCandidate;
+            const auto resolved = resolvePythonHomeCandidate(envCandidate);
+            if (resolved.isDirectory())
+                return resolved;
         }
 
         for (const auto& base : enumerateBaseDirectories())
         {
-            if (looksLikePythonHome(base))
-                return base;
-
-            const auto pythonDir = base.getChildFile("Python");
-            if (looksLikePythonHome(pythonDir))
-                return pythonDir;
-
-            if (pythonDir.isDirectory())
+            struct SearchRoot
             {
-                juce::DirectoryIterator iterator(pythonDir, false, "*", juce::File::findDirectories);
-                while (iterator.next())
+                juce::File directory;
+                int depth;
+            };
+
+            std::vector<SearchRoot> searchRoots;
+            auto addSearchRoot = [&searchRoots](const juce::File& directory, int depth)
                 {
-                    const auto subDirectory = iterator.getFile();
-                    if (looksLikePythonHome(subDirectory))
-                        return subDirectory;
-                }
+                    if (directory == juce::File())
+                        return;
+
+                    searchRoots.push_back({ directory, depth });
+                };
+
+            addSearchRoot(base, 1);
+            addSearchRoot(base.getChildFile("Python"), 2);
+            addSearchRoot(base.getChildFile("Resources"), 2);
+
+            const auto sourceDir = base.getChildFile("Source");
+            addSearchRoot(sourceDir, 3);
+            addSearchRoot(sourceDir.getChildFile("Python"), 3);
+
+            const auto installerDir = sourceDir.getChildFile("installer");
+            addSearchRoot(installerDir, 3);
+            addSearchRoot(installerDir.getChildFile("python-runtime"), 4);
+
+            juce::Array<juce::File> runtimePlatforms;
+            installerDir.getChildFile("python-runtime").findChildFiles(runtimePlatforms, juce::File::findDirectories, false);
+            for (const auto& platformDir : runtimePlatforms)
+                addSearchRoot(platformDir, 3);
+
+            for (const auto& searchRoot : searchRoots)
+            {
+                const auto found = findPythonHomeInDescendants(searchRoot.directory, searchRoot.depth);
+                if (found.isDirectory())
+                    return found;
             }
         }
 
@@ -245,7 +340,9 @@ PythonManager::PythonManager()
 
         const juce::File pythonHome = findPythonHome();
         const bool hasEmbeddedRuntime = pythonHome.isDirectory();
-        if (!hasEmbeddedRuntime)
+        if (hasEmbeddedRuntime)
+            DBG("PythonManager: runtime embebido detectado en " << pythonHome.getFullPathName());
+        else
             DBG("!!! PYTHON MANAGER ERROR: No se encontró el runtime embebido de Python. Se intentará usar el intérprete global si está disponible.");
 
         const juce::File neuraChordRoot = findNeuraChordRoot(pythonHome);
@@ -269,11 +366,50 @@ PythonManager::PythonManager()
                 const juce::File sitePackages = libDir.getChildFile("site-packages");
                 if (sitePackages.isDirectory())
                     addPathEntry(sitePackages.getFullPathName());
+
+                const juce::File encodingsDir = libDir.getChildFile("encodings");
+                if (encodingsDir.isDirectory())
+                    addPathEntry(encodingsDir.getFullPathName());
             }
+
+            const juce::File lowerLibDir = pythonHome.getChildFile("lib");
+            if (lowerLibDir.isDirectory())
+            {
+                addPathEntry(lowerLibDir.getFullPathName());
+
+                const juce::File sitePackages = lowerLibDir.getChildFile("site-packages");
+                if (sitePackages.isDirectory())
+                    addPathEntry(sitePackages.getFullPathName());
+
+                const juce::File encodingsDir = lowerLibDir.getChildFile("encodings");
+                if (encodingsDir.isDirectory())
+                    addPathEntry(encodingsDir.getFullPathName());
+            }
+
+            auto addPythonZip = [&addPathEntry](const juce::File& directory, const juce::String& pattern)
+                {
+                    juce::Array<juce::File> matches;
+                    directory.findChildFiles(matches, juce::File::findFiles, false, pattern);
+                    for (const auto& match : matches)
+                        addPathEntry(match.getFullPathName());
+                };
+
+            addPythonZip(pythonHome, "python*.zip");
+
+            if (pythonHome.getChildFile("Lib").isDirectory())
+                addPythonZip(pythonHome.getChildFile("Lib"), "python*.zip");
+
+            if (pythonHome.getChildFile("lib").isDirectory())
+                addPythonZip(pythonHome.getChildFile("lib"), "python*.zip");
         }
 
         if (neuraChordRoot.isDirectory())
             addPathEntry(neuraChordRoot.getFullPathName());
+
+#if JUCE_WINDOWS
+        if (hasEmbeddedRuntime)
+            exposePythonRuntimeOnPath(pythonHome);
+#endif
 
         const juce::String existingPythonPath = juce::SystemStats::getEnvironmentVariable("PYTHONPATH", {});
         if (existingPythonPath.isNotEmpty())
@@ -291,10 +427,10 @@ PythonManager::PythonManager()
             setEnvironmentVariable("PYTHONHOME", pythonHome.getFullPathName());
 
 
-        if (pythonPathEntries.size() > 0)
+        if (hasEmbeddedRuntime && pythonPathEntries.size() > 0)
         {
             const juce::String combinedPythonPath = pythonPathEntries.joinIntoString(getPathListSeparator());
-            setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
+            //setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
         }
 
         if (!pythonInterpreterReady)
