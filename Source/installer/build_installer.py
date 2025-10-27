@@ -12,9 +12,13 @@ import json
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime
+from importlib import metadata as importlib_metadata
+from importlib import util as importlib_util
 from pathlib import Path
 from typing import Iterable, Optional
+import re
 
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
@@ -34,6 +38,7 @@ REPO_ROOT = _detect_repo_root(SCRIPT_ROOT)
 DEFAULT_LOGO = SCRIPT_ROOT / "resources" / "icon.png"
 DEFAULT_PYTHON_RUNTIME_ROOT = SCRIPT_ROOT / "python-runtime"
 NEURACHORD_SOURCE = REPO_ROOT / "Source" / "NeuraChord"
+DEFAULT_BUNDLED_PACKAGES = ["music21", "numpy"]
 
 
 def _parse_png_dimensions(data: bytes) -> tuple[int, int]:
@@ -90,6 +95,215 @@ def _collect_default_python_payloads(platform_key: str) -> list[Path]:
         payloads.append(NEURACHORD_SOURCE)
 
     return payloads
+
+
+def _looks_like_python_runtime(path: Path) -> bool:
+    if not path.exists():
+        return False
+
+    dlls = list(path.glob("python3*.dll"))
+    if not dlls and not list(path.glob("python3*.zip")) and not list(path.glob("libpython3*.so")):
+        return False
+
+    # Embedded runtimes may only ship the DLL + pythonXX.zip.
+    return True
+
+
+@dataclass(frozen=True)
+class _BundledModule:
+    name: str
+    source: Path
+    is_package: bool
+    target_name: str
+    dist_info: Optional[Path]
+
+
+_RE_REQUIREMENT = re.compile(r"^[A-Za-z0-9_.-]+")
+
+
+def _normalise_distribution_name(value: str) -> str:
+    return value.replace("_", "-")
+
+
+def _normalise_module_name(value: str) -> str:
+    return value.replace("-", "_")
+
+
+def _extract_requirement_name(requirement: str) -> Optional[str]:
+    requirement = requirement.strip()
+    if not requirement:
+        return None
+
+    match = _RE_REQUIREMENT.match(requirement)
+    if not match:
+        return None
+
+    return match.group(0)
+
+
+def _find_dist_info_directory(dist: importlib_metadata.Distribution) -> Optional[Path]:
+    files = getattr(dist, "files", None)
+    if not files:
+        return None
+
+    for entry in files:
+        parts = getattr(entry, "parts", ())
+        if not parts:
+            continue
+        first = parts[0]
+        if first.endswith(".dist-info"):
+            return Path(dist.locate_file(Path(first)))
+
+    return None
+
+
+def _resolve_modules_to_bundle(packages: Iterable[str], include_dependencies: bool) -> list[_BundledModule]:
+    queue: list[str] = []
+    for package in packages:
+        if package:
+            queue.append(package)
+
+    resolved: list[_BundledModule] = []
+    seen_modules: set[str] = set()
+    seen_distributions: set[str] = set()
+
+    while queue:
+        raw_name = queue.pop(0)
+        module_name = _normalise_module_name(raw_name)
+        if module_name in seen_modules:
+            continue
+
+        try:
+            spec = importlib_util.find_spec(module_name)
+        except (ImportError, AttributeError):
+            spec = None
+
+        if spec is None or spec.origin is None:
+            print(f"[ADVERTENCIA] No se pudo localizar el paquete de Python '{raw_name}'.")
+            continue
+
+        if spec.origin == "built-in":
+            continue
+
+        is_package = bool(spec.submodule_search_locations)
+        if is_package:
+            source_path = Path(spec.submodule_search_locations[0])
+            target_name = source_path.name
+        else:
+            source_path = Path(spec.origin)
+            target_name = source_path.name
+
+        dist_name = _normalise_distribution_name(raw_name)
+        dist_info_path: Optional[Path] = None
+
+        try:
+            dist = importlib_metadata.distribution(dist_name)
+        except importlib_metadata.PackageNotFoundError:
+            dist = None
+
+        if dist is not None:
+            if include_dependencies and dist_name not in seen_distributions:
+                seen_distributions.add(dist_name)
+                for requirement in dist.requires or []:
+                    requirement_name = _extract_requirement_name(requirement)
+                    if requirement_name:
+                        queue.append(requirement_name)
+
+            dist_info_path = _find_dist_info_directory(dist)
+
+        resolved.append(_BundledModule(module_name, source_path, is_package, target_name, dist_info_path))
+        seen_modules.add(module_name)
+
+    return resolved
+
+
+def _bundle_python_packages(packages: Iterable[str], runtimes: Iterable[Path], *, include_dependencies: bool) -> None:
+    modules = _resolve_modules_to_bundle(packages, include_dependencies)
+    if not modules:
+        return
+
+    runtime_list = list(runtimes)
+    if not runtime_list:
+        return
+
+    pretty = ", ".join(sorted({module.name for module in modules}))
+    print(f"[INFO] Copiando paquetes de Python al runtime embebido: {pretty}")
+
+    for runtime in runtime_list:
+        site_packages = runtime / "Lib" / "site-packages"
+        site_packages.mkdir(parents=True, exist_ok=True)
+
+        for module in modules:
+            destination = site_packages / module.target_name
+            if module.is_package:
+                if destination.exists():
+                    shutil.rmtree(destination)
+                shutil.copytree(module.source, destination)
+            else:
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(module.source, destination)
+
+            if module.dist_info is not None and module.dist_info.exists():
+                dist_destination = site_packages / module.dist_info.name
+                if dist_destination.exists():
+                    shutil.rmtree(dist_destination)
+                shutil.copytree(module.dist_info, dist_destination)
+
+
+def _configure_embedded_runtime(runtime: Path) -> None:
+    """Ensure the embedded runtime can load packages from Lib/site-packages."""
+
+    for pth_file in runtime.glob("python*._pth"):
+        try:
+            original_text = pth_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        lines = [line.rstrip("\r\n") for line in original_text.splitlines()]
+        changed = False
+
+        # Normalise the optional "# import site" entry so site-packages is honoured.
+        for index, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.lower().startswith("# import site"):
+                lines[index] = "import site"
+                changed = True
+
+        # Ensure the Lib and Lib/site-packages directories are part of sys.path.
+        stripped_lines = [line.strip() for line in lines]
+
+        def _has_entry(candidate: str) -> bool:
+            candidate_lower = candidate.lower().replace("\\", "/")
+            for value in stripped_lines:
+                if value.lower().replace("\\", "/") == candidate_lower:
+                    return True
+            return False
+
+        additions: list[str] = []
+        if not _has_entry("Lib"):
+            additions.append("Lib")
+        if not _has_entry("Lib/site-packages"):
+            additions.append("Lib\\site-packages")
+
+        if additions:
+            stripped_lines = [line.strip() for line in lines]
+            try:
+                dot_index = next(i for i, value in enumerate(stripped_lines) if value == ".")
+            except StopIteration:
+                insertion_index = len(lines)
+            else:
+                insertion_index = dot_index + 1
+
+            for offset, entry in enumerate(additions):
+                lines.insert(insertion_index + offset, entry)
+            changed = True
+
+        if changed:
+            new_text = "\n".join(lines) + "\n"
+            try:
+                pth_file.write_text(new_text, encoding="utf-8")
+            except OSError:
+                continue
 
 
 def _format_inno_path(path: Path) -> str:
@@ -575,6 +789,28 @@ def build_installer(args: argparse.Namespace) -> None:
         _copy_any(payload, dest)
 
     python_root = staging_root / "Python"
+    runtime_targets: list[Path] = []
+    if python_root.exists():
+        for child in python_root.iterdir():
+            if child.is_dir() and _looks_like_python_runtime(child):
+                runtime_targets.append(child)
+
+        packages_to_bundle: list[str] = list(args.python_package)
+        if not args.no_default_python_packages:
+            for default_package in DEFAULT_BUNDLED_PACKAGES:
+                if default_package not in packages_to_bundle:
+                    packages_to_bundle.append(default_package)
+
+        if packages_to_bundle and runtime_targets:
+            _bundle_python_packages(
+                packages_to_bundle,
+                runtime_targets,
+                include_dependencies=not args.skip_python_package_deps,
+            )
+
+        for runtime in runtime_targets:
+            _configure_embedded_runtime(runtime)
+
     if python_root.exists():
         has_embedded_runtime = (
             any(python_root.rglob("python3*.dll"))
@@ -683,6 +919,12 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
     parser.add_argument("--logo", help="Logo opcional para branding del instalador. Por defecto usa installer/resources/icon.png si existe.")
     parser.add_argument("--python-runtime", action="append", default=[],
                         help="Rutas adicionales de Python a incluir en el paquete (se puede repetir).")
+    parser.add_argument("--python-package", action="append", default=[],
+                        help="Paquetes de Python adicionales a copiar dentro del runtime embebido (se puede repetir).")
+    parser.add_argument("--no-default-python-packages", action="store_true",
+                        help="Desactiva el copiado automático de paquetes esenciales (music21, numpy).")
+    parser.add_argument("--skip-python-package-deps", action="store_true",
+                        help="No copiar las dependencias declaradas de los paquetes indicados.")
     parser.add_argument("--resources", action="append", default=[],
                         help="Recursos adicionales (presets, documentación, etc.).")
     parser.add_argument("--skip-archive", action="store_true", help="No generar archivos comprimidos finales.")

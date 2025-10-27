@@ -35,6 +35,8 @@ El script creará:
 
 El script empaqueta automáticamente `Source/NeuraChord` dentro de la carpeta `Python/` porque es imprescindible para que el motor funcione. Además, si detecta un runtime embebido en `installer/python-runtime/<plataforma>/`, lo copia sin que tengas que pasar parámetros extra.
 
+A partir de esta versión, el empaquetador también intenta clonar los módulos críticos `music21` y `numpy` desde el entorno de Python con el que ejecutes `build_installer.py`. Si no los encuentra, mostrará una advertencia para que puedas instalarlos antes de volver a generar el paquete. Puedes añadir módulos adicionales con `--python-package`, desactivar los predeterminados con `--no-default-python-packages` y omitir sus dependencias transitivas con `--skip-python-package-deps` cuando lo necesites.
+
 Si deseas sobreescribir esta selección (por ejemplo para añadir una versión distinta del runtime, librerías adicionales o documentación), añade las rutas con `--python-runtime` y `--resources` tantas veces como necesites:
 ```bash
 python installer/build_installer.py \
