@@ -105,7 +105,7 @@ public:
         int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
         int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
         double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr,
-        float* glideSecondsPtr, double sr);
+        float* glideSecondsPtr, juce::SpinLock* parameterLock, double sr);
 
     bool canPlaySound(juce::SynthesiserSound* sound) override
     {
@@ -208,6 +208,8 @@ private:
 
     double sampleRateHz = 48000.0;
 
+    juce::SpinLock* parameterLock = nullptr;
+
     // Helper: procesa un sample por canal con SVF TPT (low-pass)
     inline float processSVFLP(float in, float cutoffHz, float Q, SVFState& s) noexcept
     {
@@ -304,7 +306,7 @@ public:
     float getWavePosition3() const { return wavePosition3; }
 
     // --- Setters de Master y Posición ---
-    void setMasterGain(float newGain) { masterGain = newGain; }
+    void setMasterGain(float newGain);
     void setWavePosition1(float newPos);
     void setWavePosition2(float newPos);
     void setWavePosition3(float newPos);
@@ -346,7 +348,7 @@ public:
     void setFilterCutoff(double hz);
     void setFilterResonance(double q);
     void setFilterEnvAmount(double amt);
-    void setKeyTrack(bool enabled) { keyTrack = enabled; updateAllVoices(false); }
+    void setKeyTrack(bool enabled);
     void setFMAmount(float amount);
 
     // --- Setters de LFO ---
@@ -478,6 +480,7 @@ private:
     juce::MidiMessageCollector midiCollector;
     void syncParameterToValue(const juce::String& paramID, float value, bool forceInteger = false);
     void updateAllVoices(bool syncFromParameters = true);
+    void updateAllVoicesInternal(bool syncFromParameters = true);
 
     juce::String promptParaGenerar;
     juce::Synthesiser synth;
@@ -485,6 +488,7 @@ private:
     std::atomic<int64_t> playbackSamplePosition{ 0 };
     std::atomic<bool> isPlaying{ false };
     juce::CriticalSection sequenceLock;
+    juce::SpinLock voiceDataLock;
     juce::ADSR::Parameters adsrParams;
     double pitchShift1 = 0.0, pitchShift2 = 0.0, pitchShift3 = 0.0;
     int osc1Octave = 0, osc2Octave = 0, osc3Octave = 0;

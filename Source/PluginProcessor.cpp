@@ -5,6 +5,7 @@
 #include "BuiltInWavetables.h"
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 void NeuraSynthAudioProcessor::addMidiMessageToQueue(const juce::MidiMessage& msg)
 {
@@ -245,7 +246,7 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     int* nf2, juce::AudioBuffer<float>* wavetable2, float* wavePos2, float* gain2, double* pitch2, float* pan2, float* spread2, double* detune2,
     int* nf3, juce::AudioBuffer<float>* wavetable3, float* wavePos3, float* gain3, double* pitch3, float* pan3, float* spread3, double* detune3,
     double* cutoffHzPtr, double* qPtr, double* envAmtPtr, bool* keyTrackPtr, float* fmAmountPtr, float* lfoSpeedPtr, float* lfoAmountPtr,
-    float* glideSecondsPtr, double sr)
+    float* glideSecondsPtr, juce::SpinLock* sharedLock, double sr)
 {
     ampEnvelope.setParameters(adsr);
 
@@ -268,12 +269,22 @@ void SynthVoice::setParameters(juce::ADSR::Parameters& adsr,
     pLfoAmount = lfoAmountPtr;
     pGlideSeconds = glideSecondsPtr;
 
+    parameterLock = sharedLock;
+
     sampleRateHz = sr;
 }
 
 // Render de la voz con filtro SVF TPT y modulación de cutoff (ENV + KeyTrack)
 void SynthVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples)
 {
+    if (parameterLock == nullptr)
+        return;
+
+    juce::SpinLock::ScopedTryLockType scopedParameterLock(*parameterLock);
+
+    if (!scopedParameterLock.isLocked())
+        return;
+
     if (!isVoiceActive()) return;
 
     constexpr float minEnvelopeLevel = 1.0e-4f;
@@ -744,6 +755,12 @@ void NeuraSynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
 void NeuraSynthAudioProcessor::updateAllVoices(bool syncFromParameters)
 {
+    const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+    updateAllVoicesInternal(syncFromParameters);
+}
+
+void NeuraSynthAudioProcessor::updateAllVoicesInternal(bool syncFromParameters)
+{
     if (syncFromParameters)
     {
         // 1. Leemos los valores del APVTS y los guardamos en las variables miembro del procesador.
@@ -786,7 +803,7 @@ void NeuraSynthAudioProcessor::updateAllVoices(bool syncFromParameters)
                 &numFrames2, &wavetable2, &wavePosition2, &osc2Gain, &pitchShift2, &osc2Pan, &osc2Spread, &osc2DetuneCents,
                 &numFrames3, &wavetable3, &wavePosition3, &osc3Gain, &pitchShift3, &osc3Pan, &osc3Spread, &osc3DetuneCents,
                 &filterCutoffHz, &filterQ, &filterEnvAmt, &keyTrack, &fmAmount, &lfoSpeedHz, &lfoAmount,
-                &glideSeconds, getSampleRate());
+                &glideSeconds, &voiceDataLock, getSampleRate());
         }
     }
 }
@@ -797,167 +814,407 @@ auto calculatePitchShift = [](int oct, int pitch, double fine)
         return (double)oct + (pitch / 12.0) + (fine / 1200.0);
     };
 
+void NeuraSynthAudioProcessor::setMasterGain(float newGain)
+{
+    const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+    masterGain = newGain;
+}
+
 // Setters de Wavetable
 void NeuraSynthAudioProcessor::setWavetable1(const juce::AudioBuffer<float>& b, const juce::String& sourceName)
 {
-    wavetable1.makeCopyOf(b);
-    numFrames1 = b.getNumSamples() / 2048;
+    juce::AudioBuffer<float> newBuffer;
+    newBuffer.makeCopyOf(b);
+    const int newNumFrames = b.getNumSamples() / 2048;
+
+    const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+    wavetable1 = std::move(newBuffer);
+    numFrames1 = newNumFrames;
     if (sourceName.isNotEmpty())
         wavetable1Name = sourceName;
 }
 
 void NeuraSynthAudioProcessor::setWavetable2(const juce::AudioBuffer<float>& b, const juce::String& sourceName)
 {
-    wavetable2.makeCopyOf(b);
-    numFrames2 = b.getNumSamples() / 2048;
+    juce::AudioBuffer<float> newBuffer;
+    newBuffer.makeCopyOf(b);
+    const int newNumFrames = b.getNumSamples() / 2048;
+
+    const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+    wavetable2 = std::move(newBuffer);
+    numFrames2 = newNumFrames;
     if (sourceName.isNotEmpty())
         wavetable2Name = sourceName;
 }
 
 void NeuraSynthAudioProcessor::setWavetable3(const juce::AudioBuffer<float>& b, const juce::String& sourceName)
 {
-    wavetable3.makeCopyOf(b);
-    numFrames3 = b.getNumSamples() / 2048;
+    juce::AudioBuffer<float> newBuffer;
+    newBuffer.makeCopyOf(b);
+    const int newNumFrames = b.getNumSamples() / 2048;
+
+    const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+    wavetable3 = std::move(newBuffer);
+    numFrames3 = newNumFrames;
     if (sourceName.isNotEmpty())
         wavetable3Name = sourceName;
 }
 
 // Setters de Posición
-void NeuraSynthAudioProcessor::setWavePosition1(float p) { wavePosition1 = p; }
-void NeuraSynthAudioProcessor::setWavePosition2(float p) { wavePosition2 = p; }
-void NeuraSynthAudioProcessor::setWavePosition3(float p) { wavePosition3 = p; }
+void NeuraSynthAudioProcessor::setWavePosition1(float p)
+{
+    const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+    wavePosition1 = p;
+}
+void NeuraSynthAudioProcessor::setWavePosition2(float p)
+{
+    const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+    wavePosition2 = p;
+}
+void NeuraSynthAudioProcessor::setWavePosition3(float p)
+{
+    const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+    wavePosition3 = p;
+}
 
 // --- Setters Oscilador 1 ---
 void NeuraSynthAudioProcessor::setOsc1Gain(float g)
 {
-    osc1Gain = juce::jlimit(0.0f, 1.0f, g);
-    syncParameterToValue("osc1_gain", osc1Gain);
+    const float clampedGain = juce::jlimit(0.0f, 1.0f, g);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1Gain = clampedGain;
+    }
+    syncParameterToValue("osc1_gain", clampedGain);
     updateAllVoices();
 }
-void NeuraSynthAudioProcessor::setOsc1Octave(int v) { osc1Octave = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc1Pitch(int v) { osc1PitchSemitones = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc1FineTune(double v) { osc1FineTuneCents = v; pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc1Spread(float s) { osc1Spread = s; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc1Pan(float p) { osc1Pan = p; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc1Octave(int v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1Octave = v;
+        pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc1Pitch(int v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1PitchSemitones = v;
+        pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc1FineTune(double v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1FineTuneCents = v;
+        pitchShift1 = calculatePitchShift(osc1Octave, osc1PitchSemitones, osc1FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc1Spread(float s)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1Spread = s;
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc1Pan(float p)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1Pan = p;
+    }
+    updateAllVoices();
+}
 
 // --- Setters de Unison (para OSC 1) ---
 void NeuraSynthAudioProcessor::setOsc1UnisonVoices(int numVoices)
 {
-    osc1UnisonVoices = juce::jlimit(1, 16, numVoices);
-    syncParameterToValue("osc1_unison_voices", static_cast<float>(osc1UnisonVoices), true);
+    int clampedVoices = juce::jlimit(1, 16, numVoices);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1UnisonVoices = clampedVoices;
+    }
+    syncParameterToValue("osc1_unison_voices", static_cast<float>(clampedVoices), true);
     updateAllVoices();
 }
 
 void NeuraSynthAudioProcessor::setOsc1UnisonDetune(float amount)
 {
-    osc1UnisonDetune = juce::jlimit(0.0f, 1.0f, amount);
-    syncParameterToValue("osc1_unison_detune", osc1UnisonDetune);
+    const float clampedAmount = juce::jlimit(0.0f, 1.0f, amount);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1UnisonDetune = clampedAmount;
+    }
+    syncParameterToValue("osc1_unison_detune", clampedAmount);
     updateAllVoices();
 }
-void NeuraSynthAudioProcessor::setOsc1UnisonBalance(float balance) { osc1UnisonBalance = balance; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc1UnisonBalance(float balance)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc1UnisonBalance = balance;
+    }
+    updateAllVoices();
+}
 
 // --- Setters Oscilador 2 ---
 void NeuraSynthAudioProcessor::setOsc2Gain(float g)
 {
-    osc2Gain = juce::jlimit(0.0f, 1.0f, g);
-    syncParameterToValue("osc2_gain", osc2Gain);
+    const float clampedGain = juce::jlimit(0.0f, 1.0f, g);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc2Gain = clampedGain;
+    }
+    syncParameterToValue("osc2_gain", clampedGain);
     updateAllVoices();
 }
-void NeuraSynthAudioProcessor::setOsc2Octave(int v) { osc2Octave = v; pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc2Pitch(int v) { osc2PitchSemitones = v; pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc2FineTune(double v) { osc2FineTuneCents = v; pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc2Detune(double d) { osc2DetuneCents = d; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc2Spread(float s) { osc2Spread = s; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc2Pan(float p) { osc2Pan = p; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc2Octave(int v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc2Octave = v;
+        pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc2Pitch(int v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc2PitchSemitones = v;
+        pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc2FineTune(double v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc2FineTuneCents = v;
+        pitchShift2 = calculatePitchShift(osc2Octave, osc2PitchSemitones, osc2FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc2Detune(double d)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc2DetuneCents = d;
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc2Spread(float s)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc2Spread = s;
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc2Pan(float p)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc2Pan = p;
+    }
+    updateAllVoices();
+}
 
 // --- Setters Oscilador 3 ---
 void NeuraSynthAudioProcessor::setOsc3Gain(float g)
 {
-    osc3Gain = juce::jlimit(0.0f, 1.0f, g);
-    syncParameterToValue("osc3_gain", osc3Gain);
+    const float clampedGain = juce::jlimit(0.0f, 1.0f, g);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc3Gain = clampedGain;
+    }
+    syncParameterToValue("osc3_gain", clampedGain);
     updateAllVoices();
 }
-void NeuraSynthAudioProcessor::setOsc3Octave(int v) { osc3Octave = v; pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc3Pitch(int v) { osc3PitchSemitones = v; pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc3FineTune(double v) { osc3FineTuneCents = v; pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents); updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc3Detune(double d) { osc3DetuneCents = d; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc3Spread(float s) { osc3Spread = s; updateAllVoices(); }
-void NeuraSynthAudioProcessor::setOsc3Pan(float p) { osc3Pan = p; updateAllVoices(); }
+void NeuraSynthAudioProcessor::setOsc3Octave(int v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc3Octave = v;
+        pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc3Pitch(int v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc3PitchSemitones = v;
+        pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc3FineTune(double v)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc3FineTuneCents = v;
+        pitchShift3 = calculatePitchShift(osc3Octave, osc3PitchSemitones, osc3FineTuneCents);
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc3Detune(double d)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc3DetuneCents = d;
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc3Spread(float s)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc3Spread = s;
+    }
+    updateAllVoices();
+}
+void NeuraSynthAudioProcessor::setOsc3Pan(float p)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        osc3Pan = p;
+    }
+    updateAllVoices();
+}
 
 // Setters para ADSR
 void NeuraSynthAudioProcessor::setAttack(float a)
 {
-    adsrParams.attack = juce::jlimit(0.0f, 5.0f, a);
-    syncParameterToValue("attack", adsrParams.attack);
+    float clampedAttack = juce::jlimit(0.0f, 5.0f, a);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        adsrParams.attack = clampedAttack;
+    }
+    syncParameterToValue("attack", clampedAttack);
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setDecay(float d)
 {
-    adsrParams.decay = juce::jlimit(0.0f, 5.0f, d);
-    syncParameterToValue("decay", adsrParams.decay);
+    float clampedDecay = juce::jlimit(0.0f, 5.0f, d);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        adsrParams.decay = clampedDecay;
+    }
+    syncParameterToValue("decay", clampedDecay);
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setSustain(float s)
 {
-    adsrParams.sustain = juce::jlimit(0.0f, 1.0f, s);
-    syncParameterToValue("sustain", adsrParams.sustain);
+    float clampedSustain = juce::jlimit(0.0f, 1.0f, s);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        adsrParams.sustain = clampedSustain;
+    }
+    syncParameterToValue("sustain", clampedSustain);
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setRelease(float r)
 {
-    adsrParams.release = juce::jlimit(0.0f, 5.0f, r);
-    syncParameterToValue("release", adsrParams.release);
+    float clampedRelease = juce::jlimit(0.0f, 5.0f, r);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        adsrParams.release = clampedRelease;
+    }
+    syncParameterToValue("release", clampedRelease);
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setFilterCutoff(double hz)
 {
-    filterCutoffHz = juce::jlimit(20.0, 20000.0, hz);
-    syncParameterToValue("filter_cutoff", static_cast<float>(filterCutoffHz));
+    double clampedCutoff = juce::jlimit(20.0, 20000.0, hz);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        filterCutoffHz = clampedCutoff;
+    }
+    syncParameterToValue("filter_cutoff", static_cast<float>(clampedCutoff));
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setFilterResonance(double q)
 {
-    filterQ = juce::jlimit(0.1, 10.0, q);
-    syncParameterToValue("filter_q", static_cast<float>(filterQ));
+    double clampedQ = juce::jlimit(0.1, 10.0, q);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        filterQ = clampedQ;
+    }
+    syncParameterToValue("filter_q", static_cast<float>(clampedQ));
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setFilterEnvAmount(double amt)
 {
-    filterEnvAmt = juce::jlimit(-1.0, 1.0, amt);
-    syncParameterToValue("filter_env_amt", static_cast<float>(filterEnvAmt));
+    double clampedAmount = juce::jlimit(-1.0, 1.0, amt);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        filterEnvAmt = clampedAmount;
+    }
+    syncParameterToValue("filter_env_amt", static_cast<float>(clampedAmount));
+    updateAllVoices(false);
+}
+
+void NeuraSynthAudioProcessor::setKeyTrack(bool enabled)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        keyTrack = enabled;
+    }
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setFMAmount(float amount)
 {
-    fmAmount = juce::jlimit(-1.0f, 1.0f, amount);
-    syncParameterToValue("fm_amount", fmAmount);
+    const float clampedAmount = juce::jlimit(-1.0f, 1.0f, amount);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        fmAmount = clampedAmount;
+    }
+    syncParameterToValue("fm_amount", clampedAmount);
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setLfoSpeed(float speed)
 {
-    lfoSpeedHz = juce::jlimit(0.1f, 30.0f, speed);
-    syncParameterToValue("lfo_speed_hz", lfoSpeedHz);
+    float clampedSpeed = juce::jlimit(0.1f, 30.0f, speed);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        lfoSpeedHz = clampedSpeed;
+    }
+    syncParameterToValue("lfo_speed_hz", clampedSpeed);
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setLfoAmount(float amount)
 {
-    lfoAmount = juce::jlimit(0.0f, 1.0f, amount);
-    syncParameterToValue("lfo_amount", lfoAmount);
+    float clampedAmount = juce::jlimit(0.0f, 1.0f, amount);
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        lfoAmount = clampedAmount;
+    }
+    syncParameterToValue("lfo_amount", clampedAmount);
     updateAllVoices(false);
 }
 
 void NeuraSynthAudioProcessor::setGlide(float seconds)
 {
-    glideSeconds = seconds;
+    {
+        const juce::SpinLock::ScopedLockType lock(voiceDataLock);
+        glideSeconds = seconds;
+    }
     updateAllVoices();
 }
 
