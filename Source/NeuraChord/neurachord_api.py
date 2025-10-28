@@ -6,10 +6,30 @@ from music21 import stream, note, chord, instrument, tempo, midi, pitch
 from generador_acordes import transponer_progresion
 from sound_designer import generate_synth_patch
 from sound_prompt_processor import parse_sound_prompt
+import appdirs
 
 # Definimos una ruta de exportación fija para el plugin
 RUTA_BASE_PLUGIN = os.path.dirname(os.path.abspath(__file__))
 CARPETA_MIDI_EXPORTADO_PLUGIN = os.path.join(RUTA_BASE_PLUGIN, "MIDI_EXPORTADO_PLUGIN")
+
+# RUTA_BASE_PLUGIN = os.path.dirname(os.path.abspath(__file__)) # Comentado o eliminado
+# CARPETA_MIDI_EXPORTADO_PLUGIN = os.path.join(RUTA_BASE_PLUGIN, "MIDI_EXPORTADO_PLUGIN") # Comentado o eliminado
+
+# --- NUEVAS RUTAS DE USUARIO ---
+APP_NAME = "NeuraSynth"
+APP_AUTHOR = "Chorizo1414" # Puedes cambiar esto si quieres
+
+# Obtiene la carpeta de datos de usuario específica de la aplicación (AppData\Roaming\...)
+USER_DATA_DIR = appdirs.user_data_dir(APP_NAME, APP_AUTHOR)
+# Crea la carpeta si no existe
+os.makedirs(USER_DATA_DIR, exist_ok=True)
+
+# Define las subcarpetas dentro de los datos de usuario
+CARPETA_MIDI_EXPORTADO_PLUGIN = os.path.join(USER_DATA_DIR, "MIDI_Exportado")
+os.makedirs(CARPETA_MIDI_EXPORTADO_PLUGIN, exist_ok=True) # Crea la carpeta MIDI también
+
+RUTA_LEARNED_SOUNDS = os.path.join(USER_DATA_DIR, 'learned_sounds.json')
+# --- FIN NUEVAS RUTAS ---
 
 last_generated_patch = None
 
@@ -28,7 +48,7 @@ from generador_acordes import (
 )
 from generador_melodia import generar_melodia_sobre_acordes, extraer_progresion_de_prompt
 from procesador_sentimientos import detectar_sentimiento_en_prompt, inferir_parametros_desde_sentimiento
-from sound_prompt_processor import parse_sound_prompt
+
 
 
 def _parse_melody_events(melodia):
@@ -746,8 +766,9 @@ def like_last_sound():
     if not last_generated_patch:
         print("!!! Python API Warning: No hay un sonido reciente para guardar.")
         return {"status": "error", "message": "No hay un sonido reciente para guardar."}
-
-    file_path = os.path.join(RUTA_BASE_PLUGIN, 'learned_sounds.json')
+    
+    # file_path = os.path.join(RUTA_BASE_PLUGIN, 'learned_sounds.json') # Línea original comentada/eliminada
+    file_path = RUTA_LEARNED_SOUNDS # Usar la nueva ruta definida arriba
     
     try:
         # 1. Cargar los sonidos que ya hemos aprendido
@@ -775,7 +796,9 @@ def get_learned_sounds():
     Lee el archivo 'learned_sounds.json' y devuelve una lista de los presets guardados.
     Cada preset tendrá un nombre único y su correspondiente patch de parámetros.
     """
-    file_path = os.path.join(RUTA_BASE_PLUGIN, 'learned_sounds.json')
+    
+    # file_path = os.path.join(RUTA_BASE_PLUGIN, 'learned_sounds.json') # Línea original comentada/eliminada
+    file_path = RUTA_LEARNED_SOUNDS # Usar la nueva ruta definida arriba
     
     if not os.path.exists(file_path):
         return {"error": "El archivo de sonidos aprendidos no existe."}
