@@ -1,8 +1,9 @@
 #include "PythonManager.h"
 #include <mutex>
 #include <vector>
-#include <cstdlib>
+#include <cstdlib> // Required for _putenv_s / setenv
 
+// Anonymous namespace for helper functions and variables
 namespace
 {
     std::mutex pythonInitMutex;
@@ -10,9 +11,32 @@ namespace
 
     using FileList = std::vector<juce::File>;
 
-    void appendIfUnique(FileList& files, const juce::File& candidate);
-    bool hasRuntimeLibraryIn(const juce::File& candidate);
+    // Appends a file to the list if it's unique and valid
+    void appendIfUnique(FileList& files, const juce::File& candidate)
+    {
+        if (candidate == juce::File()) return;
+        const auto path = candidate.getFullPathName();
+        if (path.isEmpty()) return;
+        for (const auto& existing : files)
+            if (existing.getFullPathName() == path) return;
+        files.push_back(candidate);
+    }
 
+    // Checks if a directory contains Python runtime markers (DLLs, zip, exe)
+    bool hasRuntimeLibraryIn(const juce::File& candidate)
+    {
+        if (!candidate.isDirectory()) return false;
+        static const char* pythonDlls[] = { "python38.dll", "python39.dll", "python310.dll", "python311.dll" };
+        for (auto* dll : pythonDlls)
+            if (candidate.getChildFile(dll).existsAsFile()) return true;
+        if (candidate.getChildFile("python3.dll").existsAsFile()) return true;
+        if (candidate.getChildFile("python.exe").existsAsFile() || candidate.getChildFile("pythonw.exe").existsAsFile()) return true;
+        juce::Array<juce::File> pythonZips;
+        candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
+        return !pythonZips.isEmpty();
+    }
+
+    // Gets the OS-specific path list separator (';' for Windows, ':' otherwise)
     juce::String getPathListSeparator()
     {
 #if JUCE_WINDOWS
@@ -22,336 +46,73 @@ namespace
 #endif
     }
 
+    // Sets an environment variable
     void setEnvironmentVariable(const juce::String& name, const juce::String& value)
     {
 #if JUCE_WINDOWS
         _putenv_s(name.toRawUTF8(), value.toRawUTF8());
 #else
-        ::setenv(name.toRawUTF8(), value.toRawUTF8(), 1);
+        ::setenv(name.toRawUTF8(), value.toRawUTF8(), 1); // Use ::setenv for POSIX
 #endif
     }
 
 #if JUCE_WINDOWS
+    // Adds a directory to the system PATH if not already present (Windows specific)
     void prependToPathIfNecessary(const juce::File& directory)
     {
-        if (!directory.isDirectory())
-            return;
-
+        if (!directory.isDirectory()) return;
         const auto candidate = directory.getFullPathName();
-        if (candidate.isEmpty())
-            return;
-
+        if (candidate.isEmpty()) return;
         const juce::String existingPath = juce::SystemStats::getEnvironmentVariable("PATH", {});
-
         juce::StringArray entries;
         entries.addTokens(existingPath, getPathListSeparator(), "\"");
         entries.trim();
         entries.removeEmptyStrings();
-
         for (const auto& entry : entries)
-            if (entry == candidate)
-                return;
-
-        const juce::String newPath = existingPath.isEmpty()
-            ? candidate
-            : candidate + getPathListSeparator() + existingPath;
-
+            if (entry == candidate) return;
+        const juce::String newPath = existingPath.isEmpty() ? candidate : candidate + getPathListSeparator() + existingPath;
         setEnvironmentVariable("PATH", newPath);
     }
 
+    // Exposes the Python runtime and its DLLs on the system PATH (Windows specific)
     void exposePythonRuntimeOnPath(const juce::File& pythonHome)
     {
-        if (!pythonHome.isDirectory())
-            return;
-
+        if (!pythonHome.isDirectory()) return;
         FileList candidates;
-
-        auto addCandidate = [&candidates](const juce::File& directory)
-            {
-                appendIfUnique(candidates, directory);
-            };
-
+        auto addCandidate = [&candidates](const juce::File& directory) { appendIfUnique(candidates, directory); };
         addCandidate(pythonHome);
         addCandidate(pythonHome.getChildFile("DLLs"));
-
         const auto parent = pythonHome.getParentDirectory();
-        if (hasRuntimeLibraryIn(parent))
-            addCandidate(parent);
-
+        if (hasRuntimeLibraryIn(parent)) addCandidate(parent);
         const auto binDir = pythonHome.getChildFile("bin");
-        if (hasRuntimeLibraryIn(binDir))
-            addCandidate(binDir);
-
+        if (hasRuntimeLibraryIn(binDir)) addCandidate(binDir);
         for (const auto& candidate : candidates)
             prependToPathIfNecessary(candidate);
     }
 #endif
 
-    void appendIfUnique(FileList& files, const juce::File& candidate)
-    {
-        if (candidate == juce::File())
-            return;
-
-        const auto path = candidate.getFullPathName();
-        if (path.isEmpty())
-            return;
-
-        for (const auto& existing : files)
-            if (existing.getFullPathName() == path)
-                return;
-
-        files.push_back(candidate);
-    }
-
-    FileList enumerateBaseDirectories()
-    {
-        FileList bases;
-
-        const juce::File currentExecutable = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-        if (currentExecutable.existsAsFile())
-        {
-            auto directory = currentExecutable.getParentDirectory();
-            for (int i = 0; i < 8 && directory != juce::File(); ++i)
-            {
-                appendIfUnique(bases, directory);
-                appendIfUnique(bases, directory.getChildFile("Resources"));
-                appendIfUnique(bases, directory.getChildFile("Python"));
-                directory = directory.getParentDirectory();
-            }
-        }
-
-        const juce::File invokedExecutable = juce::File::getSpecialLocation(juce::File::invokedExecutableFile);
-        if (invokedExecutable.existsAsFile())
-        {
-            auto directory = invokedExecutable.getParentDirectory();
-            for (int i = 0; i < 6 && directory != juce::File(); ++i)
-            {
-                appendIfUnique(bases, directory);
-                appendIfUnique(bases, directory.getChildFile("Resources"));
-                appendIfUnique(bases, directory.getChildFile("Python"));
-                directory = directory.getParentDirectory();
-            }
-        }
-
-#if JUCE_WINDOWS
-        const juce::File programFiles = juce::File::getSpecialLocation(juce::File::globalApplicationsDirectory);
-        appendIfUnique(bases, programFiles.getChildFile("NeuraSynth"));
-        appendIfUnique(bases, programFiles.getChildFile("NeuraSynth").getChildFile("Python"));
-
-        const juce::File commonAppData = juce::File::getSpecialLocation(juce::File::commonApplicationDataDirectory);
-        appendIfUnique(bases, commonAppData.getChildFile("NeuraSynth"));
-        appendIfUnique(bases, commonAppData.getChildFile("NeuraSynth").getChildFile("Python"));
-#endif
-
-        return bases;
-    }
-
-    bool hasRuntimeLibraryIn(const juce::File& candidate)
-    {
-        if (!candidate.isDirectory())
-            return false;
-
-        static const char* pythonDlls[] = { "python38.dll", "python39.dll", "python310.dll", "python311.dll" };
-
-        for (auto* dll : pythonDlls)
-        {
-            if (candidate.getChildFile(dll).existsAsFile())
-                return true;
-        }
-
-        if (candidate.getChildFile("python3.dll").existsAsFile())
-            return true;
-
-        if (candidate.getChildFile("python.exe").existsAsFile()
-            || candidate.getChildFile("pythonw.exe").existsAsFile())
-            return true;
-
-        juce::Array<juce::File> pythonZips;
-        candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
-        return !pythonZips.isEmpty();
-    }
-
-    bool hasLibStructure(const juce::File& candidate)
-    {
-        if (!candidate.isDirectory())
-            return false;
-
-        if (candidate.getChildFile("Lib").isDirectory()
-            || candidate.getChildFile("lib").isDirectory())
-            return true;
-
-        juce::Array<juce::File> pythonZips;
-        candidate.findChildFiles(pythonZips, juce::File::findFiles, false, "python3*.zip");
-        if (!pythonZips.isEmpty())
-            return true;
-
-        const auto binDir = candidate.getChildFile("bin");
-        if (binDir.isDirectory() && candidate.getChildFile("lib").isDirectory())
-            return true;
-
-        return false;
-    }
-
-    juce::File resolvePythonHomeCandidate(const juce::File& base)
-    {
-        if (!base.isDirectory())
-            return {};
-
-        if (hasLibStructure(base))
-            return base;
-
-        const auto embeddedPythonDir = base.getChildFile("Python");
-        if (hasLibStructure(embeddedPythonDir))
-            return embeddedPythonDir;
-
-        return {};
-    }
-
-    juce::File findPythonHomeInDescendants(const juce::File& root, int maxDepth)
-    {
-        if (!root.isDirectory() || maxDepth < 0)
-            return {};
-
-        const auto direct = resolvePythonHomeCandidate(root);
-        if (direct.isDirectory())
-            return direct;
-
-        if (maxDepth == 0)
-            return {};
-
-        juce::DirectoryIterator iterator(root, false, "*", juce::File::findDirectories);
-        while (iterator.next())
-        {
-            const auto child = iterator.getFile();
-            const auto found = findPythonHomeInDescendants(child, maxDepth - 1);
-            if (found.isDirectory())
-                return found;
-        }
-
-        return {};
-    }
-
-    juce::File findPythonHome()
-    {
-        const juce::String envOverride = juce::SystemStats::getEnvironmentVariable("NEURASYNTH_PYTHON_HOME", {});
-        if (envOverride.isNotEmpty())
-        {
-            juce::File envCandidate(envOverride);
-            const auto resolved = resolvePythonHomeCandidate(envCandidate);
-            if (resolved.isDirectory())
-                return resolved;
-        }
-
-        for (const auto& base : enumerateBaseDirectories())
-        {
-            struct SearchRoot
-            {
-                juce::File directory;
-                int depth;
-            };
-
-            std::vector<SearchRoot> searchRoots;
-            auto addSearchRoot = [&searchRoots](const juce::File& directory, int depth)
-                {
-                    if (directory == juce::File())
-                        return;
-
-                    searchRoots.push_back({ directory, depth });
-                };
-
-            addSearchRoot(base, 1);
-            addSearchRoot(base.getChildFile("Python"), 2);
-            addSearchRoot(base.getChildFile("Resources"), 2);
-
-            const auto sourceDir = base.getChildFile("Source");
-            addSearchRoot(sourceDir, 3);
-            addSearchRoot(sourceDir.getChildFile("Python"), 3);
-
-            const auto installerDir = sourceDir.getChildFile("installer");
-            addSearchRoot(installerDir, 3);
-            addSearchRoot(installerDir.getChildFile("python-runtime"), 4);
-
-            juce::Array<juce::File> runtimePlatforms;
-            installerDir.getChildFile("python-runtime").findChildFiles(runtimePlatforms, juce::File::findDirectories, false);
-            for (const auto& platformDir : runtimePlatforms)
-                addSearchRoot(platformDir, 3);
-
-            for (const auto& searchRoot : searchRoots)
-            {
-                const auto found = findPythonHomeInDescendants(searchRoot.directory, searchRoot.depth);
-                if (found.isDirectory())
-                    return found;
-            }
-        }
-
-        return {};
-    }
-
-    juce::File findNeuraChordRoot(const juce::File& pythonHome)
-    {
-        const juce::String envOverride = juce::SystemStats::getEnvironmentVariable("NEURASYNTH_PYTHON_MODULE", {});
-        if (envOverride.isNotEmpty())
-        {
-            juce::File envCandidate(envOverride);
-            if (envCandidate.isDirectory())
-                return envCandidate;
-        }
-
-        if (pythonHome.isDirectory())
-        {
-            const juce::File direct = pythonHome.getChildFile("NeuraChord");
-            if (direct.isDirectory())
-                return direct;
-
-            const juce::File sitePackages = pythonHome.getChildFile("Lib").getChildFile("site-packages").getChildFile("NeuraChord");
-            if (sitePackages.isDirectory())
-                return sitePackages;
-        }
-
-        for (const auto& base : enumerateBaseDirectories())
-        {
-            const juce::File direct = base.getChildFile("NeuraChord");
-            if (direct.isDirectory())
-                return direct;
-
-            const juce::File inPython = base.getChildFile("Python").getChildFile("NeuraChord");
-            if (inPython.isDirectory())
-                return inPython;
-
-            const juce::File inResources = base.getChildFile("Resources").getChildFile("NeuraChord");
-            if (inResources.isDirectory())
-                return inResources;
-
-            const juce::File inSource = base.getChildFile("Source").getChildFile("NeuraChord");
-            if (inSource.isDirectory())
-                return inSource;
-        }
-
-        return {};
-    }
-}
+} // End anonymous namespace
 
 PythonManager::PythonManager()
 {
     try {
         std::scoped_lock<std::mutex> lock(pythonInitMutex);
-
         runtimeAvailable.store(false);
 
-        const juce::File pythonHome = findPythonHome();
+        // --- FORCED PATH CONFIGURATION ---
+        const juce::File pythonHome("C:\\ProgramData\\NeuraSynth\\Python");
         const bool hasEmbeddedRuntime = pythonHome.isDirectory();
         if (hasEmbeddedRuntime)
-            DBG("PythonManager: runtime embebido detectado en " << pythonHome.getFullPathName());
+            DBG("PythonManager: Using fixed PYTHONHOME path: " << pythonHome.getFullPathName());
         else
-            DBG("!!! PYTHON MANAGER ERROR: No se encontró el runtime embebido de Python. Se intentará usar el intérprete global si está disponible.");
+            DBG("!!! PYTHON MANAGER ERROR: Fixed path C:\\ProgramData\\NeuraSynth\\Python not found. Check installation.");
 
-        const juce::File neuraChordRoot = findNeuraChordRoot(pythonHome);
+        const juce::File neuraChordRoot = pythonHome.getChildFile("NeuraChord");
+        // --- END FORCED PATH ---
 
         juce::StringArray pythonPathEntries;
-        auto addPathEntry = [&pythonPathEntries](const juce::String& path)
-            {
-                if (path.isNotEmpty())
-                    pythonPathEntries.addIfNotAlreadyThere(path);
+        auto addPathEntry = [&pythonPathEntries](const juce::String& path) {
+            if (path.isNotEmpty()) pythonPathEntries.addIfNotAlreadyThere(path);
             };
 
         if (hasEmbeddedRuntime)
@@ -362,49 +123,37 @@ PythonManager::PythonManager()
             if (libDir.isDirectory())
             {
                 addPathEntry(libDir.getFullPathName());
-
                 const juce::File sitePackages = libDir.getChildFile("site-packages");
-                if (sitePackages.isDirectory())
-                    addPathEntry(sitePackages.getFullPathName());
-
+                if (sitePackages.isDirectory()) addPathEntry(sitePackages.getFullPathName());
                 const juce::File encodingsDir = libDir.getChildFile("encodings");
-                if (encodingsDir.isDirectory())
-                    addPathEntry(encodingsDir.getFullPathName());
+                if (encodingsDir.isDirectory()) addPathEntry(encodingsDir.getFullPathName());
             }
 
             const juce::File lowerLibDir = pythonHome.getChildFile("lib");
             if (lowerLibDir.isDirectory())
             {
                 addPathEntry(lowerLibDir.getFullPathName());
-
                 const juce::File sitePackages = lowerLibDir.getChildFile("site-packages");
-                if (sitePackages.isDirectory())
-                    addPathEntry(sitePackages.getFullPathName());
-
+                if (sitePackages.isDirectory()) addPathEntry(sitePackages.getFullPathName());
                 const juce::File encodingsDir = lowerLibDir.getChildFile("encodings");
-                if (encodingsDir.isDirectory())
-                    addPathEntry(encodingsDir.getFullPathName());
+                if (encodingsDir.isDirectory()) addPathEntry(encodingsDir.getFullPathName());
             }
 
-            auto addPythonZip = [&addPathEntry](const juce::File& directory, const juce::String& pattern)
-                {
-                    juce::Array<juce::File> matches;
-                    directory.findChildFiles(matches, juce::File::findFiles, false, pattern);
-                    for (const auto& match : matches)
-                        addPathEntry(match.getFullPathName());
+            auto addPythonZip = [&addPathEntry](const juce::File& directory, const juce::String& pattern) {
+                juce::Array<juce::File> matches;
+                directory.findChildFiles(matches, juce::File::findFiles, false, pattern);
+                for (const auto& match : matches) addPathEntry(match.getFullPathName());
                 };
-
             addPythonZip(pythonHome, "python*.zip");
-
-            if (pythonHome.getChildFile("Lib").isDirectory())
-                addPythonZip(pythonHome.getChildFile("Lib"), "python*.zip");
-
-            if (pythonHome.getChildFile("lib").isDirectory())
-                addPythonZip(pythonHome.getChildFile("lib"), "python*.zip");
+            if (pythonHome.getChildFile("Lib").isDirectory()) addPythonZip(pythonHome.getChildFile("Lib"), "python*.zip");
+            if (pythonHome.getChildFile("lib").isDirectory()) addPythonZip(pythonHome.getChildFile("lib"), "python*.zip");
         }
 
         if (neuraChordRoot.isDirectory())
             addPathEntry(neuraChordRoot.getFullPathName());
+        else
+            DBG("!!! PYTHON MANAGER WARNING: NeuraChord script directory not found at " << neuraChordRoot.getFullPathName());
+
 
 #if JUCE_WINDOWS
         if (hasEmbeddedRuntime)
@@ -418,23 +167,33 @@ PythonManager::PythonManager()
             existingEntries.addTokens(existingPythonPath, getPathListSeparator(), "\"");
             existingEntries.trim();
             existingEntries.removeEmptyStrings();
-
-            for (const auto& entry : existingEntries)
-                addPathEntry(entry);
+            for (const auto& entry : existingEntries) addPathEntry(entry);
         }
 
         if (hasEmbeddedRuntime)
             setEnvironmentVariable("PYTHONHOME", pythonHome.getFullPathName());
+        else
+            DBG("!!! PYTHON MANAGER WARNING: PYTHONHOME not set as embedded runtime wasn't found at the fixed path.");
 
 
-        if (hasEmbeddedRuntime && pythonPathEntries.size() > 0)
+        if (hasEmbeddedRuntime && !pythonPathEntries.isEmpty())
         {
             const juce::String combinedPythonPath = pythonPathEntries.joinIntoString(getPathListSeparator());
             setEnvironmentVariable("PYTHONPATH", combinedPythonPath);
         }
+        else if (!hasEmbeddedRuntime)
+        {
+            DBG("!!! PYTHON MANAGER WARNING: PYTHONPATH not explicitly set as embedded runtime wasn't found.");
+        }
 
+
+        // Initialize interpreter only once
         if (!pythonInterpreterReady)
         {
+            if (!hasEmbeddedRuntime)
+            {
+                DBG("!!! PYTHON MANAGER WARNING: Attempting to initialize Python interpreter without finding embedded runtime. This might fail or use a system Python.");
+            }
             py::initialize_interpreter();
             pythonInterpreterReady = true;
         }
@@ -443,71 +202,73 @@ PythonManager::PythonManager()
         auto sys = py::module::import("sys");
         py::list sysPath = sys.attr("path");
 
+        // Ensure Python's sys.path includes our needed directories
         for (const auto& entry : pythonPathEntries)
         {
             bool alreadyPresent = false;
-            for (auto item : sysPath)
-            {
-                if (item.cast<std::string>() == entry.toStdString())
-                {
+            for (auto item : sysPath) {
+                if (item.cast<std::string>() == entry.toStdString()) {
                     alreadyPresent = true;
                     break;
                 }
             }
-
-            if (!alreadyPresent)
-                sysPath.attr("append")(entry.toStdString());
+            if (!alreadyPresent) sysPath.attr("append")(entry.toStdString());
         }
 
         neuraChordApi = py::module::import("neurachord_api");
         runtimeAvailable.store(true);
-        DBG("PythonManager: Interprete y neurachord_api importados con EXITO!");
+        DBG("PythonManager: Interpreter initialized and neurachord_api imported successfully!");
+
+    }
+    catch (const py::error_already_set& e) {
+        DBG("!!! PYTHON MANAGER PYBIND ERROR during initialization: " << e.what());
+        if (PyErr_Occurred()) {
+            py::gil_scoped_acquire acquire; // Need GIL to handle Python errors
+            PyErr_Print(); // Print Python traceback to stderr
+            PyErr_Clear(); // Clear the error state
+        }
+        runtimeAvailable.store(false);
     }
     catch (const std::exception& e) {
-        DBG("!!! PYTHON MANAGER ERROR: " << e.what());
+        DBG("!!! PYTHON MANAGER C++ ERROR during initialization: " << e.what());
         runtimeAvailable.store(false);
     }
 }
 
+
 PythonManager::~PythonManager()
 {
     std::scoped_lock<std::mutex> lock(pythonInitMutex);
+    if (!pythonInterpreterReady) return;
 
-    if (!pythonInterpreterReady)
-        return;
-
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
-        neuraChordApi = py::module();
+        neuraChordApi = py::module(); // Release module reference
     }
-    catch (const std::exception& e)
-    {
-        DBG("PythonManager::~PythonManager - error liberando modulo: " << e.what());
+    catch (const std::exception& e) {
+        DBG("PythonManager::~PythonManager - error releasing module: " << e.what());
     }
 
     runtimeAvailable.store(false);
-    // No finalizamos el interprete para evitar cierres inesperados cuando otros objetos
-    // de Python (py::dict, etc.) aun estan vivos. El interprete permanece activo durante
-    // toda la vida del proceso, lo que es seguro en el contexto del plugin standalone/host.
+    // As noted before, py::finalize_interpreter() is generally avoided in plugins.
 }
 
-// Implementación de la nueva función
 py::dict PythonManager::generateMusicData(const juce::String& prompt, int numChords)
 {
     py::dict result;
-    if (!neuraChordApi) {
-        DBG("ERROR: Modulo neurachord_api no cargado.");
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        DBG("PythonManager::generateMusicData ERROR: Python runtime not available.");
+        result["error"] = "Python runtime not available.";
         return result;
     }
-
     try {
-        // La gil_scoped_acquire es crucial para la seguridad de hilos con Python
         py::gil_scoped_acquire acquire;
         result = neuraChordApi.attr("generar_progresion")(prompt.toStdString(), numChords);
     }
     catch (const py::error_already_set& e) {
-        DBG("Error de Python en generateMusicData: " << e.what());
+        DBG("PythonManager::generateMusicData Python Error: " << e.what());
+        result["error"] = juce::String("Python Error: ") + e.what();
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
     return result;
 }
@@ -515,41 +276,39 @@ py::dict PythonManager::generateMusicData(const juce::String& prompt, int numCho
 py::dict PythonManager::generateMusicData(const juce::String& prompt, int numChords, const py::list& melody, int bpm)
 {
     py::dict result;
-    if (!neuraChordApi)
-    {
-        DBG("ERROR: Modulo neurachord_api no cargado.");
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        DBG("PythonManager::generateMusicData(melody) ERROR: Python runtime not available.");
+        result["error"] = "Python runtime not available.";
         return result;
     }
-
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
         result = neuraChordApi.attr("generar_progresion")(prompt.toStdString(), numChords, melody, bpm);
     }
-    catch (const py::error_already_set& e)
-    {
-        DBG("Error de Python en generateMusicData (melodia): " << e.what());
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::generateMusicData(melody) Python Error: " << e.what());
+        result["error"] = juce::String("Python Error: ") + e.what();
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
-
     return result;
 }
 
-// Implementación de la función para melodía
 py::dict PythonManager::generateMelodyData(const py::list& chords, const py::list& rhythm, const juce::String& root, const juce::String& mode, int bpm)
 {
     py::dict result;
-    if (!neuraChordApi) {
-        DBG("ERROR: Modulo neurachord_api no cargado.");
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        DBG("PythonManager::generateMelodyData ERROR: Python runtime not available.");
+        result["error"] = "Python runtime not available.";
         return result;
     }
-
     try {
         py::gil_scoped_acquire acquire;
-        // --- MODIFICADO: Ahora usamos el BPM que recibimos como argumento ---
         result = neuraChordApi.attr("generar_melodia")(chords, rhythm, root.toStdString(), mode.toStdString(), bpm);
     }
     catch (const py::error_already_set& e) {
-        DBG("Error de Python en generateMelodyData: " << e.what());
+        DBG("PythonManager::generateMelodyData Python Error: " << e.what());
+        result["error"] = juce::String("Python Error: ") + e.what();
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
     return result;
 }
@@ -557,336 +316,232 @@ py::dict PythonManager::generateMelodyData(const py::list& chords, const py::lis
 py::dict PythonManager::generateMelodyFromPrompt(const juce::String& prompt, int numChords, int bpm)
 {
     py::dict result;
-    if (!neuraChordApi) {
-        DBG("ERROR: Modulo neurachord_api no cargado.");
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        DBG("PythonManager::generateMelodyFromPrompt ERROR: Python runtime not available.");
+        result["error"] = "Python runtime not available.";
         return result;
     }
-
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
         result = neuraChordApi.attr("generar_melodia_desde_prompt")(prompt.toStdString(), numChords, bpm);
     }
-    catch (const py::error_already_set& e)
-    {
-        DBG("Error de Python en generateMelodyFromPrompt: " << e.what());
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::generateMelodyFromPrompt Python Error: " << e.what());
+        result["error"] = juce::String("Python Error: ") + e.what();
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
-
     return result;
 }
 
 juce::StringArray PythonManager::getAvailableGenres()
 {
     juce::StringArray genres;
-    if (!neuraChordApi)
-    {
-        DBG("ERROR: Modulo neurachord_api no cargado, no se pueden obtener generos.");
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        DBG("PythonManager::getAvailableGenres ERROR: Python runtime not available.");
         return genres;
     }
-
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
         py::list pyGenres = neuraChordApi.attr("get_available_genres")();
-        for (auto item : pyGenres)
-        {
-            genres.add(item.cast<std::string>());
-        }
+        for (auto item : pyGenres) genres.add(item.cast<std::string>());
     }
-    catch (const py::error_already_set& e)
-    {
-        DBG("!!! Error de Python en getAvailableGenres: " << e.what());
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::getAvailableGenres Python Error: " << e.what());
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
     return genres;
 }
 
 juce::String PythonManager::exportChords(const py::dict& musicData, int bpm)
 {
-    if (!neuraChordApi || !musicData.contains("acordes"))
-        return "Error: No hay datos de acordes para exportar.";
+    if (!runtimeAvailable.load() || !neuraChordApi) return "Error: Python runtime not available.";
+    if (!musicData.contains("acordes")) return "Error: No chord data provided.";
 
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
         lastExportedChordsFile = juce::File();
-        // Ahora usamos el BPM que viene como argumento
-        py::object detalles;
-        if (musicData.contains("acordes_detallados"))
-            detalles = py::reinterpret_borrow<py::object>(musicData["acordes_detallados"]);
-        else
-            detalles = py::none();
+        py::object detalles = musicData.contains("acordes_detallados") ? py::reinterpret_borrow<py::object>(musicData["acordes_detallados"]) : py::none();
+        py::object tiempos = musicData.contains("acordes_tiempos") ? py::reinterpret_borrow<py::object>(musicData["acordes_tiempos"]) : py::none();
+        py::object resultObj = neuraChordApi.attr("exportar_acordes_midi")(musicData["acordes"], musicData["ritmo"], bpm, detalles, tiempos);
 
-        py::object tiempos;
-        if (musicData.contains("acordes_tiempos"))
-            tiempos = py::reinterpret_borrow<py::object>(musicData["acordes_tiempos"]);
-        else
-            tiempos = py::none();
-
-        py::object resultObj = neuraChordApi.attr("exportar_acordes_midi")(
-            musicData["acordes"], musicData["ritmo"], bpm, detalles, tiempos);
-
-        if (resultObj.is_none())
-            return "Error de Python al exportar acordes: sin respuesta.";
-
-        if (!py::isinstance<py::dict>(resultObj))
-            return "Error de Python al exportar acordes: resultado inesperado.";
-
+        if (resultObj.is_none() || !py::isinstance<py::dict>(resultObj)) return "Python export error: Invalid response.";
         py::dict result = resultObj.cast<py::dict>();
-
-        if (result.contains("error") && !result["error"].cast<std::string>().empty())
-            return "Error en Python: " + juce::String(result["error"].cast<std::string>());
+        if (result.contains("error") && !result["error"].cast<std::string>().empty()) return "Python Error: " + juce::String(result["error"].cast<std::string>());
 
         auto ruta = result.contains("ruta") ? result["ruta"].cast<std::string>() : std::string();
-        if (!ruta.empty())
-            lastExportedChordsFile = juce::File(ruta);
+        if (!ruta.empty()) lastExportedChordsFile = juce::File(ruta);
+        return ruta.empty() ? "Chords exported." : "Chords exported to: " + juce::String(ruta);
 
-        return ruta.empty() ? juce::String("Acordes exportados.")
-            : juce::String("Acordes exportados a: ") + ruta;
     }
-    catch (const py::type_error& e)
-    {
+    catch (const py::error_already_set& e) {
         lastExportedChordsFile = juce::File();
-        return juce::String("Error de tipo al exportar acordes: ") + e.what();
-    }
-    catch (const py::error_already_set& e)
-    {
-        lastExportedChordsFile = juce::File();
-        return juce::String("Error de Python al exportar acordes: ") + e.what();
+        DBG("PythonManager::exportChords Python Error: " << e.what());
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
+        return juce::String("Python export error: ") + e.what();
     }
 }
 
 juce::String PythonManager::exportMelody(const py::dict& musicData, int bpm)
 {
-    if (!neuraChordApi || !musicData.contains("melodia"))
-        return "Error: No hay datos de melodia para exportar.";
+    if (!runtimeAvailable.load() || !neuraChordApi) return "Error: Python runtime not available.";
+    if (!musicData.contains("melodia")) return "Error: No melody data provided.";
 
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
         lastExportedMelodyFile = juce::File();
-        // Ahora usamos el BPM que viene como argumento
-        py::object resultObj = neuraChordApi.attr("exportar_melodia_midi")(
-            musicData["melodia"], bpm);
+        py::object resultObj = neuraChordApi.attr("exportar_melodia_midi")(musicData["melodia"], bpm);
 
-        if (resultObj.is_none())
-            return "Error de Python al exportar melodia: sin respuesta.";
-
-        if (!py::isinstance<py::dict>(resultObj))
-            return "Error de Python al exportar melodia: resultado inesperado.";
-
+        if (resultObj.is_none() || !py::isinstance<py::dict>(resultObj)) return "Python export error: Invalid response.";
         py::dict result = resultObj.cast<py::dict>();
-
-        if (result.contains("error") && !result["error"].cast<std::string>().empty())
-            return "Error en Python: " + juce::String(result["error"].cast<std::string>());
+        if (result.contains("error") && !result["error"].cast<std::string>().empty()) return "Python Error: " + juce::String(result["error"].cast<std::string>());
 
         auto ruta = result.contains("ruta") ? result["ruta"].cast<std::string>() : std::string();
-        if (!ruta.empty())
-            lastExportedMelodyFile = juce::File(ruta);
+        if (!ruta.empty()) lastExportedMelodyFile = juce::File(ruta);
+        return ruta.empty() ? "Melody exported." : "Melody exported to: " + juce::String(ruta);
 
-        return ruta.empty() ? juce::String("Melodia exportada.")
-            : juce::String("Melodia exportada a: ") + ruta;
     }
-    catch (const py::type_error& e)
-    {
+    catch (const py::error_already_set& e) {
         lastExportedMelodyFile = juce::File();
-        return juce::String("Error de tipo al exportar melodia: ") + e.what();
-    }
-    catch (const py::error_already_set& e)
-    {
-        lastExportedMelodyFile = juce::File();
-        return juce::String("Error de Python al exportar melodia: ") + e.what();
+        DBG("PythonManager::exportMelody Python Error: " << e.what());
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
+        return juce::String("Python export error: ") + e.what();
     }
 }
 
-juce::File PythonManager::getLastExportedChordsFile() const
-{
-    return lastExportedChordsFile;
-}
-
-juce::File PythonManager::getLastExportedMelodyFile() const
-{
-    return lastExportedMelodyFile;
-}
+juce::File PythonManager::getLastExportedChordsFile() const { return lastExportedChordsFile; }
+juce::File PythonManager::getLastExportedMelodyFile() const { return lastExportedMelodyFile; }
 
 py::dict PythonManager::transposeMusic(const py::dict& musicData, int semitones)
 {
     py::dict result;
-    if (!neuraChordApi)
-    {
-        result["error"] = "Modulo neurachord_api no cargado.";
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        result["error"] = "Python runtime not available.";
         return result;
     }
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
         result = neuraChordApi.attr("transponer_musica")(musicData, semitones);
     }
-    catch (const py::error_already_set& e)
-    {
-        py::dict errorDict;
-        errorDict["error"] = juce::String("Error de Python en transposeMusic: ") + e.what();
-        return errorDict;
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::transposeMusic Python Error: " << e.what());
+        result["error"] = juce::String("Python Error: ") + e.what();
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
     return result;
 }
 
 void PythonManager::like()
 {
-    if (!neuraChordApi) return;
-    try
-    {
+    if (!runtimeAvailable.load() || !neuraChordApi) return;
+    try {
         py::gil_scoped_acquire acquire;
-        // La llamada correcta y directa a la API de Python
         neuraChordApi.attr("puntuar_positivamente")();
         DBG("PythonManager: 'Like' action sent.");
     }
-    catch (const py::error_already_set& e)
-    {
-        DBG("Python Error en like(): " << e.what());
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::like Python Error: " << e.what());
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
 }
 
 void PythonManager::dislike()
 {
-    if (!neuraChordApi) return;
-    try
-    {
+    if (!runtimeAvailable.load() || !neuraChordApi) return;
+    try {
         py::gil_scoped_acquire acquire;
-        // La llamada correcta y directa a la API de Python
         neuraChordApi.attr("puntuar_negativamente")();
         DBG("PythonManager: 'Dislike' action sent.");
     }
-    catch (const py::error_already_set& e)
-    {
-        DBG("Python Error en dislike(): " << e.what());
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::dislike Python Error: " << e.what());
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
 }
 
 void PythonManager::updateEditedMusic(const py::dict& musicData)
 {
-    if (!neuraChordApi)
-        return;
-
-    try
-    {
+    if (!runtimeAvailable.load() || !neuraChordApi) return;
+    try {
         py::gil_scoped_acquire acquire;
         neuraChordApi.attr("actualizar_progresion_editada")(musicData);
     }
-    catch (const py::type_error& e)
-    {
-        DBG("Python type_error en updateEditedMusic(): " << e.what());
-    }
-    catch (const py::error_already_set& e)
-    {
-        DBG("Python Error en updateEditedMusic(): " << e.what());
-    }
-    catch (const std::exception& e)
-    {
-        DBG("Excepcion en updateEditedMusic(): " << e.what());
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::updateEditedMusic Python Error: " << e.what());
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
 }
 
 py::dict PythonManager::generateSynthSound(const juce::String& prompt)
 {
     py::dict result;
-    if (!neuraChordApi) {
-        DBG("ERROR: Modulo neurachord_api no cargado.");
-        result["error"] = "Modulo neurachord_api no cargado.";
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        result["error"] = "Python runtime not available.";
         return result;
     }
-
     try {
         py::gil_scoped_acquire acquire;
-        // Llamamos a la nueva función 'generar_sonido' de nuestro script Python
         result = neuraChordApi.attr("generar_sonido")(prompt.toStdString());
     }
     catch (const py::error_already_set& e) {
-        DBG("Error de Python en generateSynthSound: " << e.what());
-        py::dict errorDict;
-        errorDict["error"] = juce::String("Error de Python en generateSynthSound: ") + e.what();
-        return errorDict;
+        DBG("PythonManager::generateSynthSound Python Error: " << e.what());
+        result["error"] = juce::String("Python Error: ") + e.what();
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
     return result;
 }
 
 bool PythonManager::likeLastSound()
 {
-    if (!neuraChordApi)
-    {
-        DBG("ERROR: Modulo neurachord_api no cargado, no se puede dar like.");
-        return false; // Retornamos falso si no hay módulo
-    }
-
-    try
-    {
+    if (!runtimeAvailable.load() || !neuraChordApi) return false;
+    try {
         py::gil_scoped_acquire acquire;
-        // 1. Llamamos a la función de Python y guardamos el resultado
         py::dict result = neuraChordApi.attr("like_last_sound")();
-
-        // 2. Comprobamos si el resultado fue exitoso
-        if (result.contains("status") && result["status"].cast<std::string>() == "ok")
-        {
+        if (result.contains("status") && result["status"].cast<std::string>() == "ok") {
             DBG("PythonManager: 'Like Sound' action sent successfully.");
-            return true; // Éxito
+            return true;
         }
     }
-    catch (const py::error_already_set& e)
-    {
-        DBG("!!! Error de Python en likeLastSound(): " << e.what());
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::likeLastSound Python Error: " << e.what());
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
-
-    // Si algo falla, retornamos falso
     return false;
 }
 
 pybind11::dict PythonManager::getLearnedSounds()
 {
     pybind11::dict result;
-    if (!neuraChordApi)
-    {
-        DBG("ERROR: Modulo neurachord_api no cargado, no se pueden obtener los presets.");
-        result["error"] = "Modulo neurachord_api no cargado.";
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        result["error"] = "Python runtime not available.";
         return result;
     }
-
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
         result = neuraChordApi.attr("get_learned_sounds")();
     }
-    catch (const py::error_already_set& e)
-    {
-        DBG("!!! Error de Python en getLearnedSounds(): " << e.what());
-        result["error"] = "Error de Python al obtener presets.";
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::getLearnedSounds Python Error: " << e.what());
+        result["error"] = juce::String("Python Error: ") + e.what();
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
     return result;
 }
 
-// (Añade esta función al final de PythonManager.cpp)
-
 juce::StringArray PythonManager::getSoundArchetypes()
 {
     juce::StringArray archetypes;
-    if (!neuraChordApi)
-    {
-        DBG("ERROR: Modulo neurachord_api no cargado, no se pueden obtener los arquetipos.");
-        return archetypes; // Devuelve un array vacío
+    if (!runtimeAvailable.load() || !neuraChordApi) {
+        DBG("PythonManager::getSoundArchetypes ERROR: Python runtime not available.");
+        return archetypes;
     }
-
-    try
-    {
+    try {
         py::gil_scoped_acquire acquire;
         py::list result = neuraChordApi.attr("get_sound_archetypes")();
-
-        for (auto item : result)
-        {
-            archetypes.add(item.cast<std::string>());
-        }
+        for (auto item : result) archetypes.add(item.cast<std::string>());
     }
-    catch (const py::error_already_set& e)
-    {
-        DBG("!!! Error de Python en getSoundArchetypes(): " << e.what());
+    catch (const py::error_already_set& e) {
+        DBG("PythonManager::getSoundArchetypes Python Error: " << e.what());
+        if (PyErr_Occurred()) { PyErr_Print(); PyErr_Clear(); }
     }
-
     return archetypes;
 }
