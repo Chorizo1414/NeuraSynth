@@ -118,22 +118,24 @@ flowchart LR
 3. El binario standalone y el bundle VST3 quedarán en `build/` bajo el exportador correspondiente.
 
 ### Empaquetado e instalador
-Una vez compilados los binarios puedes generar un instalador listo para distribuir utilizando `installer/build_installer.py`:
+Una vez compilados los binarios puedes generar un instalador listo para distribuir utilizando `Source/installer/build_installer.py`:
 
 ```bash
-python installer/build_installer.py \
+python Source/installer/build_installer.py \
     --standalone "build/NeuraSynth_artefacts/Release/Standalone/NeuraSynth.exe" \
     --vst3 "build/NeuraSynth_artefacts/Release/VST3/NeuraSynth.vst3" \
     --version 1.0.0 \
     --platform windows \
-    --logo installer/resources/icon.png
+    --logo Source/installer/resources/icon.png
 ```
 
-Si omites `--logo`, el script intentará utilizar automáticamente `installer/resources/icon.png` siempre que exista.
+Si omites `--logo`, el script intentará utilizar automáticamente `Source/installer/resources/icon.png` siempre que exista. Para Windows también es obligatorio incluir el redistribuible de Visual C++ (`VC_redist.x64.exe`) y el instalador de Python 3.8.10 (`python-3.8.10-amd64.exe`): colócalos en `Source/installer/resources/` o proporciona rutas explícitas con `--vc-redist` y `--python-installer`.
 
-El script crea una carpeta de staging con la estructura esperada (`Standalone/`, `VST3/`, `Resources/`, `Python/`), genera documentación básica (`INSTALL.md`, `metadata.json`) y empaqueta el resultado (`.zip` en Windows, `.tar.gz` en macOS/Linux). En Windows también produce un script de [Inno Setup](https://jrsoftware.org/isinfo.php) para compilar el instalador `.exe`; si `iscc` está disponible lo invoca automáticamente.
+El script crea una carpeta de staging con la estructura esperada (`Standalone/`, `VST3/`, `Resources/`, `Python/`), genera documentación básica (`INSTALL.md`, `metadata.json`) con instrucciones específicas por plataforma y empaqueta el resultado (`.zip` en Windows, `.tar.gz` en macOS/Linux). En Windows también produce un script de [Inno Setup](https://jrsoftware.org/isinfo.php) para compilar el instalador `.exe`; si `iscc` está disponible lo invoca automáticamente y configura el destino del VST3 en `C:\Program Files\Common Files\VST3`, la aplicación en `C:\Program Files\NeuraSynth` y el runtime de Python compartido en `C:\ProgramData\NeuraSynth\Python`.
 
-Consulta [installer/README.md](installer/README.md) para opciones avanzadas (incluir runtimes de Python, recursos adicionales, personalizar branding, etc.).
+De forma predeterminada, el empaquetador copia módulos críticos de Python (`music21`, `numpy`, `pygame`, `tkinterdnd2`, `PIL`, `fuzzywuzzy`, `customtkinter`) dentro del runtime embebido o del `Python/` incluido en el paquete. Puedes añadir más con `--python-package`, omitir los predeterminados con `--no-default-python-packages` o evitar copiar sus dependencias transitivas con `--skip-python-package-deps`. Si ya tenías un runtime preparado y solo deseas actualizar paquetes concretos, añade `--overwrite-python-packages` para forzar el copiado y combina con `--skip-python-package-deps` cuando no quieras arrastrar dependencias adicionales.
+
+Consulta [Source/installer/README.md](Source/installer/README.md) para opciones avanzadas (incluir runtimes de Python, recursos adicionales, personalizar branding, detalles de permisos y advertencias para ejecutar el instalador como administrador, etc.).
 
 ## Uso rápido
 
