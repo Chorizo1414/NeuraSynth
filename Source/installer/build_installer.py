@@ -38,6 +38,7 @@ REPO_ROOT = _detect_repo_root(SCRIPT_ROOT)
 DEFAULT_LOGO = SCRIPT_ROOT / "resources" / "icon.png"
 DEFAULT_PYTHON_RUNTIME_ROOT = SCRIPT_ROOT / "python-runtime"
 DEFAULT_VC_REDIST = SCRIPT_ROOT / "resources" / "vc_redist.x64.exe"
+DEFAULT_PYTHON_INSTALLER = SCRIPT_ROOT / "resources" / "python-3.8.10-amd64.exe"
 NEURACHORD_SOURCE = REPO_ROOT / "Source" / "NeuraChord"
 DEFAULT_BUNDLED_PACKAGES = [
     "music21",
@@ -592,7 +593,8 @@ def _write_metadata(target: Path, *, version: str, platform_key: str, standalone
 
 def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, company: str,
                           staging_root: Path, wizard_logo: Optional[Path], shortcut_icon: Optional[Path],
-                          license_file: Optional[Path], vc_redist: Optional[Path]) -> Path:
+                          license_file: Optional[Path], vc_redist: Optional[Path],
+                          python_installer: Optional[Path]) -> Path:
     script_path = output_dir / f"{product_name.replace(' ', '')}-{version}.iss"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -634,6 +636,7 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
         "DisableProgramGroupPage=yes\n"
         "DisableDirPage=yes\n"
         "PrivilegesRequired=admin\n"  # ¡IMPORTANTE! Siempre pedir admin
+        "ChangesEnvironment=yes\n"
         "DisableWelcomePage=no\n"
         f"{license_entry}\n"
         f"{wizard_small_image}\n"
@@ -688,6 +691,11 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
             f"Source: \"{_format_inno_path(vc_redist)}\"; Flags: dontcopy"
         )
 
+    if python_installer:
+        files_lines.append(
+            f"Source: \"{_format_inno_path(python_installer)}\"; Flags: dontcopy"
+        )
+
     files_section = "[Files]\n" + "\n".join(files_lines)
 
     # Nombres de archivo
@@ -723,12 +731,14 @@ Filename: "{{app}}\\{standalone_target}"; Description: "Iniciar {product_name}";
     uninstall_key = f"Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\{app_id_literal}_is1"
     standalone_default_dir = standalone_default_path
     vc_redist_name = vc_redist.name if vc_redist else ""
+    python_installer_name = python_installer.name if python_installer else ""
 
     code_section = f"""[Code]
 const
   StandaloneFileName = '{standalone_target}';
   Vst3ItemName = '{vst3_target}';
   VcRedistFileName = '{vc_redist_name}';
+  PythonInstallerFileName = '{python_installer_name}';
 
 var
   InstallDirsPage: TInputDirWizardPage;
@@ -740,9 +750,35 @@ begin
     ExtractTemporaryFile(VcRedistFileName);
 end;
 
+procedure ExtractPythonInstaller;
+begin
+  if PythonInstallerFileName <> '' then
+    ExtractTemporaryFile(PythonInstallerFileName);
+end;
+
+function PythonInstallPath(): string;
+begin
+  if not RegQueryStringValue(HKLM64, 'Software\\Python\\PythonCore\\3.8\\InstallPath', '', Result) then
+    if not RegQueryStringValue(HKLM, 'Software\\Python\\PythonCore\\3.8\\InstallPath', '', Result) then
+      Result := '';
+end;
+
+function PythonIsInstalled(): Boolean;
+var
+  installPath: string;
+begin
+  installPath := PythonInstallPath();
+  Result := (installPath <> '') and DirExists(installPath);
+  if not Result then
+    Result := FileExists(ExpandConstant('{{commonpf64}}\\Python38\\python.exe'));
+  if not Result then
+    Result := FileExists(ExpandConstant('{{commonpf}}\\Python38\\python.exe'));
+end;
+
 function InitializeSetup(): Boolean;
 begin
   ExtractVcRedist;
+  ExtractPythonInstaller;
   Result := True;
 end;
 
@@ -775,6 +811,7 @@ end;
 procedure InitializeWizard;
 begin
   ExtractVcRedist;
+  ExtractPythonInstaller;
   if PrevStandaloneDir = '' then
     PrevStandaloneDir := ExpandConstant('{standalone_default_dir}');
 
@@ -809,6 +846,8 @@ var
   ResultCode: Integer;
   ExecResult: Boolean;
   InstallerPath: string;
+  LogPath: string;
+  AlreadyInstalled: Boolean;
 begin
   Result := '';
   if VcRedistFileName <> '' then
@@ -820,6 +859,36 @@ begin
       Result := 'No se pudo ejecutar Microsoft Visual C++ Redistributable.'
     else if (ResultCode <> 0) and (ResultCode <> 3010) then
       Result := 'Microsoft Visual C++ Redistributable devolvió el código ' + IntToStr(ResultCode) + '.'
+    else if ResultCode = 3010 then
+      NeedsRestart := True;
+  end;
+
+  AlreadyInstalled := PythonIsInstalled();
+  if AlreadyInstalled then
+    Log('Python 3.8 ya estaba instalado. Se omitirá el instalador incluido.');
+
+  if (Result = '') and (PythonInstallerFileName <> '') and (not AlreadyInstalled) then
+  begin
+    ExtractPythonInstaller;
+    InstallerPath := ExpandConstant('{{tmp}}\\') + PythonInstallerFileName;
+    LogPath := ExpandConstant('{{tmp}}\\NeuraSynth-PythonInstall.log');
+    ExecResult := Exec(
+      InstallerPath,
+      '/quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_pip=1 Include_launcher=0 SimpleInstall=1 /log "' + LogPath + '"',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ResultCode
+    );
+    if not ExecResult then
+      Result := 'No se pudo ejecutar el instalador de Python 3.8.10.'
+    else if (ResultCode <> 0) and (ResultCode <> 3010) then
+    begin
+      if PythonIsInstalled() then
+        Log('El instalador de Python devolvió el código ' + IntToStr(ResultCode) + ' pero la instalación parece haberse completado.')
+      else
+        Result := 'El instalador de Python devolvió el código ' + IntToStr(ResultCode) + '. Revisa el log en ' + LogPath + '.';
+    end
     else if ResultCode = 3010 then
       NeedsRestart := True;
   end;
@@ -1081,6 +1150,7 @@ def build_installer(args: argparse.Namespace) -> None:
         license_for_script = license_path
 
     vc_redist_for_script: Optional[Path] = None
+    python_installer_for_script: Optional[Path] = None
     if platform_key == "windows":
         vc_redist_source: Optional[Path] = None
         if args.vc_redist:
@@ -1099,6 +1169,23 @@ def build_installer(args: argparse.Namespace) -> None:
         vc_redist_for_script = staging_root / "Dependencies" / vc_redist_source.name
         _copy_any(vc_redist_source, vc_redist_for_script)
 
+        python_installer_source: Optional[Path] = None
+        if args.python_installer:
+            candidate = Path(args.python_installer).expanduser().resolve()
+            if not candidate.exists():
+                raise FileNotFoundError(f"Instalador de Python '{candidate}' no existe.")
+            python_installer_source = candidate
+        elif DEFAULT_PYTHON_INSTALLER.exists():
+            python_installer_source = DEFAULT_PYTHON_INSTALLER
+            print(f"[INFO] Usando instalador de Python desde {python_installer_source}")
+        else:
+            raise FileNotFoundError(
+                "No se encontró el instalador de Python 3.8.10. Descarga 'python-3.8.10-amd64.exe' y pásalo con --python-installer o colócalo en installer/resources/."
+            )
+
+        python_installer_for_script = staging_root / "Dependencies" / python_installer_source.name
+        _copy_any(python_installer_source, python_installer_for_script)
+
     archives = []
     if not args.skip_archive:
         archives = _create_archives(platform_key, staging_root, output_dir, args.product_name, version)
@@ -1109,7 +1196,8 @@ def build_installer(args: argparse.Namespace) -> None:
         inno_script = _generate_inno_script(inno_output, product_name=args.product_name, version=version,
                                             company=args.company_name, staging_root=staging_root,
                                             wizard_logo=wizard_logo, shortcut_icon=shortcut_icon,
-                                            license_file=license_for_script, vc_redist=vc_redist_for_script)
+                                            license_file=license_for_script, vc_redist=vc_redist_for_script,
+                                            python_installer=python_installer_for_script)
         if not args.only_generate_scripts:
             iscc = shutil.which("iscc")
             if iscc:
@@ -1141,6 +1229,7 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
     parser.add_argument("--license", help="Ruta al archivo de licencia para el instalador (opcional).")
     parser.add_argument("--logo", help="Logo opcional para branding del instalador. Por defecto usa installer/resources/icon.png si existe.")
     parser.add_argument("--vc-redist", help="Ruta al instalador de Microsoft Visual C++ Redistributable 2015-2022 (x64).")
+    parser.add_argument("--python-installer", help="Ruta al instalador oficial de Python 3.8.10 (x64).")
     parser.add_argument("--python-runtime", action="append", default=[],
                         help="Rutas adicionales de Python a incluir en el paquete (se puede repetir).")
     parser.add_argument("--python-package", action="append", default=[],
