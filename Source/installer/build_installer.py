@@ -37,6 +37,7 @@ def _detect_repo_root(start: Path) -> Path:
 REPO_ROOT = _detect_repo_root(SCRIPT_ROOT)
 DEFAULT_LOGO = SCRIPT_ROOT / "resources" / "icon.png"
 DEFAULT_PYTHON_RUNTIME_ROOT = SCRIPT_ROOT / "python-runtime"
+DEFAULT_VC_REDIST = SCRIPT_ROOT / "resources" / "vc_redist.x64.exe"
 NEURACHORD_SOURCE = REPO_ROOT / "Source" / "NeuraChord"
 DEFAULT_BUNDLED_PACKAGES = [
     "music21",
@@ -380,8 +381,39 @@ def _configure_embedded_runtime(runtime: Path) -> None:
                 continue
 
 
+def _prune_embedded_runtime(runtime: Path) -> None:
+    """Remove heavy or deeply nested test data from the embedded runtime.
+
+    Some third-party libraries (for example ``pkg_resources``) ship large test
+    suites that contain deeply nested directories. When these directories are
+    copied into the staging tree the resulting paths can exceed the legacy
+    ``MAX_PATH`` limit during Inno Setup compression on Windows hosts. To avoid
+    hitting ``ERROR_PATH_NOT_FOUND`` while building the installer we prune a
+    handful of well-known test and cache folders from the embedded runtime
+    before invoking the compiler.
+    """
+
+    prune_names = {"tests", "Tests", "testing", "__pycache__"}
+    for name in prune_names:
+        for candidate in sorted(runtime.rglob(name), key=lambda p: len(p.parts), reverse=True):
+            try:
+                if candidate.is_dir():
+                    shutil.rmtree(candidate, ignore_errors=True)
+            except OSError:
+                continue
+
+    for pattern in ("*.pyc", "*.pyo"):
+        for compiled in runtime.rglob(pattern):
+            try:
+                if compiled.is_file():
+                    compiled.unlink()
+            except OSError:
+                continue
+
+
 def _format_inno_path(path: Path) -> str:
-    return str(path).replace("\\", "\\\\")
+    normalized = str(path).replace("/", "\\")
+    return normalized.replace("\\", "\\\\")
 
 
 def _normalise_platform(value: Optional[str]) -> str:
@@ -514,11 +546,15 @@ def _write_install_instructions(target: Path, platform_key: str, product_name: s
         instructions = [
             "",
             "## Instalación en Windows",
-            "1. Ejecuta `Setup.exe` si está disponible o copia manualmente los archivos:",
-            "   - Copia el contenido de `Standalone/` a `C\\\Program Files\\NeuraSynth`.",
-            "   - Copia la carpeta `Python/` a `C\\\ProgramData\\NeuraSynth\\Python` (además de junto al standalone si deseas usarlo).",
-            "   - Copia `VST3/NeuraSynth.vst3` a `C\\\Program Files\\Common Files\\VST3`.",
-            "2. Inicia tu DAW y reescanea la carpeta de plugins.",
+            "1. **Ejecuta el instalador como Administrador** (clic derecho → Ejecutar como administrador)",
+            "2. El instalador colocará automáticamente:",
+            "   - Standalone en `C:\\Program Files\\NeuraSynth`",
+            "   - VST3 en `C:\\Program Files\\Common Files\\VST3` (ubicación estándar)",
+            "   - Python en `C:\\ProgramData\\NeuraSynth\\Python` (compartido para todos los usuarios)",
+            "3. **No es necesario copiar manualmente archivos**",
+            "4. Inicia tu DAW y reescanea la carpeta de plugins.",
+            "",
+            "**NOTA IMPORTANTE:** Si el instalador no se ejecuta como administrador, el VST3 no funcionará correctamente para todos los usuarios.",
         ]
     elif platform_key == "macos":
         instructions = [
@@ -556,10 +592,13 @@ def _write_metadata(target: Path, *, version: str, platform_key: str, standalone
 
 def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, company: str,
                           staging_root: Path, wizard_logo: Optional[Path], shortcut_icon: Optional[Path],
-                          license_file: Optional[Path]) -> Path:
+                          license_file: Optional[Path], vc_redist: Optional[Path]) -> Path:
     script_path = output_dir / f"{product_name.replace(' ', '')}-{version}.iss"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # --- CORRECCIÓN: Ubicación estándar para VST3 ---
+    vst3_install_path_const = "{commoncf64}\\VST3"  # C:\Program Files\Common Files\VST3
+    
     wizard_small_image = (
         f"WizardSmallImageFile=\"{_format_inno_path(wizard_logo)}\""
         if wizard_logo else "; WizardSmallImageFile=<ruta_al_logo>"
@@ -577,9 +616,8 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
         if shortcut_icon else "; UninstallDisplayIcon=<ruta_al_icono>"
     )
 
-    # --- RUTA DE INSTALACIÓN VUELVE A SER LA ESTÁNDAR ---
-    default_install_path = f"{{pf}}\\{product_name}" # C:\Program Files\NeuraSynth
-    vst3_install_path_const = "{commoncf64}\\VST3" # C:\Program Files\Common Files\VST3
+    # --- CORRECCIÓN: Directorios por defecto estándar ---
+    standalone_default_path = f"{{autopf64}}\\{product_name}"
 
     setup_section = (
         f"[Setup]\n"
@@ -587,16 +625,15 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
         f"AppName={product_name}\n"
         f"AppVersion={version}\n"
         f"AppPublisher={company}\n"
-        # --- CAMBIO: Directorio por defecto para el Standalone ---
-        f"DefaultDirName={default_install_path}\n" 
+        f"DefaultDirName={standalone_default_path}\n"
         f"DefaultGroupName={product_name}\n"
         f"OutputBaseFilename={product_name.replace(' ', '')}-{version}-Setup\n"
         "ArchitecturesInstallIn64BitMode=x64\n"
         "Compression=lzma\n"
         "SolidCompression=yes\n"
         "DisableProgramGroupPage=yes\n"
-        # --- CAMBIO: Permitir (o no) cambiar la ruta del Standalone ---
-        "DisableDirPage=no\n" # 'no' permite al usuario cambiar la ruta del Standalone
+        "DisableDirPage=yes\n"
+        "PrivilegesRequired=admin\n"  # ¡IMPORTANTE! Siempre pedir admin
         "DisableWelcomePage=no\n"
         f"{license_entry}\n"
         f"{wizard_small_image}\n"
@@ -604,31 +641,37 @@ def _generate_inno_script(output_dir: Path, *, product_name: str, version: str, 
         f"{uninstall_icon}"
     )
 
-    # --- CAMBIO: AÑADIR SECCIÓN [Dirs] PARA PERMISOS ---
-    # Esto es lo más importante. Le da a los "Usuarios" (Users)
-    # permiso de leer y ejecutar (readexec) en la carpeta Python compartida.
-    dirs_section = f"""
-[Dirs]
-Name: "{{commonappdata}}\\NeuraSynth\\Python"; Permissions: users-readexec
-"""
+    # --- CORRECCIÓN: Permisos mejorados ---
+    dirs_section = (
+        "[Dirs]\n"
+        "Name: \"{app}\"; Permissions: users-full\n"
+        f"Name: \"{vst3_install_path_const}\"; Permissions: users-modify\n"
+        "Name: \"{commonappdata}\\\\NeuraSynth\"; Permissions: users-full\n"
+        "Name: \"{commonappdata}\\\\NeuraSynth\\\\Python\"; Permissions: users-full"
+    )
 
-    # --- CAMBIOS EN [Files]: Rutas separadas de nuevo ---
+    # --- CORRECCIÓN: Archivos VST3 en ubicación estándar ---
+    def _dir_payload(source: Path, destination: str, *, components: Optional[str] = None) -> str:
+        components_clause = f"; Components: {components}" if components else ""
+        return (
+            f"Source: \"{_format_inno_path(source)}\\\\*\"; "
+            f"DestDir: \"{destination}\"{components_clause}; "
+            "Flags: ignoreversion recursesubdirs createallsubdirs"
+        )
+
     files_lines = [
-        # Standalone va a {app} (C:\Program Files\NeuraSynth)
-        f"Source: \"{(staging_root / 'Standalone').as_posix()}\\\\*\"; DestDir: \"{{app}}\"; Components: standalone; Flags: ignoreversion recursesubdirs createallsubdirs",
-        # VST3 va a la carpeta VST3 del sistema (leída desde el código)
-        f"Source: \"{(staging_root / 'VST3').as_posix()}\\\\*\"; DestDir: \"{{code:GetVst3Dir}}\"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs",
+        # Standalone va a su carpeta normal
+        _dir_payload(staging_root / "Standalone", "{app}", components="standalone"),
+        # VST3 va directamente a la carpeta estándar Common Files/VST3
+        _dir_payload(staging_root / "VST3", vst3_install_path_const, components="vst3"),
     ]
 
     optional_dirs = {
-        "branding": [("{app}\\branding", "standalone or vst3")],
-        "Resources": [("{app}\\Resources", "standalone or vst3")],
-        # Python se copia en DOS sitios:
-        # 1. Junto al Standalone ({app}) para que lo encuentre fácil
+        "branding": [("{app}\\branding", None)],
+        "Resources": [("{app}\\Resources", None)],
+        # Python queda centralizado en ProgramData para todos los usuarios
         "Python": [
-            ("{{app}}\\Python", "standalone"),
-            # 2. En ProgramData ({commonappdata}) para que el VST3 lo encuentre
-            ("{{commonappdata}}\\NeuraSynth\\Python", "standalone or vst3")
+            ("{commonappdata}\\NeuraSynth\\Python", None)
         ],
     }
 
@@ -638,13 +681,16 @@ Name: "{{commonappdata}}\\NeuraSynth\\Python"; Permissions: users-readexec
             continue
 
         for destination, components in destinations:
-            files_lines.append(
-                f"Source: \"{folder_path.as_posix()}\\\\*\"; DestDir: \"{destination}\"; Components: {components}; Flags: ignoreversion recursesubdirs createallsubdirs"
-            )
+            files_lines.append(_dir_payload(folder_path, destination, components=components))
+
+    if vc_redist:
+        files_lines.append(
+            f"Source: \"{_format_inno_path(vc_redist)}\"; Flags: dontcopy"
+        )
 
     files_section = "[Files]\n" + "\n".join(files_lines)
 
-    # Nombres de archivo (sin cambios)
+    # Nombres de archivo
     standalone_entries = list((staging_root / "Standalone").iterdir())
     standalone_target = standalone_entries[0].name if standalone_entries else "NeuraSynth.exe"
     vst3_entries = list((staging_root / "VST3").iterdir())
@@ -672,63 +718,73 @@ Filename: "{{app}}\\{standalone_target}"; Description: "Iniciar {product_name}";
         "Name: \"vst3\"; Description: \"Plugin VST3\"; Types: full"
     )
 
-    # --- CAMBIOS EN [Code]: Volvemos a la lógica de dos carpetas ---
+    # --- CORRECCIÓN: Código simplificado para VST3 ---
     app_id_literal = f"{{{product_name.replace(' ', '')}}}"
     uninstall_key = f"Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\{app_id_literal}_is1"
-    standalone_default_dir = default_install_path
-    vst3_default_dir = vst3_install_path_const
+    standalone_default_dir = standalone_default_path
+    vc_redist_name = vc_redist.name if vc_redist else ""
 
     code_section = f"""[Code]
 const
   StandaloneFileName = '{standalone_target}';
   Vst3ItemName = '{vst3_target}';
+  VcRedistFileName = '{vc_redist_name}';
 
 var
   InstallDirsPage: TInputDirWizardPage;
   PrevStandaloneDir: string;
-  Vst3DirValue: string;
+
+procedure ExtractVcRedist;
+begin
+  if VcRedistFileName <> '' then
+    ExtractTemporaryFile(VcRedistFileName);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  ExtractVcRedist;
+  Result := True;
+end;
 
 function PreviousInstallExists(): Boolean;
 var
   existingStandalone: string;
   existingVst3: string;
+  checkStandaloneDir: string;
 begin
   Result := RegKeyExists(HKLM, '{uninstall_key}') or RegKeyExists(HKCU, '{uninstall_key}');
   if Result then begin
     if not RegQueryStringValue(HKLM, '{uninstall_key}', 'InstallLocation', PrevStandaloneDir) then
       RegQueryStringValue(HKCU, '{uninstall_key}', 'InstallLocation', PrevStandaloneDir);
   end;
+  checkStandaloneDir := PrevStandaloneDir;
+  if checkStandaloneDir = '' then
+    checkStandaloneDir := ExpandConstant('{standalone_default_dir}');
 
-  if PrevStandaloneDir = '' then
-    PrevStandaloneDir := ExpandConstant('{standalone_default_dir}');
-  
-  existingStandalone := AddBackslash(PrevStandaloneDir) + StandaloneFileName;
-  existingVst3 := ExpandConstant('{vst3_default_dir}\\\\' + Vst3ItemName);
-  
+  existingStandalone := AddBackslash(checkStandaloneDir) + StandaloneFileName;
+  existingVst3 := ExpandConstant('{vst3_install_path_const}\\' + Vst3ItemName);
+
   if not Result then
     Result := FileExists(existingStandalone) or DirExists(existingStandalone);
   if not Result then
     Result := FileExists(existingVst3) or DirExists(existingVst3);
+  if PrevStandaloneDir = '' then
+    PrevStandaloneDir := ExpandConstant('{standalone_default_dir}');
 end;
 
 procedure InitializeWizard;
 begin
+  ExtractVcRedist;
   if PrevStandaloneDir = '' then
     PrevStandaloneDir := ExpandConstant('{standalone_default_dir}');
 
-  Vst3DirValue := ExpandConstant('{vst3_default_dir}');
-  
   InstallDirsPage := CreateInputDirPage(wpSelectComponents,
     'Carpetas de instalación',
     'Selecciona dónde instalar {product_name}',
-    'Elige las rutas de instalación para cada componente. Puedes cambiar la carpeta del modo standalone. El plugin VST3 se instalará en la ubicación estándar de tu sistema.',
+    'El plugin VST3 se instalará automáticamente en "C:\\Program Files\\Common Files\\VST3" (ubicación estándar). El standalone puede instalarse en otra carpeta si lo prefieres.',
     False, '');
-  InstallDirsPage.Add('Standalone');
+  InstallDirsPage.Add('Standalone (elige la carpeta de la aplicación)');
   InstallDirsPage.Values[0] := PrevStandaloneDir;
-  WizardForm.DirEdit.Text := InstallDirsPage.Values[0];
-  InstallDirsPage.Add('VST3 (solo lectura)');
-  InstallDirsPage.Values[1] := Vst3DirValue;
-  InstallDirsPage.Edits[1].Enabled := False;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -741,21 +797,44 @@ begin
       MsgBox('Selecciona una carpeta válida para la aplicación standalone.', mbError, MB_OK);
       Result := False;
     end
-    else
+    else begin
       WizardForm.DirEdit.Text := InstallDirsPage.Values[0];
+      PrevStandaloneDir := InstallDirsPage.Values[0];
+    end;
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+  ExecResult: Boolean;
+  InstallerPath: string;
+begin
+  Result := '';
+  if VcRedistFileName <> '' then
+  begin
+    ExtractVcRedist;
+    InstallerPath := ExpandConstant('{{tmp}}\\') + VcRedistFileName;
+    ExecResult := Exec(InstallerPath, '/install /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if not ExecResult then
+      Result := 'No se pudo ejecutar Microsoft Visual C++ Redistributable.'
+    else if (ResultCode <> 0) and (ResultCode <> 3010) then
+      Result := 'Microsoft Visual C++ Redistributable devolvió el código ' + IntToStr(ResultCode) + '.'
+    else if ResultCode = 3010 then
+      NeedsRestart := True;
   end;
 end;
 
 function GetVst3Dir(Param: string): string;
 begin
-  Result := Vst3DirValue;
+  Result := ExpandConstant('{vst3_install_path_const}');
 end;
 """
 
     script_content = (
         setup_section
         + "\n"
-        + dirs_section  # <-- ¡Asegúrate de añadir la nueva sección aquí!
+        + dirs_section
         + "\n"
         + components_section
         + "\n"
@@ -899,7 +978,7 @@ def build_installer(args: argparse.Namespace) -> None:
         runtime_target_set.add(resolved_candidate)
         runtime_targets.append(resolved_candidate)
 
-    if python_root.exists():
+    
         if _looks_like_python_runtime(python_root):
             _register_runtime_target(python_root)
         for child in python_root.iterdir():
@@ -936,6 +1015,7 @@ def build_installer(args: argparse.Namespace) -> None:
         _configure_embedded_runtime(runtime)
 
     if python_root.exists():
+        _prune_embedded_runtime(python_root)
         has_embedded_runtime = (
             any(python_root.rglob("python3*.dll"))
             or any(python_root.rglob("libpython3*.so"))
@@ -1000,6 +1080,25 @@ def build_installer(args: argparse.Namespace) -> None:
             raise FileNotFoundError(f"Licencia '{license_path}' no existe.")
         license_for_script = license_path
 
+    vc_redist_for_script: Optional[Path] = None
+    if platform_key == "windows":
+        vc_redist_source: Optional[Path] = None
+        if args.vc_redist:
+            candidate = Path(args.vc_redist).expanduser().resolve()
+            if not candidate.exists():
+                raise FileNotFoundError(f"Instalador de Visual C++ '{candidate}' no existe.")
+            vc_redist_source = candidate
+        elif DEFAULT_VC_REDIST.exists():
+            vc_redist_source = DEFAULT_VC_REDIST
+            print(f"[INFO] Usando redistribuible de Visual C++ desde {vc_redist_source}")
+        else:
+            raise FileNotFoundError(
+                "No se encontró Microsoft Visual C++ Redistributable. Descarga 'VC_redist.x64.exe' y pásalo con --vc-redist o colócalo en installer/resources/."
+            )
+
+        vc_redist_for_script = staging_root / "Dependencies" / vc_redist_source.name
+        _copy_any(vc_redist_source, vc_redist_for_script)
+
     archives = []
     if not args.skip_archive:
         archives = _create_archives(platform_key, staging_root, output_dir, args.product_name, version)
@@ -1010,7 +1109,7 @@ def build_installer(args: argparse.Namespace) -> None:
         inno_script = _generate_inno_script(inno_output, product_name=args.product_name, version=version,
                                             company=args.company_name, staging_root=staging_root,
                                             wizard_logo=wizard_logo, shortcut_icon=shortcut_icon,
-                                            license_file=license_for_script)
+                                            license_file=license_for_script, vc_redist=vc_redist_for_script)
         if not args.only_generate_scripts:
             iscc = shutil.which("iscc")
             if iscc:
@@ -1041,6 +1140,7 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
     parser.add_argument("--product-name", default="NeuraSynth", help="Nombre del producto mostrado al usuario.")
     parser.add_argument("--license", help="Ruta al archivo de licencia para el instalador (opcional).")
     parser.add_argument("--logo", help="Logo opcional para branding del instalador. Por defecto usa installer/resources/icon.png si existe.")
+    parser.add_argument("--vc-redist", help="Ruta al instalador de Microsoft Visual C++ Redistributable 2015-2022 (x64).")
     parser.add_argument("--python-runtime", action="append", default=[],
                         help="Rutas adicionales de Python a incluir en el paquete (se puede repetir).")
     parser.add_argument("--python-package", action="append", default=[],
